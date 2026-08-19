@@ -69,6 +69,13 @@ export function IdeaDetail({
   const [deleting, setDeleting] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [copied, setCopied] = useState(false);
+  const [closureDraft, setClosureDraft] = useState(initial.closureNote || "");
+
+  const saveClosure = () => {
+    const v = closureDraft.trim();
+    if (v === (idea.closureNote || "")) return;
+    patch({ closureNote: v || null });
+  };
 
   // Collapsible sections so a long idea (big notes, scope, build prompt) doesn't
   // force endless scrolling. All start expanded; the user folds what they want.
@@ -87,11 +94,17 @@ export function IdeaDetail({
     async (data: Partial<Idea>) => {
       setIdea((prev) => ({ ...prev, ...data }));
       try {
-        await fetch(`/api/ideas/${initial.id}`, {
+        const res = await fetch(`/api/ideas/${initial.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
+        // Merge the server's version back so server-derived fields (e.g. closedAt,
+        // stamped when status flips to done) reflect immediately.
+        if (res.ok) {
+          const updated = await res.json();
+          setIdea((prev) => ({ ...prev, ...updated }));
+        }
       } catch (err) {
         console.error("Failed to update idea:", err);
       }
@@ -468,6 +481,40 @@ export function IdeaDetail({
               </Select>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Closure note */}
+      <Card
+        className={
+          idea.status === "done"
+            ? "border-emerald-300 dark:border-emerald-700"
+            : undefined
+        }
+      >
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" /> Closure note
+            </h2>
+            {idea.closedAt && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                Closed {new Date(idea.closedAt).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <Textarea
+            value={closureDraft}
+            onChange={(e) => setClosureDraft(e.target.value)}
+            onBlur={saveClosure}
+            placeholder="What actually shipped, what changed, or why this is done…"
+            className={`min-h-[70px] text-sm ${idea.status === "done" ? "" : "opacity-70"}`}
+          />
+          {idea.status !== "done" && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              A short record of what shipped — most useful once this is marked done.
+            </p>
+          )}
         </CardContent>
       </Card>
 

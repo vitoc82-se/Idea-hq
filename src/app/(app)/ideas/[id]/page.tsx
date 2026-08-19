@@ -71,6 +71,8 @@ export default async function IdeaDetailPage({
     aiEstimatedAt: record.aiEstimatedAt ? record.aiEstimatedAt.toISOString() : null,
     plan: record.plan,
     plannedAt: record.plannedAt ? record.plannedAt.toISOString() : null,
+    closureNote: record.closureNote,
+    closedAt: record.closedAt ? record.closedAt.toISOString() : null,
     createdAt: record.createdAt.toISOString(),
   };
 

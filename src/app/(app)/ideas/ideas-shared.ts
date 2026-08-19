@@ -18,6 +18,8 @@ export interface Idea {
   aiEstimatedAt: string | null;
   plan: string | null;
   plannedAt: string | null;
+  closureNote: string | null;
+  closedAt: string | null;
   createdAt: string;
 }
 

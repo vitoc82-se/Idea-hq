@@ -35,6 +35,8 @@ export async function PATCH(
       complexity?: string;
       tags?: string[];
       blockedBy?: string[];
+      closureNote?: string | null;
+      closedAt?: Date | null;
     } = {};
     if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
     if (body?.notes !== undefined) data.notes = body.notes ? String(body.notes) : null;
@@ -42,6 +44,18 @@ export async function PATCH(
     if (PRIORITIES.includes(body?.priority)) data.priority = body.priority;
     if (IMPACTS.includes(body?.impact)) data.impact = body.impact;
     if (COMPLEXITIES.includes(body?.complexity)) data.complexity = body.complexity;
+
+    // Free-text closure note; empty/whitespace stores null.
+    if (body?.closureNote !== undefined) {
+      const t = typeof body.closureNote === "string" ? body.closureNote.trim() : "";
+      data.closureNote = t || null;
+    }
+    // Stamp closedAt on the transition into done; clear it when leaving done.
+    // (closureNote is left intact so the user's text survives a reopen.)
+    if (data.status !== undefined) {
+      if (data.status === "done" && existing.status !== "done") data.closedAt = new Date();
+      else if (data.status !== "done" && existing.status === "done") data.closedAt = null;
+    }
 
     if (Array.isArray(body?.tags)) {
       data.tags = normalizeTags(body.tags.map((t: unknown) => String(t)));
@@ -80,9 +94,15 @@ export async function PATCH(
       });
       if (parent) {
         if (allDone && parent.status !== "done") {
-          await db.idea.update({ where: { id: existing.parentId }, data: { status: "done" } });
+          await db.idea.update({
+            where: { id: existing.parentId },
+            data: { status: "done", closedAt: new Date() },
+          });
         } else if (!allDone && parent.status === "done") {
-          await db.idea.update({ where: { id: existing.parentId }, data: { status: "building" } });
+          await db.idea.update({
+            where: { id: existing.parentId },
+            data: { status: "building", closedAt: null },
+          });
         }
       }
     }

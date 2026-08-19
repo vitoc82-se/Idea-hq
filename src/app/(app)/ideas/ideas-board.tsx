@@ -16,6 +16,7 @@ import {
   Link2,
   FolderKanban,
   Layers,
+  StickyNote,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,21 @@ export function IdeasBoard() {
       });
     } catch (err) {
       console.error("Failed to update idea:", err);
+    }
+  };
+
+  // Save a closure note (from the inline input shown when a card moves to done).
+  const patchClosure = async (id: string, note: string) => {
+    const closureNote = note.trim() || null;
+    setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, closureNote } : i)));
+    try {
+      await fetch(`/api/ideas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ closureNote }),
+      });
+    } catch (err) {
+      console.error("Failed to save closure note:", err);
     }
   };
 
@@ -605,6 +621,7 @@ export function IdeasBoard() {
                 ideas={kanbanIdeas}
                 blockedIds={blockedIds}
                 onStatus={patchStatus}
+                onClosure={patchClosure}
               />
             )
           ) : visible.length === 0 ? (
@@ -621,6 +638,7 @@ export function IdeasBoard() {
                   idea={idea}
                   blocked={blockedIds.has(idea.id)}
                   onStatus={patchStatus}
+                  onClosure={patchClosure}
                 />
               ))}
             </div>
@@ -665,16 +683,21 @@ function IdeaRow({
   idea,
   blocked,
   onStatus,
+  onClosure,
 }: {
   idea: Idea;
   blocked: boolean;
   onStatus: (id: string, status: string) => void;
+  onClosure: (id: string, note: string) => void;
 }) {
   const quick = isQuickWin(idea);
   const estimating = !idea.aiEstimatedAt && !idea.scope;
+  const [showClosure, setShowClosure] = useState(false);
+  const [closureText, setClosureText] = useState(idea.closureNote || "");
   return (
     <Card className="hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors">
-      <CardContent className="p-3 flex items-center gap-3">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-3">
         <Link href={`/ideas/${idea.id}`} className="min-w-0 flex-1 group">
           <div className="flex items-center gap-2 flex-wrap">
             {idea.project && (
@@ -754,6 +777,14 @@ function IdeaRow({
                 <Loader2 className="w-3 h-3 animate-spin" /> estimating
               </span>
             )}
+            {idea.status === "done" && idea.closureNote && (
+              <span
+                title={idea.closureNote}
+                className="inline-flex items-center gap-0.5 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+              >
+                <StickyNote className="w-3 h-3" /> note
+              </span>
+            )}
           </div>
           {idea.notes && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
@@ -764,7 +795,14 @@ function IdeaRow({
 
         <Select
           value={idea.status}
-          onChange={(e) => onStatus(idea.id, e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            onStatus(idea.id, v);
+            if (v === "done" && idea.status !== "done") {
+              setClosureText(idea.closureNote || "");
+              setShowClosure(true);
+            }
+          }}
           className="w-32 text-sm shrink-0"
           aria-label="Status"
         >
@@ -781,6 +819,33 @@ function IdeaRow({
         >
           <ChevronRight className="w-5 h-5" />
         </Link>
+        </div>
+
+        {showClosure && (
+          <div className="mt-2 flex items-start gap-2">
+            <Textarea
+              autoFocus
+              value={closureText}
+              onChange={(e) => setClosureText(e.target.value)}
+              placeholder="What shipped? (optional — Save or Skip)"
+              className="text-sm min-h-[46px]"
+            />
+            <div className="flex flex-col gap-1 shrink-0">
+              <Button
+                size="sm"
+                onClick={() => {
+                  onClosure(idea.id, closureText);
+                  setShowClosure(false);
+                }}
+              >
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowClosure(false)}>
+                Skip
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

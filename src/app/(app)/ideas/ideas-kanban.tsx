@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Star, Link2 } from "lucide-react";
+import { Star, Link2, StickyNote } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Idea,
   STATUSES,
@@ -19,18 +21,29 @@ export function KanbanBoard({
   ideas,
   blockedIds,
   onStatus,
+  onClosure,
 }: {
   ideas: Idea[];
   blockedIds: Set<string>;
   onStatus: (id: string, status: string) => void;
+  onClosure: (id: string, note: string) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
+  const [closureFor, setClosureFor] = useState<string | null>(null);
+  const [closureText, setClosureText] = useState("");
 
   const drop = (status: string) => {
     if (dragId) {
       const cur = ideas.find((i) => i.id === dragId);
-      if (cur && cur.status !== status) onStatus(dragId, status);
+      if (cur && cur.status !== status) {
+        onStatus(dragId, status);
+        // Dropping into Done reveals a skippable closure-note input on the card.
+        if (status === "done") {
+          setClosureFor(dragId);
+          setClosureText(cur.closureNote || "");
+        }
+      }
     }
     setDragId(null);
     setOverCol(null);
@@ -127,7 +140,47 @@ export function KanbanBoard({
                         {t}
                       </span>
                     ))}
+                    {idea.status === "done" && idea.closureNote && (
+                      <span
+                        title={idea.closureNote}
+                        className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                      >
+                        <StickyNote className="w-2.5 h-2.5" /> note
+                      </span>
+                    )}
                   </div>
+                  {closureFor === idea.id && (
+                    <div
+                      className="mt-2 space-y-1"
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <Textarea
+                        autoFocus
+                        value={closureText}
+                        onChange={(e) => setClosureText(e.target.value)}
+                        placeholder="What shipped? (optional)"
+                        className="text-xs min-h-[40px]"
+                      />
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            onClosure(idea.id, closureText);
+                            setClosureFor(null);
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setClosureFor(null)}
+                        >
+                          Skip
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {items.length === 0 && (

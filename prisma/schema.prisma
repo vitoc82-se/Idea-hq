@@ -103,6 +103,10 @@ model Idea {
   // "Promote to plan" output:
   plan          String?   @db.Text // AI-generated build prompt (markdown)
   plannedAt     DateTime?
+  // Closure: a short free-text "what shipped / why done" note, stamped when the
+  // idea moves to done. Preserved if it later moves off done; closedAt is cleared.
+  closureNote   String?   @db.Text
+  closedAt      DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
