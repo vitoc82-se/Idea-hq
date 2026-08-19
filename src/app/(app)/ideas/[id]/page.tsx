@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { isOwner } from "@/lib/owner";
 import { db } from "@/lib/db";
 import { IdeaDetail } from "../ideas-detail";
-import type { Idea, IdeaRef } from "../ideas-shared";
+import type { Idea, IdeaRef, StoryChild } from "../ideas-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +55,7 @@ export default async function IdeaDetailPage({
   const idea: Idea = {
     id: record.id,
     projectId: record.projectId,
+    parentId: record.parentId,
     project: record.project
       ? { name: record.project.name, color: record.project.color }
       : null,
@@ -97,5 +98,37 @@ export default async function IdeaDetailPage({
     status: o.status,
   }));
 
-  return <IdeaDetail initial={idea} allIdeas={allIdeas} blocks={blocksRefs} />;
+  // Child stories (if this idea is an epic), in build order.
+  const childRows = await db.idea.findMany({
+    where: { parentId: record.id, userId },
+    select: { id: true, title: true, status: true, complexity: true, impact: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const children: StoryChild[] = childRows.map((c) => ({
+    id: c.id,
+    title: c.title,
+    status: c.status,
+    complexity: c.complexity,
+    impact: c.impact,
+  }));
+
+  // Parent epic (if this idea is itself a story).
+  let parent: IdeaRef | null = null;
+  if (record.parentId) {
+    const p = await db.idea.findFirst({
+      where: { id: record.parentId, userId },
+      select: { id: true, title: true, status: true },
+    });
+    if (p) parent = { id: p.id, title: p.title, status: p.status };
+  }
+
+  return (
+    <IdeaDetail
+      initial={idea}
+      allIdeas={allIdeas}
+      blocks={blocksRefs}
+      childStories={children}
+      parent={parent}
+    />
+  );
 }

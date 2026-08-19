@@ -92,6 +92,9 @@ model Idea {
   priority  String   @default("none") // none, low, medium, high (you set this)
   tags      String[] @default([]) // freeform themes (ios, ai, growth…), AI-suggested + editable
   blockedBy String[] @default([]) // ids of ideas that must ship first
+  // Breakdown: an idea can be split into ordered child "stories". When it has
+  // children it is an "epic" (a container). parentId points a story at its epic.
+  parentId  String?
   // AI estimate (filled in the background after you submit):
   complexity    String?   // S, M, L, XL (effort)
   impact        String?   // low, medium, high (value/impact — AI-suggested, you can override)
@@ -103,8 +106,11 @@ model Idea {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Idea?   @relation("IdeaChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children Idea[]  @relation("IdeaChildren")
 
   @@index([userId, projectId, status])
+  @@index([parentId])
 }

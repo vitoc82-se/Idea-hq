@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Idea,
   IdeaRef,
+  StoryChild,
   STATUSES,
   PRIORITIES,
   IMPACTS,
@@ -40,15 +41,20 @@ import {
   normalizeTags,
   isQuickWin,
 } from "./ideas-shared";
+import { StoriesSection } from "./ideas-stories";
 
 export function IdeaDetail({
   initial,
   allIdeas,
   blocks,
+  childStories,
+  parent,
 }: {
   initial: Idea;
   allIdeas: IdeaRef[];
   blocks: IdeaRef[];
+  childStories: StoryChild[];
+  parent: IdeaRef | null;
 }) {
   const router = useRouter();
   const [idea, setIdea] = useState<Idea>(initial);
@@ -204,6 +210,18 @@ export function IdeaDetail({
       >
         <ArrowLeft className="w-4 h-4" /> Back to ideas
       </Link>
+
+      {parent && (
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Story in epic:{" "}
+          <Link
+            href={`/ideas/${parent.id}`}
+            className="text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+          >
+            {parent.title}
+          </Link>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-5 space-y-5">
@@ -532,6 +550,15 @@ export function IdeaDetail({
           </div>
         </CardContent>
       </Card>
+
+      {/* Stories (break an epic into ordered child stories) — top-level ideas only */}
+      {!parent && (
+        <StoriesSection
+          ideaId={initial.id}
+          complexity={idea.complexity}
+          initialChildren={childStories}
+        />
+      )}
 
       {/* Implementation scope */}
       <Card>

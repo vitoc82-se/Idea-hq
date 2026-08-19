@@ -11,7 +11,10 @@ const PRIORITIES = ["none", "low", "medium", "high"];
 // Ideas always come back with a lightweight project reference so the board can
 // show which product each idea belongs to and rank across all of them.
 const withProject = {
-  include: { project: { select: { name: true, color: true } } },
+  include: {
+    project: { select: { name: true, color: true } },
+    _count: { select: { children: true } },
+  },
 } as const;
 
 export async function GET(request: Request) {
@@ -24,8 +27,9 @@ export async function GET(request: Request) {
   // Optional ?projectId= filter; omitted → every project (the cross-project view).
   const projectId = new URL(request.url).searchParams.get("projectId");
 
+  // Only top-level ideas on the board — child stories live on their epic's page.
   const ideas = await db.idea.findMany({
-    where: { userId, ...(projectId ? { projectId } : {}) },
+    where: { userId, parentId: null, ...(projectId ? { projectId } : {}) },
     orderBy: [{ createdAt: "desc" }],
     ...withProject,
   });

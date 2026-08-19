@@ -65,6 +65,28 @@ export async function PATCH(
     }
 
     const idea = await db.idea.update({ where: { id: params.id }, data });
+
+    // Epic roll-up: if this idea is a story and its status changed, reconcile the
+    // parent epic — done when every story is done, reopened if a story leaves done.
+    if (existing.parentId && data.status !== undefined) {
+      const siblings = await db.idea.findMany({
+        where: { parentId: existing.parentId },
+        select: { status: true },
+      });
+      const allDone = siblings.length > 0 && siblings.every((s) => s.status === "done");
+      const parent = await db.idea.findFirst({
+        where: { id: existing.parentId, userId },
+        select: { status: true },
+      });
+      if (parent) {
+        if (allDone && parent.status !== "done") {
+          await db.idea.update({ where: { id: existing.parentId }, data: { status: "done" } });
+        } else if (!allDone && parent.status === "done") {
+          await db.idea.update({ where: { id: existing.parentId }, data: { status: "building" } });
+        }
+      }
+    }
+
     return NextResponse.json(idea);
   } catch (error) {
     console.error("Update idea error:", error);

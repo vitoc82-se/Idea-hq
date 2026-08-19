@@ -17,7 +17,13 @@ export async function POST(
 
   const idea = await db.idea.findFirst({
     where: { id: params.id, userId },
-    include: { project: true },
+    include: {
+      project: true,
+      children: {
+        select: { title: true, complexity: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
   if (!idea) {
     return NextResponse.json({ error: "Idea not found" }, { status: 404 });
@@ -48,6 +54,14 @@ export async function POST(
       .map((d) => d.title);
   }
 
+  // If this idea is an epic (already split into stories), the build prompt becomes
+  // a sequencing/overview doc — each story carries its own detailed prompt.
+  const epicNote = idea.children.length
+    ? `\n\nThis idea is an EPIC, already broken into these ordered stories:\n${idea.children
+        .map((c, i) => `${i + 1}. ${c.title}${c.complexity ? ` (${c.complexity})` : ""}`)
+        .join("\n")}\nEach story has its own detailed build prompt. So do NOT re-specify each story. Instead produce a concise SEQUENCING / OVERVIEW: the order to build them, any shared groundwork (schema, types, shared helpers) to land first, integration + test checkpoints between stories, and what "epic done" looks like.`
+    : "";
+
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     // Each project here is built by an AI coding agent — so "promote to plan"
@@ -71,7 +85,7 @@ Title: ${idea.title}
 Notes: ${idea.notes || "(none)"}
 AI scope estimate: ${idea.scope || "(not estimated)"}
 Effort: ${idea.complexity || "?"} · Value: ${idea.impact || "?"}
-${blockedByTitles.length ? `Depends on (build these first): ${blockedByTitles.join(", ")}` : ""}
+${blockedByTitles.length ? `Depends on (build these first): ${blockedByTitles.join(", ")}` : ""}${epicNote}
 
 Write the prompt in Markdown, addressed directly to the agent in the imperative ("Add…", "Create…", "Update…"). Structure it as:
 

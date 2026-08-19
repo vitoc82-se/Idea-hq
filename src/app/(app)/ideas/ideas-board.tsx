@@ -15,6 +15,7 @@ import {
   Columns3,
   Link2,
   FolderKanban,
+  Layers,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ import {
   PRIORITY_WEIGHT,
   EFFORT_WEIGHT,
   isQuickWin,
+  isEpic,
   valueEffortScore,
   blockingIdeas,
   tagStyle,
@@ -687,6 +689,14 @@ function IdeaRow({
                 {idea.project.name}
               </span>
             )}
+            {isEpic(idea) && (
+              <span
+                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                title="Broken into stories"
+              >
+                <Layers className="w-3 h-3" /> {idea._count?.children} stories
+              </span>
+            )}
             {quick && (
               <span
                 className="inline-flex items-center gap-0.5 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
@@ -778,7 +788,8 @@ function IdeaRow({
 
 // 2x2 value-vs-effort matrix. Only estimated ideas (impact + effort) are placed.
 function ValueEffortMatrix({ ideas }: { ideas: Idea[] }) {
-  const estimated = ideas.filter((i) => i.impact && i.complexity);
+  // Epics are containers, not work — their stories are placed instead.
+  const estimated = ideas.filter((i) => i.impact && i.complexity && !isEpic(i));
   const highValue = (i: Idea) => i.impact === "high";
   const lowEffort = (i: Idea) => i.complexity === "S" || i.complexity === "M";
 

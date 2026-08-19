@@ -3,7 +3,9 @@
 export interface Idea {
   id: string;
   projectId: string;
+  parentId: string | null;
   project?: { name: string; color: string | null } | null;
+  _count?: { children: number }; // number of child stories (an idea with >0 is an "epic")
   title: string;
   notes: string | null;
   status: string;
@@ -36,6 +38,15 @@ export interface IdeaRef {
   id: string;
   title: string;
   status: string;
+}
+
+// A child story under an epic, as shown on the epic's detail page.
+export interface StoryChild {
+  id: string;
+  title: string;
+  status: string;
+  complexity: string | null;
+  impact: string | null;
 }
 
 export const STATUSES = [
@@ -106,9 +117,20 @@ export const PRIORITY_WEIGHT: Record<string, number> = {
 };
 export const EFFORT_WEIGHT: Record<string, number> = { S: 1, M: 2, L: 3, XL: 4 };
 
+// An "epic" is an idea that's been split into child stories — a container, not
+// work in itself. Epics are excluded from quick-win / value-effort math.
+export function isEpic(idea: Idea): boolean {
+  return (idea._count?.children ?? 0) > 0;
+}
+
 // A "quick win" is high value for low effort: high impact + small build (S or M).
+// Epics never count — the real work is in their stories.
 export function isQuickWin(idea: Idea): boolean {
-  return idea.impact === "high" && (idea.complexity === "S" || idea.complexity === "M");
+  return (
+    !isEpic(idea) &&
+    idea.impact === "high" &&
+    (idea.complexity === "S" || idea.complexity === "M")
+  );
 }
 
 // Higher = better bang-for-buck (used for the "quick wins first" sort). Ideas
