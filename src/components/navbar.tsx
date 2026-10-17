@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound } from "lucide-react";
 import { Button } from "./ui/button";
 
 const navLinks = [
@@ -13,6 +14,7 @@ const navLinks = [
 
 export function Navbar() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (!session) return null;
@@ -60,6 +62,14 @@ export function Navbar() {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"
+            onClick={() => router.push("/auth/change-password")}
+          >
+            <KeyRound className="w-5 h-5" />
+            Change password
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"
             onClick={() => signOut({ callbackUrl: "/" })}
           >
             <LogOut className="w-5 h-5" />
@@ -100,6 +110,14 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"
+              onClick={() => router.push("/auth/change-password")}
+            >
+              <KeyRound className="w-5 h-5" />
+              Change password
+            </Button>
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"

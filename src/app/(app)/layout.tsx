@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { Navbar } from "@/components/navbar";
 
 export default async function AppLayout({
@@ -12,6 +13,14 @@ export default async function AppLayout({
 
   if (!session) {
     redirect("/auth/signin");
+  }
+
+  const me = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { mustChangePassword: true },
+  });
+  if (me?.mustChangePassword) {
+    redirect("/auth/change-password");
   }
 
   return (
