@@ -207,3 +207,17 @@ export async function userCanSeeInstallation(code: string, installationId: numbe
   const list = (json as { installations?: { id: number }[] }).installations || [];
   return list.some((x) => x.id === installationId);
 }
+
+// Where the owner of an installation changes which repos the app can see.
+export async function installationConfigureUrl(installationId: number): Promise<string> {
+  const fallback = `https://github.com/settings/installations/${installationId}`;
+  try {
+    const jwt = appJwt(process.env.GITHUB_APP_ID || "", privateKey());
+    const { res, json } = await raw(jwt, "GET", `/app/installations/${installationId}`);
+    if (!res.ok) return fallback;
+    const j = json as { html_url?: string };
+    return j.html_url || fallback;
+  } catch {
+    return fallback;
+  }
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { github } from "@/lib/github/client";
+import { github, installationConfigureUrl } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { safeCommand } from "@/lib/runs/workflow";
 import { WORKFLOW_PATH } from "@/lib/runs/state";
@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const available = [];
     for (const inst of installs) {
       try {
-        available.push({ installationId: inst.id, repos: await github.listRepos(inst.id) });
+        available.push({ installationId: inst.id, repos: await github.listRepos(inst.id), configureUrl: await installationConfigureUrl(inst.id) });
       } catch {
         available.push({ installationId: inst.id, repos: [], error: "Could not list repos" });
       }

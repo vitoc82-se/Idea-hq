@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 type Repo = { owner: string; name: string; defaultBranch: string };
-type Available = { installationId: number; repos: Repo[]; error?: string };
+type Available = { installationId: number; repos: Repo[]; error?: string; configureUrl?: string };
 type Data = {
   appConfigured: boolean;
   project: {
@@ -48,6 +48,13 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  // Coming back from GitHub (after adding repos) refreshes the list by itself.
+  useEffect(() => {
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [load]);
 
   if (!data) return <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />;
@@ -109,7 +116,16 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
               <option value="">Choose a repo…</option>
               {repos.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
             </Select>
-            <a href="/api/github/install" className="text-xs text-emerald-600 hover:underline">Add another repo or account</a>
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
+              {data.available.map((a) => (
+                <a key={a.installationId} href={a.configureUrl || "/api/github/install"} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">
+                  Give Idea HQ access to more repos
+                </a>
+              ))}
+              <button type="button" onClick={load} className="text-gray-500 hover:underline">Refresh list</button>
+              <a href="/api/github/install" className="text-gray-500 hover:underline">Use another GitHub account</a>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Only repos you allowed on GitHub appear here. Add more there, then come back and the list refreshes.</p>
           </div>
 
           <div>
