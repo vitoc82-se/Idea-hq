@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { canTransition, isActive, isTerminal, RUN_STATUSES } from "@/lib/runs/state";
 import { summarizeChecks, appJwt } from "@/lib/github/client";
 import { verifyWebhookSignature } from "@/lib/github/webhook";
-import { buildWorkflow, buildPrompt, safeCommand } from "@/lib/runs/workflow";
+import { buildWorkflow, buildPrompt, safeCommand, workflowVersion, WORKFLOW_VERSION, ALLOWED_TOOLS } from "@/lib/runs/workflow";
 import { signState, verifyState } from "@/lib/runs/http";
 
 describe("run state machine", () => {
@@ -77,6 +77,16 @@ describe("workflow template", () => {
     expect(wf).toContain("npm run build || FAILED");
     expect(wf).toContain("npm test || FAILED");
     expect(wf).toContain("run-name:");
+  });
+  it("grants file-edit tools (first live run was denied without them) but no unrestricted shell", () => {
+    expect(wf).toContain("--allowedTools");
+    for (const t of ["Edit", "Write", "Read"]) expect(ALLOWED_TOOLS.split(",")).toContain(t);
+    expect(ALLOWED_TOOLS.split(",")).not.toContain("Bash");
+    expect(ALLOWED_TOOLS).not.toMatch(/curl|git push|git commit/);
+  });
+  it("is versioned so old installs are detected", () => {
+    expect(workflowVersion(wf)).toBe(WORKFLOW_VERSION);
+    expect(workflowVersion("name: x")).toBe(0);
   });
   it("does not run the AI's text through the shell", () => {
     // the prompt reaches the action as an input, never inside a run: block

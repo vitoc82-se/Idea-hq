@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeFakeDb } from "./fakedb";
 import type { GitHubApi } from "@/lib/github/client";
+import { WORKFLOW_VERSION } from "@/lib/runs/workflow";
 
 const holder = vi.hoisted(() => ({ db: null as any })); // eslint-disable-line @typescript-eslint/no-explicit-any
 vi.mock("@/lib/db", () => ({
@@ -26,9 +27,9 @@ function fakeGh(): typeof gh {
   const api: GitHubApi = {
     repoBranch: async (_i, _o, _r, b) => state.branches[b] ?? null,
     secretExists: async () => state.secret,
-    fileExists: async () => state.workflow,
+    getFile: async () => (state.workflow ? { sha: "wsha", content: state.workflowContent ?? `# idea-hq-workflow-version: ${WORKFLOW_VERSION}\nname: Idea HQ` } : null),
     createBranch: async (_i, _o, _r, b, sha) => { state.branches[b] = { sha, protected: false }; log.push(`createBranch ${b}`); },
-    putFile: async (_i, _o, _r, p) => { log.push(`putFile ${p}`); },
+    putFile: async (_i, _o, _r, p, _b, _c, _m, sha) => { log.push(`putFile ${p}${sha ? " sha=" + sha : ""}`); },
     openPr: async (_i, _o, _r, p) => { log.push(`openPr ${p.head}->${p.base}`); return { number: state.nextPr }; },
     getPr: async () => state.pr,
     mergePr: async (_i, _o, _r, n, sha) => { log.push(`merge ${n}@${sha}`); return { sha: "merge1" }; },
@@ -135,6 +136,13 @@ describe("approveRun", () => {
     t.tables.idea.push({ id: "i2", userId: "u1", projectId: "p1", title: "Other", plan: "P2", status: "new", blockedBy: [] });
     const second = await startRun("u1", "i2", deps());
     await expect(approveRun("u1", second.id, deps())).rejects.toThrow(/already executing/);
+  });
+
+  it("refuses an outdated workflow and asks for an update", async () => {
+    await startedRun();
+    gh.state.workflowContent = "name: Idea HQ";
+    await expect(approveRun("u1", "RUN1", deps())).rejects.toThrow(/outdated/);
+    expect(t.tables.run[0].status).toBe("awaiting_approval");
   });
 
   it("cannot be approved twice", async () => {
@@ -419,6 +427,13 @@ describe("openSetupPr", () => {
     const pr = await openSetupPr("u1", "p1", "idea-hq-app", deps());
     expect(pr.number).toBe(2);
     expect(log.some((l) => l.startsWith("openPr") || l.startsWith("createBranch"))).toBe(false);
+  });
+
+  it("opens an update PR (with the file sha) when the workflow is outdated", async () => {
+    t.tables.project[0].workflowInstalled = true;
+    gh.state.workflowContent = "name: Idea HQ";
+    await openSetupPr("u1", "p1", "idea-hq-app", deps());
+    expect(log).toContain("putFile .github/workflows/idea-hq.yml sha=wsha");
   });
 
   it("does nothing if the workflow is already there", async () => {

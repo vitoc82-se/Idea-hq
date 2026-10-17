@@ -14,7 +14,7 @@ type Data = {
   project: {
     installationId: number | null; repoOwner: string | null; repoName: string | null;
     envBranches: Record<string, string> | null; defaultEnv: string | null; autoMerge: boolean;
-    buildCommand: string | null; testCommand: string | null; workflowInstalled: boolean; setupPrNumber: number | null;
+    buildCommand: string | null; testCommand: string | null; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null;
   };
   available: Available[];
 };
@@ -175,7 +175,7 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
             </Button>
             {p.repoOwner && !p.workflowInstalled && (
               <Button size="sm" variant="outline" onClick={setup} disabled={busy !== null}>
-                {busy === "setup" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Open setup PR
+                {busy === "setup" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}{p.workflowOutdated ? "Update workflow" : "Open setup PR"}
               </Button>
             )}
             {p.repoOwner && !p.workflowInstalled && (
@@ -192,7 +192,7 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
 
           {p.repoOwner && (
             <p className="text-xs text-gray-500">
-              {p.workflowInstalled ? "Workflow installed." : "Workflow not installed yet."}{" "}
+              {p.workflowInstalled ? "Workflow installed." : p.workflowOutdated ? "Workflow is outdated: update it to keep running." : "Workflow not installed yet."}{" "}
               {repoUrl && <a href={repoUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">{p.repoOwner}/{p.repoName}</a>}
               {!p.workflowInstalled && p.setupPrNumber && repoUrl ? (
                 <> · <a href={`${repoUrl}/pull/${p.setupPrNumber}`} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">open setup PR #{p.setupPrNumber}</a></>

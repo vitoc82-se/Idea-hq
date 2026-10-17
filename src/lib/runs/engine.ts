@@ -8,7 +8,7 @@ import {
   isTerminal,
   runBranch,
 } from "./state";
-import { buildPrompt } from "./workflow";
+import { buildPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -98,8 +98,12 @@ async function preflight(p: ProjectRow, base: string, gh: GitHubApi) {
   const { i, owner, repo } = repoOf(p);
   const b = await gh.repoBranch(i, owner, repo, base);
   if (!b) throw new RunError(409, `Base branch "${base}" was not found in ${owner}/${repo}.`);
-  if (!(await gh.fileExists(i, owner, repo, WORKFLOW_PATH, base))) {
+  const wf = await gh.getFile(i, owner, repo, WORKFLOW_PATH, base);
+  if (!wf) {
     throw new RunError(409, `The Idea HQ workflow is missing on "${base}". Merge the setup PR first.`);
+  }
+  if (workflowVersion(wf.content) < WORKFLOW_VERSION) {
+    throw new RunError(409, `The Idea HQ workflow in ${owner}/${repo} is outdated. Click "Update workflow" in the project's Repo & AI setup and merge that PR.`);
   }
   if (!(await gh.secretExists(i, owner, repo, "ANTHROPIC_API_KEY"))) {
     throw new RunError(409, `Add an ANTHROPIC_API_KEY secret to ${owner}/${repo} (Settings, Secrets and variables, Actions).`);
@@ -267,7 +271,8 @@ export async function openSetupPr(
   const { base } = envBase(p);
   const b = await gh.repoBranch(i, owner, repo, base);
   if (!b) throw new RunError(409, `Base branch "${base}" not found.`);
-  if (await gh.fileExists(i, owner, repo, WORKFLOW_PATH, base)) {
+  const existingFile = await gh.getFile(i, owner, repo, WORKFLOW_PATH, base);
+  if (existingFile && workflowVersion(existingFile.content) >= WORKFLOW_VERSION) {
     await db.project.update({ where: { id: p.id }, data: { workflowInstalled: true } });
     throw new RunError(409, "The workflow is already installed on that branch.");
   }
@@ -278,11 +283,16 @@ export async function openSetupPr(
   }
   const branch = `idea-hq/setup-${Date.now().toString(36)}`;
   await gh.createBranch(i, owner, repo, branch, b.sha);
-  await gh.putFile(i, owner, repo, WORKFLOW_PATH, branch, buildWorkflow({ appSlug, buildCommand: p.buildCommand, testCommand: p.testCommand }), "Add Idea HQ workflow");
+  await gh.putFile(
+    i, owner, repo, WORKFLOW_PATH, branch,
+    buildWorkflow({ appSlug, buildCommand: p.buildCommand, testCommand: p.testCommand }),
+    existingFile ? "Update Idea HQ workflow" : "Add Idea HQ workflow",
+    existingFile?.sha
+  );
   const pr = await gh.openPr(i, owner, repo, {
     head: branch,
     base,
-    title: "Add Idea HQ workflow",
+    title: existingFile ? "Update Idea HQ workflow" : "Add Idea HQ workflow",
     body: "Lets Idea HQ run an AI implementation in this repo.\n\nIt uses the `ANTHROPIC_API_KEY` Actions secret, a 30 minute timeout and a turn cap. Review the file, merge it, then add the secret.",
   });
   await db.project.update({ where: { id: p.id }, data: { setupPrNumber: pr.number } });

@@ -18,9 +18,9 @@ export type CheckSummary = {
 export interface GitHubApi {
   repoBranch(i: number, owner: string, repo: string, branch: string): Promise<{ sha: string; protected: boolean } | null>;
   secretExists(i: number, owner: string, repo: string, name: string): Promise<boolean>;
-  fileExists(i: number, owner: string, repo: string, path: string, ref: string): Promise<boolean>;
+  getFile(i: number, owner: string, repo: string, path: string, ref: string): Promise<{ sha: string; content: string } | null>;
   createBranch(i: number, owner: string, repo: string, branch: string, fromSha: string): Promise<void>;
-  putFile(i: number, owner: string, repo: string, path: string, branch: string, content: string, message: string): Promise<void>;
+  putFile(i: number, owner: string, repo: string, path: string, branch: string, content: string, message: string, sha?: string): Promise<void>;
   openPr(i: number, owner: string, repo: string, p: { head: string; base: string; title: string; body: string }): Promise<{ number: number }>;
   getPr(i: number, owner: string, repo: string, n: number): Promise<{ number: number; state: string; merged: boolean; headSha: string; baseRef: string; nodeId: string; mergeCommitSha: string | null }>;
   mergePr(i: number, owner: string, repo: string, n: number, sha: string): Promise<{ sha: string }>;
@@ -139,16 +139,16 @@ export const github: GitHubApi = {
     const j = await call<{ name: string }>(i, "GET", `/repos/${owner}/${repo}/actions/secrets/${name}`, undefined, [404]);
     return !!j;
   },
-  async fileExists(i, owner, repo, path, ref) {
-    const j = await call<unknown>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
-    return !!j;
+  async getFile(i, owner, repo, path, ref) {
+    const j = await call<{ sha: string; content: string }>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
+    return j ? { sha: j.sha, content: Buffer.from(j.content || "", "base64").toString("utf8") } : null;
   },
   async createBranch(i, owner, repo, branch, fromSha) {
     await call(i, "POST", `/repos/${owner}/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: fromSha });
   },
-  async putFile(i, owner, repo, path, branch, content, message) {
+  async putFile(i, owner, repo, path, branch, content, message, sha) {
     await call(i, "PUT", `/repos/${owner}/${repo}/contents/${path}`, {
-      message, branch, content: Buffer.from(content).toString("base64"),
+      message, branch, content: Buffer.from(content).toString("base64"), ...(sha ? { sha } : {}),
     });
   },
   async openPr(i, owner, repo, p) {

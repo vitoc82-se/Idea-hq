@@ -10,6 +10,22 @@ import { WORKFLOW_FILE } from "./state";
 //    reports cost/turns as a commit status. Idea HQ then opens the PR with the
 //    App token so the repo's own pull_request CI fires.
 
+// Bump when the template changes. An installed workflow with an older version
+// is refused at run time and offered as an update PR.
+export const WORKFLOW_VERSION = 2;
+export const VERSION_MARKER = "# idea-hq-workflow-version:";
+
+export function workflowVersion(content: string): number {
+  const m = new RegExp(`${VERSION_MARKER}\\s*(\\d+)`).exec(content);
+  return m ? Number(m[1]) : 0;
+}
+
+// Tools the AI may use. Without an allow-list agent mode denies file edits (seen
+// in the first live run: permission_denials_count 5). Bash is limited to reading
+// and the project's own npm/node tooling; no git writes, no curl, no env dumps.
+export const ALLOWED_TOOLS =
+  "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)";
+
 export type WorkflowOptions = {
   appSlug: string;
   buildCommand?: string | null;
@@ -38,7 +54,8 @@ export function buildWorkflow(o: WorkflowOptions): string {
   if (build) checks.push(`          ${build} || FAILED="$FAILED build"`);
   if (test) checks.push(`          ${test} || FAILED="$FAILED tests"`);
 
-  return `name: Idea HQ
+  return `${VERSION_MARKER} ${WORKFLOW_VERSION}
+name: Idea HQ
 run-name: \${{ format('idea-hq {0}', inputs.run_id) }}
 
 on:
@@ -99,7 +116,7 @@ jobs:
           github_token: \${{ secrets.GITHUB_TOKEN }}
           allowed_bots: ${q(o.appSlug)}
           prompt: \${{ inputs.prompt }}
-          claude_args: --max-turns ${maxTurns}
+          claude_args: --max-turns ${maxTurns} --allowedTools "${ALLOWED_TOOLS}"
 
       - name: Verify (build and tests)
         id: verify
@@ -165,6 +182,8 @@ export function buildPrompt(args: {
     `- Write or update automated tests for the new behavior${test ? ` (project test command: ${test})` : ""}. If the repo has no test setup, say so in your final message instead of adding a framework.`,
     "- Make sure the project type-checks and builds.",
     "- Do NOT run git commit, git push or open pull requests. The workflow does that.",
+    "- If the plan mentions feature branches, merging, pushing or deploying, ignore those steps: the workflow owns all git and deploy work. Only change files in the working tree.",
+    "- Verify with the project's own commands (type-check, tests, build) before you finish.",
     "- Do NOT edit anything under .github/workflows, and never print or write secrets.",
     "- Finish with a short summary of what changed and what you tested.",
   ].join("\n");

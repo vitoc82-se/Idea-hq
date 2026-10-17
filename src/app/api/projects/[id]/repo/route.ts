@@ -4,6 +4,7 @@ import { github, installationConfigureUrl } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { safeCommand } from "@/lib/runs/workflow";
 import { WORKFLOW_PATH } from "@/lib/runs/state";
+import { WORKFLOW_VERSION, workflowVersion } from "@/lib/runs/workflow";
 
 const BRANCH = /^[A-Za-z0-9._\/-]{1,100}$/;
 
@@ -27,12 +28,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }
 
     let workflowInstalled = p.workflowInstalled;
-    if (p.installationId && p.repoOwner && p.repoName && !workflowInstalled) {
+    let workflowOutdated = false;
+    if (p.installationId && p.repoOwner && p.repoName) {
       const map = (p.envBranches || {}) as Record<string, string>;
       const base = map[p.defaultEnv || ""] || Object.values(map)[0];
-      if (base && (await github.fileExists(p.installationId, p.repoOwner, p.repoName, WORKFLOW_PATH, base).catch(() => false))) {
-        workflowInstalled = true;
-        await db.project.update({ where: { id: p.id }, data: { workflowInstalled: true } });
+      const file = base ? await github.getFile(p.installationId, p.repoOwner, p.repoName, WORKFLOW_PATH, base).catch(() => null) : null;
+      const current = !!file && workflowVersion(file.content) >= WORKFLOW_VERSION;
+      workflowOutdated = !!file && !current;
+      if (current !== p.workflowInstalled) {
+        workflowInstalled = current;
+        await db.project.update({ where: { id: p.id }, data: { workflowInstalled: current } });
       }
     }
     return NextResponse.json({
@@ -41,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         installationId: p.installationId, repoOwner: p.repoOwner, repoName: p.repoName,
         envBranches: p.envBranches, defaultEnv: p.defaultEnv, autoMerge: p.autoMerge,
         buildCommand: p.buildCommand, testCommand: p.testCommand,
-        workflowInstalled, setupPrNumber: p.setupPrNumber,
+        workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber,
       },
       available,
     });
