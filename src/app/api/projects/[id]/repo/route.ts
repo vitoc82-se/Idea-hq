@@ -99,7 +99,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       where: { id: p.id },
       data: {
         installationId, repoOwner: repo.owner, repoName: repo.name,
-        envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand,
+        envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand, commandsConfirmed: true,
         ...(changedRepo ? { workflowInstalled: false, setupPrNumber: null } : {}),
       },
     });

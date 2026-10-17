@@ -728,7 +728,7 @@ export function IdeaDetail({
       </Card>
 
       {/* Implement with AI (GitHub Actions) */}
-      <RunPanel ideaId={initial.id} plan={idea.plan} />
+      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} />
 
       {/* Danger zone */}
       <div className="flex justify-end">

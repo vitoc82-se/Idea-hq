@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from "date-fns";
 import type { Project } from "../ideas/ideas-shared";
+import Link from "next/link";
 import { ProjectRepo } from "./project-repo";
 
 const BLANK = { name: "", slug: "", color: "", context: "", contextSourceUrl: "" };
@@ -22,6 +23,7 @@ export function ProjectsAdmin() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [repoOpen, setRepoOpen] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Record<string, { done: number; total: number }>>({});
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -37,6 +39,19 @@ export function ProjectsAdmin() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Cheap (no GitHub calls) setup progress for the chips.
+  useEffect(() => {
+    projects.forEach(async (p) => {
+      try {
+        const r = await fetch(`/api/projects/${p.id}/setup-status?quick=1`, { cache: "no-store" });
+        if (r.ok) {
+          const j = await r.json();
+          setProgress((cur) => ({ ...cur, [p.id]: { done: j.done, total: j.total } }));
+        }
+      } catch {}
+    });
+  }, [projects]);
 
   const openNew = () => {
     setEditingId(null);
@@ -243,6 +258,14 @@ export function ProjectsAdmin() {
                     {!p.context && " · no context yet"}
                   </p>
                 </div>
+                {progress[p.id] && (
+                  <Link
+                    href={`/projects/${p.id}/setup`}
+                    className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${progress[p.id].done >= progress[p.id].total - 1 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}
+                  >
+                    {progress[p.id].done >= progress[p.id].total ? "AI ready" : `Setup ${progress[p.id].done}/${progress[p.id].total}`}
+                  </Link>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
                   <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
                 </Button>

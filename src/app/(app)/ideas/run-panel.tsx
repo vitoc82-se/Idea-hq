@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Rocket, Loader2, GitPullRequest, ExternalLink, Check, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +37,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const BUSY = ["dispatched", "running"];
 
-export function RunPanel({ ideaId, plan }: { ideaId: string; plan: string | null }) {
+export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectId: string; plan: string | null }) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -114,7 +115,8 @@ export function RunPanel({ ideaId, plan }: { ideaId: string; plan: string | null
         {!plan && <p className="text-sm text-gray-400">Generate the build prompt first. It becomes the plan the AI follows.</p>}
         {loaded && !run && plan && (
           <p className="text-sm text-gray-400">
-            The AI follows your build prompt in the project&apos;s GitHub repo and opens a pull request. Connect the repo under Projects first.
+            The AI follows your build prompt in the project&apos;s GitHub repo and opens a pull request.{" "}
+            <Link href={`/projects/${projectId}/setup`} className="text-emerald-600 hover:underline">Open the setup guide</Link> if this project is not connected yet.
           </p>
         )}
 
@@ -216,7 +218,12 @@ export function RunPanel({ ideaId, plan }: { ideaId: string; plan: string | null
           </div>
         )}
 
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            {error}{" "}
+            <Link href={`/projects/${projectId}/setup`} className="underline">Open the setup guide</Link>
+          </p>
+        )}
       </CardContent>
     </Card>
   );

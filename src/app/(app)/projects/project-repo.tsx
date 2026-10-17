@@ -19,7 +19,17 @@ type Data = {
   available: Available[];
 };
 
-export function ProjectRepo({ projectId }: { projectId: string }) {
+export function ProjectRepo({
+  projectId,
+  showSetup = true,
+  suggestions,
+  onSaved,
+}: {
+  projectId: string;
+  showSetup?: boolean;
+  suggestions?: { build: string | null; test: string | null };
+  onSaved?: () => void;
+}) {
   const [data, setData] = useState<Data | null>(null);
   const [repoKey, setRepoKey] = useState("");
   const [envs, setEnvs] = useState<{ name: string; branch: string }[]>([{ name: "live", branch: "main" }]);
@@ -78,6 +88,7 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
     setMsg(res.ok ? { ok: true, text: "Saved." } : { ok: false, text: j.error || "Could not save." });
     setBusy(null);
     load();
+    if (res.ok) onSaved?.();
   };
 
   const setup = async () => {
@@ -159,6 +170,15 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
             </div>
           </div>
 
+          {suggestions && (suggestions.build || suggestions.test) && (!build || !test) && (
+            <p className="text-xs text-gray-500">
+              Suggested from this repo: {[suggestions.build, suggestions.test].filter(Boolean).join(" · ")}{" "}
+              <button type="button" className="text-emerald-600 hover:underline" onClick={() => { if (!build && suggestions.build) setBuild(suggestions.build); if (!test && suggestions.test) setTest(suggestions.test); }}>
+                Use them
+              </button>
+            </p>
+          )}
+
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={autoMerge} onChange={(e) => setAutoMerge(e.target.checked)} className="mt-1" />
             <span>
@@ -173,12 +193,12 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
             <Button size="sm" onClick={save} disabled={!repoKey || busy !== null}>
               {busy === "save" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save
             </Button>
-            {p.repoOwner && !p.workflowInstalled && (
+            {showSetup && p.repoOwner && !p.workflowInstalled && (
               <Button size="sm" variant="outline" onClick={setup} disabled={busy !== null}>
                 {busy === "setup" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}{p.workflowOutdated ? "Update workflow" : "Open setup PR"}
               </Button>
             )}
-            {p.repoOwner && !p.workflowInstalled && (
+            {showSetup && p.repoOwner && !p.workflowInstalled && (
               <Button size="sm" variant="ghost" onClick={async () => {
                 setBusy("check");
                 await load();
@@ -190,7 +210,7 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
             )}
           </div>
 
-          {p.repoOwner && (
+          {showSetup && p.repoOwner && (
             <p className="text-xs text-gray-500">
               {p.workflowInstalled ? "Workflow installed." : p.workflowOutdated ? "Workflow is outdated: update it to keep running." : "Workflow not installed yet."}{" "}
               {repoUrl && <a href={repoUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">{p.repoOwner}/{p.repoName}</a>}
@@ -199,7 +219,7 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
               ) : null}
             </p>
           )}
-          {p.workflowInstalled && (
+          {showSetup && p.workflowInstalled && (
             <p className="text-xs text-gray-400">
               Runs use the ANTHROPIC_API_KEY secret in the repo (Settings, Secrets and variables, Actions). Idea HQ never sees it.
             </p>

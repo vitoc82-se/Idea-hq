@@ -12,7 +12,13 @@ export async function GET(request: Request) {
   const u = new URL(request.url);
   const installationId = Number(u.searchParams.get("installation_id"));
   const code = u.searchParams.get("code");
-  const back = (q: string) => NextResponse.redirect(new URL(`/projects?github=${q}`, request.url));
+  const cookieNext = /ihq_next=([^;]+)/.exec(request.headers.get("cookie") || "")?.[1];
+  const dest = cookieNext && /^\/projects\/[A-Za-z0-9_-]+\/setup$/.test(decodeURIComponent(cookieNext)) ? decodeURIComponent(cookieNext) : "/projects";
+  const back = (q: string) => {
+    const res = NextResponse.redirect(new URL(`${dest}?github=${q}`, request.url));
+    res.cookies.delete("ihq_next");
+    return res;
+  };
 
   if (!verifyState(u.searchParams.get("state"), auth.userId)) return back("bad_state");
   if (!Number.isInteger(installationId) || installationId <= 0 || !code) return back("missing");

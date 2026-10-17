@@ -94,6 +94,7 @@ model Project {
   testCommand       String?
   workflowInstalled Boolean  @default(false) // setup PR merged and workflow present
   setupPrNumber     Int?
+  commandsConfirmed Boolean  @default(false) // build/test commands reviewed in the setup journey
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   ideas Idea[]
