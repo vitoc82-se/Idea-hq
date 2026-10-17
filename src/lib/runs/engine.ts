@@ -89,7 +89,7 @@ export async function startRun(userId: string, ideaId: string, deps?: Deps) {
 }
 
 async function lockAndCheckIdle(tx: typeof db, projectId: string) {
-  await (tx as unknown as { $queryRaw: (s: TemplateStringsArray, ...v: unknown[]) => Promise<unknown> }).$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectId}))`;
+  await (tx as unknown as { $queryRaw: (s: TemplateStringsArray, ...v: unknown[]) => Promise<unknown> }).$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${projectId}))) AS l`;
   const busy = await tx.run.count({ where: { projectId, status: { in: ["dispatched", "running"] } } });
   if (busy > 0) throw new RunError(409, "Another run is already executing on this project. Wait for it to finish.");
 }
