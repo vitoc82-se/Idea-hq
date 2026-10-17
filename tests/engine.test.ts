@@ -411,6 +411,16 @@ describe("openSetupPr", () => {
     expect(t.tables.project[0].setupPrNumber).toBe(7);
   });
 
+  it("reuses the open setup PR instead of opening a second one", async () => {
+    t.tables.project[0].workflowInstalled = false;
+    t.tables.project[0].setupPrNumber = 2;
+    gh.state.workflow = false;
+    gh.state.pr = { ...gh.state.pr, number: 2, state: "open" };
+    const pr = await openSetupPr("u1", "p1", "idea-hq-app", deps());
+    expect(pr.number).toBe(2);
+    expect(log.some((l) => l.startsWith("openPr") || l.startsWith("createBranch"))).toBe(false);
+  });
+
   it("does nothing if the workflow is already there", async () => {
     gh.state.workflow = true;
     await expect(openSetupPr("u1", "p1", "idea-hq-app", deps())).rejects.toThrow(/already installed/);

@@ -179,7 +179,14 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
               </Button>
             )}
             {p.repoOwner && !p.workflowInstalled && (
-              <Button size="sm" variant="ghost" onClick={load}>Check again</Button>
+              <Button size="sm" variant="ghost" onClick={async () => {
+                setBusy("check");
+                await load();
+                setBusy(null);
+                setMsg({ ok: false, text: p.setupPrNumber ? `Not installed yet. Merge setup PR #${p.setupPrNumber} on GitHub first, then check again.` : "Not installed yet. Open the setup PR first." });
+              }} disabled={busy !== null}>
+                {busy === "check" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Check again
+              </Button>
             )}
           </div>
 
@@ -187,7 +194,9 @@ export function ProjectRepo({ projectId }: { projectId: string }) {
             <p className="text-xs text-gray-500">
               {p.workflowInstalled ? "Workflow installed." : "Workflow not installed yet."}{" "}
               {repoUrl && <a href={repoUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">{p.repoOwner}/{p.repoName}</a>}
-              {!p.workflowInstalled && p.setupPrNumber ? ` · setup PR #${p.setupPrNumber}` : ""}
+              {!p.workflowInstalled && p.setupPrNumber && repoUrl ? (
+                <> · <a href={`${repoUrl}/pull/${p.setupPrNumber}`} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">open setup PR #{p.setupPrNumber}</a></>
+              ) : null}
             </p>
           )}
           {p.workflowInstalled && (

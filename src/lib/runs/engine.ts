@@ -271,6 +271,11 @@ export async function openSetupPr(
     await db.project.update({ where: { id: p.id }, data: { workflowInstalled: true } });
     throw new RunError(409, "The workflow is already installed on that branch.");
   }
+  // Clicking twice must not open a second PR: reuse the one still waiting.
+  if (p.setupPrNumber) {
+    const existing = await gh.getPr(i, owner, repo, p.setupPrNumber).catch(() => null);
+    if (existing && existing.state === "open") return { number: existing.number };
+  }
   const branch = `idea-hq/setup-${Date.now().toString(36)}`;
   await gh.createBranch(i, owner, repo, branch, b.sha);
   await gh.putFile(i, owner, repo, WORKFLOW_PATH, branch, buildWorkflow({ appSlug, buildCommand: p.buildCommand, testCommand: p.testCommand }), "Add Idea HQ workflow");
