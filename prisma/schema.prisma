@@ -63,6 +63,7 @@ model User {
   projects  Project[]
   ideas     Idea[]
   runs      Run[]
+  installations GithubInstallation[]
 }
 
 // A project is one product this hub tracks ideas for (Snapmeal, Snitchbot,
@@ -180,4 +181,16 @@ model Run {
 model WebhookDelivery {
   id        String   @id
   createdAt DateTime @default(now())
+}
+
+// A GitHub App installation the user proved (via GitHub OAuth) they can see.
+model GithubInstallation {
+  id           Int      @default(0)
+  userId       String
+  accountLogin String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
 }

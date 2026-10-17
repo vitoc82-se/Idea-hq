@@ -1,0 +1,171 @@
+import { WORKFLOW_FILE } from "./state";
+
+// The workflow Idea HQ installs into a customer repo (via a one-time setup PR).
+// Findings from the claude-code-action source read (eng review spike S6):
+//  - workflow_dispatch + `prompt` runs in agent mode.
+//  - A dispatch made by our GitHub App has a bot actor, so `allowed_bots` must
+//    name the app or the action refuses to run.
+//  - The action does not branch/commit/PR in agent mode, so this job does it:
+//    it pushes `idea-hq/<runId>`, runs the project's checks in the same job, and
+//    reports cost/turns as a commit status. Idea HQ then opens the PR with the
+//    App token so the repo's own pull_request CI fires.
+
+export type WorkflowOptions = {
+  appSlug: string;
+  buildCommand?: string | null;
+  testCommand?: string | null;
+  maxTurns?: number;
+  timeoutMinutes?: number;
+};
+
+const q = (s: string) => JSON.stringify(s);
+
+// Commands are inserted into a shell step. Reject anything with a newline so a
+// stored command cannot smuggle extra steps into the workflow.
+export function safeCommand(cmd: string | null | undefined): string | null {
+  const c = (cmd || "").trim();
+  if (!c) return null;
+  if (/[\r\n]/.test(c)) throw new Error("Commands must be a single line");
+  return c;
+}
+
+export function buildWorkflow(o: WorkflowOptions): string {
+  const build = safeCommand(o.buildCommand);
+  const test = safeCommand(o.testCommand);
+  const maxTurns = o.maxTurns ?? 40;
+  const timeout = o.timeoutMinutes ?? 30;
+  const checks: string[] = [];
+  if (build) checks.push(`          ${build} || FAILED="$FAILED build"`);
+  if (test) checks.push(`          ${test} || FAILED="$FAILED tests"`);
+
+  return `name: Idea HQ
+run-name: \${{ format('idea-hq {0}', inputs.run_id) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Idea HQ run id
+        required: true
+      branch:
+        description: Branch to create or update
+        required: true
+      base:
+        description: Base branch
+        required: true
+      prompt:
+        description: Instructions for the AI
+        required: true
+
+permissions:
+  contents: write
+  statuses: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${timeout}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: \${{ inputs.base }}
+
+      - name: Check out the working branch
+        env:
+          BRANCH: \${{ inputs.branch }}
+        run: |
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+          else
+            git checkout -b "$BRANCH"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: \${{ hashFiles('package.json') != '' }}
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        if: \${{ hashFiles('package-lock.json') != '' }}
+        run: npm ci
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: \${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: ${q(o.appSlug)}
+          prompt: \${{ inputs.prompt }}
+          claude_args: --max-turns ${maxTurns}
+
+      - name: Verify (build and tests)
+        id: verify
+        run: |
+          FAILED=""
+${checks.length ? checks.join("\n") : '          echo "No build or test command configured"'}
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+
+      - name: Push branch
+        id: push
+        env:
+          BRANCH: \${{ inputs.branch }}
+        run: |
+          git config user.name "idea-hq[bot]"
+          git config user.email "idea-hq@users.noreply.github.com"
+          git add -A
+          git commit -m "Idea HQ run \${{ inputs.run_id }}" || echo "Nothing to commit"
+          git push origin "HEAD:$BRANCH"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Report result
+        if: \${{ always() }}
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          EXEC_FILE: \${{ steps.claude.outputs.execution_file }}
+          SHA: \${{ steps.push.outputs.sha }}
+          FAILED: \${{ steps.verify.outputs.failed }}
+          CONCLUSION: \${{ steps.claude.outputs.conclusion }}
+        run: |
+          COST=""; TURNS=""
+          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
+            COST=$(jq -r '[.[] | select(.type=="result")] | last | .total_cost_usd // empty' "$EXEC_FILE" 2>/dev/null || true)
+            TURNS=$(jq -r '[.[] | select(.type=="result")] | last | .num_turns // empty' "$EXEC_FILE" 2>/dev/null || true)
+          fi
+          STATE=success
+          [ "$CONCLUSION" = "success" ] || STATE=failure
+          [ -z "$FAILED" ] || STATE=failure
+          [ -n "$SHA" ] || SHA="\${{ github.sha }}"
+          gh api "repos/\${{ github.repository }}/statuses/$SHA" \\
+            -f state="$STATE" -f context="idea-hq/run" \\
+            -f description="run=\${{ inputs.run_id }} cost=\${COST:-?} turns=\${TURNS:-?} failed=\${FAILED:-none}"
+`;
+}
+
+export { WORKFLOW_FILE };
+
+// What the AI is told. The approved plan is the spec; guardrails keep it inside
+// the repo and out of git/CI plumbing that the workflow owns.
+export function buildPrompt(args: {
+  ideaTitle: string;
+  plan: string;
+  revision?: string | null;
+  testCommand?: string | null;
+}): string {
+  const test = safeCommand(args.testCommand);
+  return [
+    `You are implementing a backlog idea in this repository: "${args.ideaTitle}".`,
+    args.revision
+      ? `This is a REVISION of work already on this branch. Apply only this requested change on top of it:\n${args.revision}\n\nOriginal approved plan, for context:\n${args.plan}`
+      : `Approved plan:\n${args.plan}`,
+    "Rules:",
+    "- Implement the whole change. Keep the diff small and in the style of the surrounding code.",
+    `- Write or update automated tests for the new behavior${test ? ` (project test command: ${test})` : ""}. If the repo has no test setup, say so in your final message instead of adding a framework.`,
+    "- Make sure the project type-checks and builds.",
+    "- Do NOT run git commit, git push or open pull requests. The workflow does that.",
+    "- Do NOT edit anything under .github/workflows, and never print or write secrets.",
+    "- Finish with a short summary of what changed and what you tested.",
+  ].join("\n");
+}
