@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isOwner } from "@/lib/owner";
+import { canUse } from "@/lib/access";
 import { ProjectsAdmin } from "./projects-admin";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!(await isOwner(session?.user?.id, session?.user?.email))) {
+  if (!(await canUse(session?.user?.id, session?.user?.email))) {
     return (
       <div className="max-w-md">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Projects</h1>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { isOwner } from "@/lib/owner";
+import { canUse } from "@/lib/access";
 
 export async function PATCH(
   request: Request,
@@ -9,7 +9,7 @@ export async function PATCH(
 ) {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId || !(await isOwner(userId, session?.user?.email))) {
+  if (!userId || !(await canUse(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -54,7 +54,7 @@ export async function DELETE(
 ) {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId || !(await isOwner(userId, session?.user?.email))) {
+  if (!userId || !(await canUse(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

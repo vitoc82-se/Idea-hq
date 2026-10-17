@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isOwner } from "@/lib/owner";
+import { canUse } from "@/lib/access";
 import { db } from "@/lib/db";
 import { IdeaDetail } from "../ideas-detail";
 import type { Idea, IdeaRef, StoryChild } from "../ideas-shared";
@@ -16,12 +16,12 @@ export default async function IdeaDetailPage({
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
 
-  if (!(await isOwner(userId, session?.user?.email))) {
+  if (!(await canUse(userId, session?.user?.email))) {
     return (
       <div className="max-w-md">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ideas</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-2">
-          This backlog is private to the app owner.
+          Your account is waiting for approval. Ask Niklas to approve you.
         </p>
       </div>
     );
