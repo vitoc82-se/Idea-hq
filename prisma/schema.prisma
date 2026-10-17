@@ -52,6 +52,8 @@ model User {
   mustChangePassword Boolean @default(false)
   // Invite-only access: the owner is always allowed; everyone else needs approval.
   approved      Boolean   @default(false)
+  // Set when the welcome journey is finished or skipped.
+  onboardingDismissed Boolean @default(false)
   // Daily cap on server-paid AI calls (estimate / plan / breakdown).
   aiCallsDay    String?   // YYYY-MM-DD (UTC) the counter applies to
   aiCallsToday  Int       @default(0)

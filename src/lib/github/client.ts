@@ -27,6 +27,7 @@ export interface GitHubApi {
   checkSummary(i: number, owner: string, repo: string, sha: string, requireOwn?: boolean): Promise<CheckSummary>;
   dispatchWorkflow(i: number, owner: string, repo: string, file: string, ref: string, inputs: Record<string, string>): Promise<void>;
   revertPr(i: number, owner: string, repo: string, prNodeId: string, title: string): Promise<{ number: number }>;
+  listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
   listRepos(i: number): Promise<{ owner: string; name: string; defaultBranch: string }[]>;
   closePr(i: number, owner: string, repo: string, n: number): Promise<void>;
 }
@@ -179,6 +180,10 @@ export const github: GitHubApi = {
     if (!n) throw new GitHubError(422, `Revert failed: ${j?.errors?.[0]?.message || "unknown"}`);
     void owner; void repo;
     return { number: n };
+  },
+  async listDir(i, owner, repo, path, ref) {
+    const j = await call<{ name: string; type: string }[]>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
+    return Array.isArray(j) ? j.map((e) => (e.type === "dir" ? `${e.name}/` : e.name)) : [];
   },
   async listRepos(i) {
     const j = await call<{ repositories: { name: string; default_branch: string; owner: { login: string } }[] }>(i, "GET", `/installation/repositories?per_page=100`);

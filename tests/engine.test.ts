@@ -40,6 +40,7 @@ function fakeGh(): typeof gh {
       state.lastInputs = inputs;
     },
     revertPr: async () => { log.push("revertPr"); return { number: 9 }; },
+    listDir: async () => [],
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
   };

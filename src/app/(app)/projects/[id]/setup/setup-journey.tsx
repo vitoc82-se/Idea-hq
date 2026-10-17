@@ -36,7 +36,17 @@ function CopyBox({ text }: { text: string }) {
   );
 }
 
-export function SetupJourney({ projectId, projectName }: { projectId: string; projectName: string }) {
+export function SetupJourney({
+  projectId,
+  projectName,
+  embedded = false,
+  onStatus,
+}: {
+  projectId: string;
+  projectName: string;
+  embedded?: boolean; // inside the welcome journey: no header, no practice step
+  onStatus?: (s: Status) => void;
+}) {
   const [st, setSt] = useState<Status | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -44,8 +54,12 @@ export function SetupJourney({ projectId, projectName }: { projectId: string; pr
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/setup-status`, { cache: "no-store" });
-    if (res.ok) setSt(await res.json());
-  }, [projectId]);
+    if (res.ok) {
+      const j: Status = await res.json();
+      setSt(j);
+      onStatus?.(j);
+    }
+  }, [projectId, onStatus]);
 
   useEffect(() => {
     load();
@@ -90,7 +104,7 @@ export function SetupJourney({ projectId, projectName }: { projectId: string; pr
 
   return (
     <div className="max-w-2xl space-y-5">
-      <div>
+      {!embedded && <div>
         <Link href="/projects" className="text-sm text-emerald-600 hover:underline">← Projects</Link>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">Set up {projectName} for AI implementation</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
@@ -99,9 +113,9 @@ export function SetupJourney({ projectId, projectName }: { projectId: string; pr
         <div className="h-2 mt-3 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
           <div className="h-full bg-emerald-600 transition-all" style={{ width: `${(st.done / st.total) * 100}%` }} />
         </div>
-      </div>
+      </div>}
 
-      {st.steps.map((s, i) => {
+      {st.steps.filter((x) => !(embedded && x.id === "practice")).map((s, i) => {
         const current = st.currentId === s.id;
         const open = current || (formStep === s.id);
         return (

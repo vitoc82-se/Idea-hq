@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isOwner } from "@/lib/owner";
+import { needsWelcome } from "@/lib/onboarding";
 import { Navbar } from "@/components/navbar";
 
 export default async function AppLayout({
@@ -17,10 +19,17 @@ export default async function AppLayout({
 
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, approved: true, onboardingDismissed: true },
   });
   if (me?.mustChangePassword) {
     redirect("/auth/change-password");
+  }
+
+  // New and unapproved users start in the welcome journey.
+  const owner = await isOwner(session.user.id, session.user.email);
+  const projectCount = await db.project.count({ where: { userId: session.user.id } });
+  if (needsWelcome({ approved: !!me?.approved, owner, projectCount, dismissed: !!me?.onboardingDismissed })) {
+    redirect("/welcome");
   }
 
   return (

@@ -19,7 +19,7 @@ const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 const ROOT = path.resolve(__dirname, "../src/app/api");
 
 // Routes that authenticate some other way (credentials flow, GitHub signature).
-const NOT_SESSION_GATED = [/\/api\/auth\//, /\/api\/github\/webhook\//];
+const NOT_SESSION_GATED = [/\/api\/auth\//, /\/api\/github\/webhook\//, /\/api\/onboarding\//];
 // Routes only the owner may use.
 const OWNER_ONLY = [/\/api\/admin\//];
 
