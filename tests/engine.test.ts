@@ -164,6 +164,87 @@ describe("approveRun", () => {
   });
 });
 
+describe("model and effort tiers", () => {
+  const inputs = () => gh.state.lastInputs;
+
+  it("small idea: cheapest model, lowest effort, few turns", async () => {
+    t.tables.idea[0].complexity = "S";
+    await dispatchedRun();
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "15" });
+    expect(t.tables.run[0]).toMatchObject({ model: "claude-haiku-5-5", effort: "low", maxTurns: 15 });
+  });
+
+  it("big idea: strong model, high effort, many turns", async () => {
+    t.tables.idea[0].complexity = "L";
+    await dispatchedRun();
+    expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "high", max_turns: "50" });
+  });
+
+  it("unknown size falls back to the middle tier", async () => {
+    await dispatchedRun();
+    expect(inputs()).toMatchObject({ model: "claude-sonnet-5-5", effort: "medium", max_turns: "30" });
+  });
+
+  it("project bias shifts the tier", async () => {
+    t.tables.idea[0].complexity = "M";
+    t.tables.project[0].aiBias = "saver";
+    await dispatchedRun();
+    expect(inputs().model).toBe("claude-haiku-5-5");
+  });
+
+  it("steps up after an earlier failed attempt on the same idea", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    t.tables.run.push({ id: "old", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed" });
+    await approveRun("u1", "RUN1", deps());
+    expect(inputs().model).toBe("claude-sonnet-5-5");
+  });
+
+  it("applies the user's override, but only from the allow-list", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    await approveRun("u1", "RUN1", deps(), { model: "claude-opus-5-5", effort: "max", maxTurns: 60 });
+    expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "max", max_turns: "60" });
+  });
+
+  it("ignores a junk override (no flag injection through the inputs)", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    await approveRun("u1", "RUN1", deps(), { model: "x --dangerously-skip-permissions", effort: "ultra", maxTurns: 99999 });
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "15" });
+  });
+
+  it("a revision keeps the tier the run started with", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    await approveRun("u1", "RUN1", deps(), { model: "claude-opus-5-5", effort: "high", maxTurns: 40 });
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "tier-1", deps());
+    await reviseRun("u1", "RUN1", "tweak it", deps());
+    expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "high", max_turns: "40" });
+  });
+});
+
+describe("epics (ideas split into stories)", () => {
+  it("cannot be implemented as a whole; the stories are built one at a time", async () => {
+    t.tables.idea.push({ id: "s1", userId: "u1", projectId: "p1", parentId: "i1", title: "Story 1", plan: "p", blockedBy: [] });
+    await expect(startRun("u1", "i1", deps())).rejects.toThrow(/split into stories/);
+    expect(t.tables.run).toHaveLength(0);
+  });
+
+  it("a story runs on its own, and waits for the story before it", async () => {
+    t.tables.idea[0].plan = null;
+    t.tables.idea.push(
+      { id: "s1", userId: "u1", projectId: "p1", parentId: "i1", title: "Story 1", plan: "p1", status: "new", blockedBy: [], complexity: "S" },
+      { id: "s2", userId: "u1", projectId: "p1", parentId: "i1", title: "Story 2", plan: "p2", status: "new", blockedBy: ["s1"], complexity: "M" }
+    );
+    await expect(startRun("u1", "s2", deps())).rejects.toThrow(/blocked/);
+    const r = await startRun("u1", "s1", deps());
+    expect(r.status).toBe("awaiting_approval");
+    t.tables.idea.find((i) => i.id === "s1")!.status = "done";
+    expect((await startRun("u1", "s2", deps())).status).toBe("awaiting_approval");
+  });
+});
+
 describe("webhooks", () => {
   it("ignores a duplicate delivery", async () => {
     await dispatchedRun();

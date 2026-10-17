@@ -71,7 +71,7 @@ describe("workflow template", () => {
   it("lets the app's bot dispatch, caps time and turns, and reports cost", () => {
     expect(wf).toContain('allowed_bots: "idea-hq-app"');
     expect(wf).toContain("timeout-minutes: 30");
-    expect(wf).toContain("--max-turns 40");
+    expect(wf).toContain("--max-turns ${{ inputs.max_turns ||");
     expect(wf).toContain("workflow_dispatch");
     expect(wf).toContain('context="idea-hq/run"');
     expect(wf).toContain("npm run build || FAILED");
@@ -83,6 +83,14 @@ describe("workflow template", () => {
     for (const t of ["Edit", "Write", "Read"]) expect(ALLOWED_TOOLS.split(",")).toContain(t);
     expect(ALLOWED_TOOLS.split(",")).not.toContain("Bash");
     expect(ALLOWED_TOOLS).not.toMatch(/curl|git push|git commit/);
+  });
+  it("takes model, effort and turn cap as run inputs, with safe defaults", () => {
+    expect(wf).toContain("model:");
+    expect(wf).toContain("effort:");
+    expect(wf).toContain("max_turns:");
+    expect(wf).toContain("--model ${{ inputs.model || 'claude-sonnet-5-5' }}");
+    expect(wf).toContain("--effort ${{ inputs.effort || 'medium' }}");
+    expect(wf).toContain("--max-turns ${{ inputs.max_turns || '40' }}");
   });
   it("is versioned so old installs are detected", () => {
     expect(workflowVersion(wf)).toBe(WORKFLOW_VERSION);

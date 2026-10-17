@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse, consumeAiCall } from "@/lib/access";
+import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { projectPromptContext } from "@/lib/project-context";
 import type { Idea as IdeaRecord } from "@/generated/prisma/client";
@@ -137,7 +138,7 @@ export async function POST(
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await anthropic.messages.create({
-      model: "claude-opus-5",
+      model: PLANNING_MODEL.breakdown,
       max_tokens: 4000,
       messages: [
         {

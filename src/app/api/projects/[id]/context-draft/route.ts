@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse, consumeAiCall } from "@/lib/access";
+import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { github } from "@/lib/github/client";
 import { snapshotRepo, buildContextPrompt } from "@/lib/context-draft";
 
@@ -31,7 +32,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     const snap = await snapshotRepo(github, p.installationId, p.repoOwner, p.repoName, ref);
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const msg = await anthropic.messages.create({
-      model: "claude-opus-5",
+      model: PLANNING_MODEL.context,
       max_tokens: 2500,
       messages: [{ role: "user", content: buildContextPrompt(p.name, snap) }],
     });

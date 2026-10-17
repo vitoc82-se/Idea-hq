@@ -8,9 +8,11 @@ export async function POST(request: Request, { params }: { params: { id: string;
   if ("res" in auth) return auth.res;
   try {
     switch (params.action) {
-      case "approve":
-        await approveRun(auth.userId, params.id);
+      case "approve": {
+        const body = await request.json().catch(() => ({}));
+        await approveRun(auth.userId, params.id, undefined, { model: body.model, effort: body.effort, maxTurns: body.maxTurns });
         return NextResponse.json({ ok: true });
+      }
       case "revise": {
         const body = await request.json().catch(() => ({}));
         await reviseRun(auth.userId, params.id, String(body.instruction || ""));

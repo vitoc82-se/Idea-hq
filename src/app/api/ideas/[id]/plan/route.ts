@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse, consumeAiCall } from "@/lib/access";
+import { planModel } from "@/lib/runs/policy";
 import { projectPromptContext } from "@/lib/project-context";
 
 export async function POST(
@@ -75,7 +76,7 @@ export async function POST(
     // the project's own context. Reasoning task run on demand, so it uses Claude
     // Opus 5 with room for adaptive thinking.
     const message = await anthropic.messages.create({
-      model: "claude-opus-5",
+      model: planModel(idea.complexity),
       max_tokens: 4000,
       messages: [
         {

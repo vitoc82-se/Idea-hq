@@ -9,6 +9,7 @@ import {
   runBranch,
 } from "./state";
 import { buildPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
+import { recommendTier, resolveTier, type Override, type Tier } from "./policy";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -66,6 +67,10 @@ export async function startRun(userId: string, ideaId: string, deps?: Deps) {
   const idea = await db.idea.findFirst({ where: { id: ideaId, userId }, include: { project: true } });
   if (!idea) throw new RunError(404, "Idea not found");
   if (!idea.plan) throw new RunError(409, "Create the plan first (Promote to plan), then implement.");
+  const storyCount = await db.idea.count({ where: { parentId: idea.id, userId } });
+  if (storyCount > 0) {
+    throw new RunError(409, "This idea is split into stories. Implement the stories one at a time, in order. Open the next story below.");
+  }
   const p = idea.project;
   repoOf(p);
   if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
@@ -111,7 +116,7 @@ async function preflight(p: ProjectRow, base: string, gh: GitHubApi) {
   return b;
 }
 
-async function dispatch(run: RunRow, p: ProjectRow, prompt: string, gh: GitHubApi) {
+async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, gh: GitHubApi) {
   const { i, owner, repo } = repoOf(p);
   try {
     await gh.dispatchWorkflow(i, owner, repo, WORKFLOW_FILE, run.baseBranch!, {
@@ -119,6 +124,9 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, gh: GitHubAp
       branch: run.branch!,
       base: run.baseBranch!,
       prompt,
+      model: tier.model,
+      effort: tier.effort,
+      max_turns: String(tier.maxTurns),
     });
   } catch (e) {
     await db.run.updateMany({
@@ -129,25 +137,35 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, gh: GitHubAp
   }
 }
 
-export async function approveRun(userId: string, runId: string, deps?: Deps) {
+// The tier we would pick for this run: from the idea's size and the project's
+// bias, one step up for every earlier failed attempt on the same idea.
+export async function recommendForRun(run: { ideaId: string | null; userId: string; id: string; project: { aiBias: string }; idea: { complexity: string | null } | null }) {
+  const failed = run.ideaId
+    ? await db.run.count({ where: { ideaId: run.ideaId, userId: run.userId, kind: "implement", status: "failed" } })
+    : 0;
+  return recommendTier(run.idea?.complexity, run.project.aiBias, failed);
+}
+
+export async function approveRun(userId: string, runId: string, deps?: Deps, override: Override = {}) {
   const gh = g(deps);
   const run = await loadOwned(userId, runId);
   if (run.status !== "awaiting_approval") throw new RunError(409, `Run is ${run.status}, not waiting for approval.`);
   const p = run.project;
   await preflight(p, run.baseBranch!, gh);
+  const { tier } = resolveTier(await recommendForRun(run), override);
 
   const branch = runBranch(run.id);
   await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
     const ok = await tx.run.updateMany({
       where: { id: run.id, status: "awaiting_approval" },
-      data: { status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()) },
+      data: { status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns },
     });
     if (ok.count === 0) throw new RunError(409, "Run was already started.");
   });
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
   if (run.ideaId) await db.idea.updateMany({ where: { id: run.ideaId, userId }, data: { status: "building" } });
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", testCommand: p.testCommand }), gh);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", testCommand: p.testCommand }), tier, gh);
   return fresh;
 }
 
@@ -168,7 +186,10 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
     if (ok.count === 0) throw new RunError(409, "Run changed, try again.");
   });
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), gh);
+  // A revision keeps the tier the run started with.
+  const rec = await recommendForRun(run);
+  const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns });
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh);
   return fresh;
 }
 

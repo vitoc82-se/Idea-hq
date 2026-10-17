@@ -14,7 +14,7 @@ type Data = {
   project: {
     installationId: number | null; repoOwner: string | null; repoName: string | null;
     envBranches: Record<string, string> | null; defaultEnv: string | null; autoMerge: boolean;
-    buildCommand: string | null; testCommand: string | null; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null;
+    buildCommand: string | null; testCommand: string | null; aiBias?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null;
   };
   available: Available[];
 };
@@ -39,6 +39,7 @@ export function ProjectRepo({
   const [build, setBuild] = useState("");
   const [test, setTest] = useState("");
   const [autoMerge, setAutoMerge] = useState(false);
+  const [aiBias, setAiBias] = useState("auto");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -56,6 +57,7 @@ export function ProjectRepo({
     setBuild(p.buildCommand || "");
     setTest(p.testCommand || "");
     setAutoMerge(p.autoMerge);
+    setAiBias(p.aiBias || "auto");
   }, [projectId]);
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export function ProjectRepo({
       body: JSON.stringify({
         installationId: Number(inst), repoOwner: owner, repoName: name,
         envBranches: Object.fromEntries(envs.filter((e) => e.name && e.branch).map((e) => [e.name, e.branch])),
-        defaultEnv, autoMerge, buildCommand: build, testCommand: test,
+        defaultEnv, autoMerge, aiBias, buildCommand: build, testCommand: test,
       }),
     });
     const j = await res.json().catch(() => ({}));
@@ -180,6 +182,16 @@ export function ProjectRepo({
               </button>
             </p>
           )}
+
+          <div>
+            <Label className="text-xs">AI model choice</Label>
+            <Select value={aiBias} onChange={(e) => setAiBias(e.target.value)} className="mt-1">
+              <option value="auto">Automatic: match the model to the size of each idea (recommended)</option>
+              <option value="saver">Save money: one tier cheaper than automatic</option>
+              <option value="max">Best quality: one tier stronger than automatic</option>
+            </Select>
+            <p className="text-xs text-gray-400 mt-1">You can still change the model and effort on every run before approving it.</p>
+          </div>
 
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={autoMerge} onChange={(e) => setAutoMerge(e.target.checked)} className="mt-1" />

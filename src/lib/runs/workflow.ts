@@ -12,7 +12,7 @@ import { WORKFLOW_FILE } from "./state";
 
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
-export const WORKFLOW_VERSION = 2;
+export const WORKFLOW_VERSION = 3;
 export const VERSION_MARKER = "# idea-hq-workflow-version:";
 
 export function workflowVersion(content: string): number {
@@ -25,6 +25,8 @@ export function workflowVersion(content: string): number {
 // and the project's own npm/node tooling; no git writes, no curl, no env dumps.
 export const ALLOWED_TOOLS =
   "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)";
+
+export const DEFAULT_MODEL = "claude-sonnet-5-5";
 
 export type WorkflowOptions = {
   appSlug: string;
@@ -73,6 +75,18 @@ on:
       prompt:
         description: Instructions for the AI
         required: true
+      model:
+        description: Claude model id
+        required: false
+        default: ${q(DEFAULT_MODEL)}
+      effort:
+        description: Reasoning effort (low, medium, high, max)
+        required: false
+        default: ${q("medium")}
+      max_turns:
+        description: Turn cap for the AI
+        required: false
+        default: ${q(String(maxTurns))}
 
 permissions:
   contents: write
@@ -116,7 +130,7 @@ jobs:
           github_token: \${{ secrets.GITHUB_TOKEN }}
           allowed_bots: ${q(o.appSlug)}
           prompt: \${{ inputs.prompt }}
-          claude_args: --max-turns ${maxTurns} --allowedTools "${ALLOWED_TOOLS}"
+          claude_args: --max-turns \${{ inputs.max_turns || '${maxTurns}' }} --model \${{ inputs.model || '${DEFAULT_MODEL}' }} --effort \${{ inputs.effort || 'medium' }} --allowedTools "${ALLOWED_TOOLS}"
 
       - name: Verify (build and tests)
         id: verify

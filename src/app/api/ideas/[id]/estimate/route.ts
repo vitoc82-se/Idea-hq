@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse, consumeAiCall } from "@/lib/access";
+import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { projectPromptContext } from "@/lib/project-context";
 
@@ -57,7 +58,7 @@ export async function POST(
     // analysis uses. Opus 5 has adaptive thinking on by default; max_tokens
     // must leave room for that thinking plus the JSON answer.
     const message = await anthropic.messages.create({
-      model: "claude-opus-5",
+      model: PLANNING_MODEL.estimate,
       max_tokens: 3000,
       messages: [
         {

@@ -97,6 +97,7 @@ model Project {
   workflowInstalled Boolean  @default(false) // setup PR merged and workflow present
   setupPrNumber     Int?
   commandsConfirmed Boolean  @default(false) // build/test commands reviewed in the setup journey
+  aiBias            String   @default("auto") // saver | auto | max: shifts the model tier
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   ideas Idea[]
@@ -163,6 +164,9 @@ model Run {
   mergedSha    String?
   costUsd      Float?
   turns        Int?
+  model        String?   // model the run was dispatched with
+  effort       String?
+  maxTurns     Int?
   checksState  String?   // pending | green | red
   error        String?   @db.Text
   parentRunId  String?   // revise/revert point at the run they follow

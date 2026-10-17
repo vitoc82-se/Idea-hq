@@ -7,6 +7,7 @@ import { Rocket, Loader2, GitPullRequest, ExternalLink, Check, AlertTriangle } f
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 
 type Run = {
   id: string;
@@ -19,10 +20,18 @@ type Run = {
   checksState: string | null;
   costUsd: number | null;
   turns: number | null;
+  model: string | null;
+  effort: string | null;
+  maxTurns: number | null;
   error: string | null;
   createdAt: string;
   project: { repoOwner: string | null; repoName: string | null; autoMerge: boolean };
 };
+
+type Rec = { model: string; effort: string; maxTurns: number; reason: string };
+type ModelChoice = { id: string; label: string; note: string };
+type Epic = { children: { id: string; title: string; status: string; complexity: string | null; hasPlan: boolean }[]; nextId: string | null };
+const EFFORT_LABEL: Record<string, string> = { low: "low", medium: "medium", high: "high", max: "maximum" };
 
 const STATUS_LABEL: Record<string, string> = {
   awaiting_approval: "Waiting for your approval",
@@ -44,12 +53,23 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [instruction, setInstruction] = useState("");
+  const [rec, setRec] = useState<Rec | null>(null);
+  const [models, setModels] = useState<ModelChoice[]>([]);
+  const [epic, setEpic] = useState<Epic | null>(null);
+  const [pick, setPick] = useState<{ model: string; effort: string; maxTurns: number } | null>(null);
+  const [changing, setChanging] = useState(false);
   const lastStatus = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/ideas/${ideaId}/runs`, { cache: "no-store" });
-      if (res.ok) setRuns((await res.json()).runs);
+      if (res.ok) {
+        const j = await res.json();
+        setRuns(j.runs);
+        setRec(j.recommended);
+        setModels(j.models || []);
+        setEpic(j.epic);
+      }
     } finally {
       setLoaded(true);
     }
@@ -94,7 +114,9 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
   };
 
   const prUrl = run?.prNumber && run.project.repoOwner ? `https://github.com/${run.project.repoOwner}/${run.project.repoName}/pull/${run.prNumber}` : null;
-  const canStart = !run || ["merged", "closed", "failed", "cancelled"].includes(run.status);
+  const canStart = !epic && (!run || ["merged", "closed", "failed", "cancelled"].includes(run.status));
+  const tier = pick ?? (rec ? { model: rec.model, effort: rec.effort, maxTurns: rec.maxTurns } : null);
+  const label = (id: string) => models.find((m) => m.id === id)?.label ?? id;
 
   return (
     <Card>
@@ -112,8 +134,27 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
           )}
         </div>
 
-        {!plan && <p className="text-sm text-gray-400">Generate the build prompt first. It becomes the plan the AI follows.</p>}
-        {loaded && !run && plan && (
+        {epic && (
+          <div className="space-y-2 text-sm">
+            <p className="text-gray-700 dark:text-gray-200">
+              This idea is split into <b>{epic.children.length} stories</b> ({epic.children.filter((c) => c.status === "done").length} done). Stories are built one at a time, in order. Merge each one before starting the next.
+            </p>
+            <ol className="space-y-1">
+              {epic.children.map((c, i) => (
+                <li key={c.id} className="flex items-center gap-2">
+                  <span className="w-5 text-xs text-gray-400">{i + 1}.</span>
+                  <Link href={`/ideas/${c.id}`} className="text-emerald-600 hover:underline truncate">{c.title}</Link>
+                  <span className="text-xs text-gray-500 shrink-0">{c.complexity || ""} {c.status === "done" ? "done" : c.hasPlan ? "ready" : "needs build prompt"}</span>
+                  {epic.nextId === c.id && <span className="text-xs px-1.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">next</span>}
+                </li>
+              ))}
+            </ol>
+            {epic.nextId && <Link href={`/ideas/${epic.nextId}`}><Button size="sm">Open the next story</Button></Link>}
+          </div>
+        )}
+
+        {!plan && !epic && <p className="text-sm text-gray-400">Generate the build prompt first. It becomes the plan the AI follows.</p>}
+        {loaded && !run && plan && !epic && (
           <p className="text-sm text-gray-400">
             The AI follows your build prompt in the project&apos;s GitHub repo and opens a pull request.{" "}
             <Link href={`/projects/${projectId}/setup`} className="text-emerald-600 hover:underline">Open the setup guide</Link> if this project is not connected yet.
@@ -129,6 +170,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
               </span>
               {BUSY.includes(run.status) && <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />}
               {run.env && <span className="text-xs text-gray-500">{run.env} · {run.baseBranch}</span>}
+              {run.model && <span className="text-xs text-gray-500">{label(run.model)} · {EFFORT_LABEL[run.effort || ""] || run.effort} effort</span>}
               {prUrl && (
                 <a href={prUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline inline-flex items-center gap-1">
                   <GitPullRequest className="w-4 h-4" /> PR #{run.prNumber} <ExternalLink className="w-3 h-3" />
@@ -148,11 +190,45 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                   <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Review the plan the AI will follow</summary>
                   <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-80 overflow-auto">{plan}</pre>
                 </details>
+                {rec && tier && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2 text-sm">
+                    <p className="text-gray-700 dark:text-gray-200">
+                      <b>{label(tier.model)}</b>, {EFFORT_LABEL[tier.effort]} effort, up to {tier.maxTurns} turns
+                      <span className="text-xs text-gray-500"> · chosen automatically: {rec.reason}</span>
+                    </p>
+                    <button type="button" className="text-xs text-emerald-600 hover:underline" onClick={() => setChanging(!changing)}>
+                      {changing ? "Hide options" : "Change model and effort"}
+                    </button>
+                    {changing && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500">Model</label>
+                          <Select value={tier.model} onChange={(e) => setPick({ ...tier, model: e.target.value })}>
+                            {models.map((m) => <option key={m.id} value={m.id}>{m.label}: {m.note}</option>)}
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Effort</label>
+                          <Select value={tier.effort} onChange={(e) => setPick({ ...tier, effort: e.target.value })}>
+                            {Object.entries(EFFORT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Max turns</label>
+                          <Select value={String(tier.maxTurns)} onChange={(e) => setPick({ ...tier, maxTurns: Number(e.target.value) })}>
+                            {[10, 15, 30, 50, 80, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">Stronger settings cost more. Small ideas do fine on the cheapest tier because build and tests must still pass before merge.</p>
+                  </div>
+                )}
                 <p className="text-xs text-gray-500">
-                  This runs in your GitHub Actions with your API key, capped at 30 minutes and 40 turns, and ends as a pull request.
+                  This runs in your GitHub Actions with your API key, has a 30 minute limit, and ends as a pull request.
                 </p>
                 <div className="flex gap-2">
-                  <Button size="sm" disabled={busy !== null} onClick={() => act("approve", `/api/runs/${run.id}/approve`)}>
+                  <Button size="sm" disabled={busy !== null} onClick={() => act("approve", `/api/runs/${run.id}/approve`, pick ?? (rec ? { model: rec.model, effort: rec.effort, maxTurns: rec.maxTurns } : {}))}>
                     {busy === "approve" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Approve and run
                   </Button>
                   <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => act("cancel", `/api/runs/${run.id}/cancel`)}>

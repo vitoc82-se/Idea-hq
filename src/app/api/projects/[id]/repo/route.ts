@@ -45,7 +45,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       project: {
         installationId: p.installationId, repoOwner: p.repoOwner, repoName: p.repoName,
         envBranches: p.envBranches, defaultEnv: p.defaultEnv, autoMerge: p.autoMerge,
-        buildCommand: p.buildCommand, testCommand: p.testCommand,
+        buildCommand: p.buildCommand, testCommand: p.testCommand, aiBias: p.aiBias,
         workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber,
       },
       available,
@@ -99,7 +99,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       where: { id: p.id },
       data: {
         installationId, repoOwner: repo.owner, repoName: repo.name,
-        envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand, commandsConfirmed: true,
+        envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand, commandsConfirmed: true, aiBias: ["saver", "auto", "max"].includes(b.aiBias) ? b.aiBias : p.aiBias,
         ...(changedRepo ? { workflowInstalled: false, setupPrNumber: null } : {}),
       },
     });
