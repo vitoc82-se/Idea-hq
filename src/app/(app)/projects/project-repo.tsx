@@ -24,8 +24,10 @@ export function ProjectRepo({
   showSetup = true,
   suggestions,
   onSaved,
+  returnTo,
 }: {
   projectId: string;
+  returnTo?: string;
   showSetup?: boolean;
   suggestions?: { build: string | null; test: string | null };
   onSaved?: () => void;
@@ -112,7 +114,7 @@ export function ProjectRepo({
             Install the Idea HQ GitHub App on the repo this project ships to. You choose which repos it can see.
           </p>
           {data.appConfigured ? (
-            <a href="/api/github/install">
+            <a href={returnTo ? `/api/github/install?next=${encodeURIComponent(returnTo)}` : "/api/github/install"}>
               <Button size="sm"><Github className="w-4 h-4 mr-1" /> Connect GitHub</Button>
             </a>
           ) : (
@@ -134,7 +136,7 @@ export function ProjectRepo({
                 </a>
               ))}
               <button type="button" onClick={load} className="text-gray-500 hover:underline">Refresh list</button>
-              <a href="/api/github/install" className="text-gray-500 hover:underline">Use another GitHub account</a>
+              <a href="/api/github/install?fresh=1" className="text-gray-500 hover:underline">Use another GitHub account</a>
             </div>
             <p className="text-xs text-gray-400 mt-1">Only repos you allowed on GitHub appear here. Add more there, then come back and the list refreshes.</p>
           </div>

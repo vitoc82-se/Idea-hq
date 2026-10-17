@@ -40,11 +40,13 @@ export function SetupJourney({
   projectId,
   projectName,
   embedded = false,
+  returnTo,
   onStatus,
 }: {
   projectId: string;
   projectName: string;
   embedded?: boolean; // inside the welcome journey: no header, no practice step
+  returnTo?: string; // where GitHub sends the user back to
   onStatus?: (s: Status) => void;
 }) {
   const [st, setSt] = useState<Status | null>(null);
@@ -135,13 +137,13 @@ export function SetupJourney({
                   <p className="text-sm text-gray-600 dark:text-gray-300">{WHY[s.id]}</p>
 
                   {s.id === "github" && (
-                    <a href={`/api/github/install?next=${encodeURIComponent(`/projects/${projectId}/setup`)}`}>
+                    <a href={`/api/github/install?next=${encodeURIComponent(returnTo || `/projects/${projectId}/setup`)}`}>
                       <Button size="sm">Connect GitHub</Button>
                     </a>
                   )}
 
                   {(s.id === "repo" || s.id === "commands") && formStep === s.id && (
-                    <ProjectRepo projectId={projectId} showSetup={false} suggestions={st.suggestions} onSaved={load} />
+                    <ProjectRepo projectId={projectId} showSetup={false} suggestions={st.suggestions} onSaved={load} returnTo={returnTo || `/projects/${projectId}/setup`} />
                   )}
 
                   {s.id === "workflow" && (

@@ -194,23 +194,29 @@ export const github: GitHubApi = {
   },
 };
 
-// Used by the install callback: confirm the signed-in GitHub user can see the
-// installation, so nobody can claim an installation id that is not theirs.
-export async function userCanSeeInstallation(code: string, installationId: number): Promise<boolean> {
+// GitHub user OAuth (the app's "user authorization"): exchange the code and list
+// the installations this GitHub user can see. Used to claim installations, so
+// nobody can attach an installation id that is not theirs.
+export async function userInstallations(code: string): Promise<{ id: number; account: string | null }[] | null> {
   const id = process.env.GITHUB_APP_CLIENT_ID;
   const secret = process.env.GITHUB_APP_CLIENT_SECRET;
-  if (!id || !secret) return false;
+  if (!id || !secret) return null;
   const tokRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify({ client_id: id, client_secret: secret, code }),
   });
   const tok = (await tokRes.json().catch(() => null)) as { access_token?: string } | null;
-  if (!tok?.access_token) return false;
+  if (!tok?.access_token) return null;
   const { res, json } = await raw(tok.access_token, "GET", "/user/installations?per_page=100");
-  if (!res.ok) return false;
-  const list = (json as { installations?: { id: number }[] }).installations || [];
-  return list.some((x) => x.id === installationId);
+  if (!res.ok) return null;
+  const list = (json as { installations?: { id: number; account?: { login?: string } }[] }).installations || [];
+  return list.map((x) => ({ id: x.id, account: x.account?.login ?? null }));
+}
+
+export async function userCanSeeInstallation(code: string, installationId: number): Promise<boolean> {
+  const list = await userInstallations(code);
+  return !!list && list.some((x) => x.id === installationId);
 }
 
 // Where the owner of an installation changes which repos the app can see.

@@ -175,7 +175,7 @@ export function Welcome({ name }: { name: string }) {
 
             <PhaseCard n={2} title="Connect your repo" status={st("project") !== "done" ? "later" : phaseOf("Connect your repo")}>
               {ob.projectId && st("project") === "done" && (
-                <SetupJourney projectId={ob.projectId} projectName={ob.projectName || ""} embedded onStatus={() => load()} />
+                <SetupJourney projectId={ob.projectId} projectName={ob.projectName || ""} embedded returnTo="/welcome" onStatus={() => load()} />
               )}
             </PhaseCard>
 
