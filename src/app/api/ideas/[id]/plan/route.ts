@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { isOwner } from "@/lib/owner";
+import { canUse, consumeAiCall } from "@/lib/access";
 import { projectPromptContext } from "@/lib/project-context";
 
 export async function POST(
@@ -11,8 +11,14 @@ export async function POST(
 ) {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId || !(await isOwner(userId, session?.user?.email))) {
+  if (!userId || !(await canUse(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await consumeAiCall(userId, session?.user?.email))) {
+    return NextResponse.json(
+      { error: "Daily AI limit reached. Try again tomorrow." },
+      { status: 429 }
+    );
   }
 
   const idea = await db.idea.findFirst({

@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users } from "lucide-react";
 import { Button } from "./ui/button";
 
 const navLinks = [
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/users", label: "Users", icon: Users },
 ];
 
 export function Navbar() {

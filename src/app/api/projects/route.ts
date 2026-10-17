@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { isOwner } from "@/lib/owner";
+import { canUse } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ function slugify(raw: string): string {
 export async function GET() {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId || !(await isOwner(userId, session?.user?.email))) {
+  if (!userId || !(await canUse(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,7 +32,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId || !(await isOwner(userId, session?.user?.email))) {
+  if (!userId || !(await canUse(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

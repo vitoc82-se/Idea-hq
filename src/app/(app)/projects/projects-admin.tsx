@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from "date-fns";
 import type { Project } from "../ideas/ideas-shared";
+import { ProjectRepo } from "./project-repo";
 
 const BLANK = { name: "", slug: "", color: "", context: "", contextSourceUrl: "" };
 
@@ -20,6 +21,7 @@ export function ProjectsAdmin() {
   const [form, setForm] = useState(BLANK);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [repoOpen, setRepoOpen] = useState<string | null>(null);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -221,7 +223,8 @@ export function ProjectsAdmin() {
         <div className="space-y-2">
           {projects.map((p) => (
             <Card key={p.id}>
-              <CardContent className="p-4 flex items-center gap-3">
+              <CardContent className="p-4">
+              <div className="flex items-center gap-3">
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: p.color || "#94a3b8" }}
@@ -240,6 +243,9 @@ export function ProjectsAdmin() {
                     {!p.context && " · no context yet"}
                   </p>
                 </div>
+                <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub">
+                  GitHub
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(p)} aria-label="Edit">
                   <Pencil className="w-4 h-4" />
                 </Button>
@@ -252,6 +258,8 @@ export function ProjectsAdmin() {
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
+              </div>
+              {repoOpen === p.id && <ProjectRepo projectId={p.id} />}
               </CardContent>
             </Card>
           ))}
