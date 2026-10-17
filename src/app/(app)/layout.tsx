@@ -17,7 +17,7 @@ export default async function AppLayout({
 
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, image: true, name: true, email: true },
   });
   if (me?.mustChangePassword) {
     redirect("/auth/change-password");
@@ -25,7 +25,7 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
-      <Navbar />
+      <Navbar profile={{ image: me?.image, name: me?.name, email: me?.email }} />
       <main className="lg:pl-64 pt-14 lg:pt-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
