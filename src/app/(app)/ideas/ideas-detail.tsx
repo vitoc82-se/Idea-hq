@@ -42,6 +42,7 @@ import {
   isQuickWin,
 } from "./ideas-shared";
 import { StoriesSection } from "./ideas-stories";
+import { RunPanel } from "./run-panel";
 
 export function IdeaDetail({
   initial,
@@ -725,6 +726,9 @@ export function IdeaDetail({
             ))}
         </CardContent>
       </Card>
+
+      {/* Implement with AI (GitHub Actions) */}
+      <RunPanel ideaId={initial.id} plan={idea.plan} />
 
       {/* Danger zone */}
       <div className="flex justify-end">
