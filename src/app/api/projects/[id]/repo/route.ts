@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { github, installationConfigureUrl } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { safeCommand } from "@/lib/runs/workflow";
+import { invalidateSetupCache } from "@/lib/runs/setup-cache";
 import { WORKFLOW_PATH } from "@/lib/runs/state";
 import { WORKFLOW_VERSION, workflowVersion } from "@/lib/runs/workflow";
 
@@ -103,6 +104,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         ...(changedRepo ? { workflowInstalled: false, setupPrNumber: null } : {}),
       },
     });
+    invalidateSetupCache(p.id);
     return NextResponse.json({ ok: true, workflowInstalled: updated.workflowInstalled });
   } catch (e) {
     return errorResponse(e);

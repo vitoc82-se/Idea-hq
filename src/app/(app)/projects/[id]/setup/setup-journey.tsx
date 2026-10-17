@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Circle, Lock, AlertTriangle, Loader2, Copy, ExternalLink, Rocket } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,19 +54,47 @@ export function SetupJourney({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}/setup-status`, { cache: "no-store" });
+  const [limited, setLimited] = useState<string | null>(null);
+  const pausedUntil = useRef(0);
+
+  // Three kinds of check, from free to costly:
+  //  quick: our own database only, no GitHub requests (safe to poll often)
+  //  full:  asks GitHub, shared 30s cache on the server
+  //  fresh: asks GitHub now (the "Check again" button)
+  const load = useCallback(async (mode: "quick" | "full" | "fresh" = "full") => {
+    if (mode !== "quick" && Date.now() < pausedUntil.current) mode = "quick"; // backing off
+    const qs = mode === "quick" ? "?quick=1" : mode === "fresh" ? "?fresh=1" : "";
+    const res = await fetch(`/api/projects/${projectId}/setup-status${qs}`, { cache: "no-store" });
+    if (res.status === 429) {
+      const j = await res.json().catch(() => ({}));
+      pausedUntil.current = Date.now() + (Number(j.retryAfterSec) || 60) * 1000;
+      setLimited(j.error || "GitHub is limiting requests. Trying again shortly.");
+      return;
+    }
     if (res.ok) {
       const j: Status = await res.json();
+      setLimited(null);
       setSt(j);
       onStatus?.(j);
     }
   }, [projectId, onStatus]);
 
+  const waitingOnGitHub = st?.currentId === "workflow" || st?.currentId === "secret";
+  const waitingRef = useRef(false);
+  waitingRef.current = !!waitingOnGitHub;
+
   useEffect(() => {
-    load();
-    const t = setInterval(load, 8000); // pick up GitHub-side progress by itself
-    const onVis = () => document.visibilityState === "visible" && load();
+    load("full");
+    // Free checks every 8s; a real GitHub check only every 60s, and only while
+    // we are waiting for the user to do something on GitHub.
+    let tick = 0;
+    const t = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      tick += 1;
+      if (waitingRef.current && tick % 8 === 0) load("full");
+      else load("quick");
+    }, 8000);
+    const onVis = () => document.visibilityState === "visible" && load("full");
     document.addEventListener("visibilitychange", onVis);
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
   }, [load]);
@@ -81,7 +109,7 @@ export function SetupJourney({
     const res = await fetch(`/api/projects/${projectId}/setup`, { method: "POST" });
     const j = await res.json().catch(() => ({}));
     setMsg(res.ok ? { ok: true, text: `Pull request #${j.prNumber} is open. Merge it on GitHub, this page updates by itself.` } : { ok: false, text: j.error || "Could not open the PR." });
-    setBusy(null); load();
+    setBusy(null); load("fresh");
   };
 
   const practice = async () => {
@@ -196,8 +224,9 @@ export function SetupJourney({
         );
       })}
 
+      {limited && <p className="text-sm text-amber-600 dark:text-amber-400">{limited}</p>}
       {msg && <p className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600 dark:text-red-400"}`}>{msg.text}</p>}
-      <Button size="sm" variant="ghost" onClick={load}>Check again</Button>
+      <Button size="sm" variant="ghost" onClick={() => load("fresh")}>Check again</Button>
     </div>
   );
 }

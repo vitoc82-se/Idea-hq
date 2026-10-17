@@ -10,6 +10,14 @@ export class GitHubError extends Error {
   }
 }
 
+// GitHub's per-installation limit (about 5,000 requests an hour) was hit. Carries
+// how long to wait so callers can back off instead of retrying.
+export class GitHubRateLimitError extends GitHubError {
+  constructor(message: string, public retryAfterSec: number) {
+    super(429, message);
+  }
+}
+
 export type CheckSummary = {
   state: "pending" | "green" | "red";
   failing: string[];
@@ -86,13 +94,47 @@ export async function installationToken(installationId: number): Promise<string>
   return j.token;
 }
 
+// Conditional requests: GitHub answers 304 without counting it against the rate
+// limit, so repeated reads of unchanged data are free. Warm serverless
+// instances keep this cache between requests.
+const etagCache = new Map<string, { etag: string; json: unknown }>();
+const ETAG_CACHE_MAX = 400;
+
+export function clearEtagCache() {
+  etagCache.clear();
+}
+
+export function rateLimitWait(res: { status: number; headers: Headers }, message: string, now = Date.now()): number | null {
+  if (res.status !== 403 && res.status !== 429) return null;
+  const retryAfter = Number(res.headers.get("retry-after"));
+  const reset = Number(res.headers.get("x-ratelimit-reset"));
+  const remaining = res.headers.get("x-ratelimit-remaining");
+  const limited = res.status === 429 || remaining === "0" || Number.isFinite(retryAfter) && retryAfter > 0 || /rate limit/i.test(message);
+  if (!limited) return null;
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.ceil(retryAfter);
+  if (Number.isFinite(reset) && reset > 0) return Math.max(1, Math.ceil(reset - now / 1000));
+  return 60;
+}
+
 async function call<T>(i: number, method: string, path: string, body?: unknown, okStatuses: number[] = []): Promise<T | null> {
   const token = await installationToken(i);
-  const { res, json } = await raw(token, method, path, body);
+  const key = `${i}:${path}`;
+  const cached = method === "GET" ? etagCache.get(key) : undefined;
+  const { res, json } = await raw(token, method, path, body, cached ? { "If-None-Match": cached.etag } : {});
+  if (res.status === 304 && cached) return cached.json as T;
   if (okStatuses.includes(res.status)) return null;
   if (!res.ok) {
     const msg = (json as { message?: string } | null)?.message || res.statusText;
+    const wait = rateLimitWait(res, msg);
+    if (wait !== null) {
+      throw new GitHubRateLimitError(`GitHub is limiting requests for this connection. Try again in about ${Math.max(1, Math.ceil(wait / 60))} minute${wait > 90 ? "s" : ""}.`, wait);
+    }
     throw new GitHubError(res.status, `GitHub ${method} ${path}: ${msg}`, json);
+  }
+  const etag = method === "GET" ? res.headers.get("etag") : null;
+  if (etag) {
+    if (etagCache.size >= ETAG_CACHE_MAX) etagCache.delete(etagCache.keys().next().value as string);
+    etagCache.set(key, { etag, json });
   }
   return json as T;
 }

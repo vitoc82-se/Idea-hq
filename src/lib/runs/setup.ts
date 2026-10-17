@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { github as realGithub, type GitHubApi } from "@/lib/github/client";
+import { github as realGithub, GitHubRateLimitError, type GitHubApi } from "@/lib/github/client";
 import { RunError } from "./engine";
+import { FULL_TTL_MS, fullCache } from "./setup-cache";
 import { WORKFLOW_PATH } from "./state";
 import { WORKFLOW_VERSION, workflowVersion } from "./workflow";
 
@@ -37,6 +38,13 @@ export function suggestCommands(pkgJson: string | null | undefined): { build: st
   return { build, test };
 }
 
+// A GitHub failure normally just means "not there" for that one step, but a rate
+// limit must surface, or a limited connection looks like a broken setup.
+const soft = <T,>(v: T) => (e: unknown): T => {
+  if (e instanceof GitHubRateLimitError) throw e;
+  return v;
+};
+
 const TITLES: Record<StepId, string> = {
   github: "Connect GitHub",
   repo: "Choose the repo and branch",
@@ -49,9 +57,15 @@ const TITLES: Record<StepId, string> = {
 export async function getSetupStatus(
   userId: string,
   projectId: string,
-  opts: { quick?: boolean; gh?: GitHubApi } = {}
+  opts: { quick?: boolean; fresh?: boolean; gh?: GitHubApi; now?: () => number } = {}
 ): Promise<SetupStatus> {
   const gh = opts.gh ?? realGithub;
+  const now = opts.now ?? Date.now;
+  const cacheKey = `${userId}:${projectId}`;
+  if (!opts.quick && !opts.fresh) {
+    const hit = fullCache.get(cacheKey);
+    if (hit && now() - hit.at < FULL_TTL_MS) return hit.value;
+  }
   const p = await db.project.findFirst({ where: { id: projectId, userId } });
   if (!p) throw new RunError(404, "Project not found");
 
@@ -60,19 +74,27 @@ export async function getSetupStatus(
   const envs = (p.envBranches || {}) as Record<string, string>;
   const base = envs[p.defaultEnv || ""] || Object.values(envs)[0] || null;
 
+  // Quick mode makes no GitHub calls: it trusts what the last full check stored.
   let workflowDone = p.workflowInstalled;
   let workflowOutdated = false;
-  let secretDone: boolean | null = null; // null = not checked
+  let secretDone: boolean | null = opts.quick ? (workflowDone ? p.secretConfirmed : false) : null;
   let suggestions = { build: null as string | null, test: null as string | null };
 
   if (!opts.quick && hasRepo && base) {
     const i = p.installationId!, o = p.repoOwner!, r = p.repoName!;
-    const wf = await gh.getFile(i, o, r, WORKFLOW_PATH, base).catch(() => null);
+    const wf = await gh.getFile(i, o, r, WORKFLOW_PATH, base).catch(soft(null));
     workflowDone = !!wf && workflowVersion(wf.content) >= WORKFLOW_VERSION;
     workflowOutdated = !!wf && !workflowDone;
-    if (workflowDone) secretDone = await gh.secretExists(i, o, r, "ANTHROPIC_API_KEY").catch(() => false);
-    const pkg = await gh.getFile(i, o, r, "package.json", base).catch(() => null);
-    suggestions = suggestCommands(pkg?.content);
+    secretDone = workflowDone ? await gh.secretExists(i, o, r, "ANTHROPIC_API_KEY").catch(soft(false)) : false;
+    // Only needed to suggest commands before the user has confirmed them.
+    if (!p.commandsConfirmed) {
+      const pkg = await gh.getFile(i, o, r, "package.json", base).catch(soft(null));
+      suggestions = suggestCommands(pkg?.content);
+    }
+    // Remember what we saw, so cheap polls can answer without asking GitHub.
+    if (workflowDone !== p.workflowInstalled || secretDone !== p.secretConfirmed) {
+      await db.project.update({ where: { id: p.id }, data: { workflowInstalled: workflowDone, secretConfirmed: secretDone } });
+    }
   }
 
   const runs = await db.run.findMany({ where: { projectId: p.id, userId, kind: "implement" } });
@@ -105,9 +127,11 @@ export async function getSetupStatus(
     .filter((x) => x.id !== p.id && x.repoOwner && x.repoName)
     .map((x) => `${x.repoOwner}/${x.repoName}`);
 
-  return {
+  const result: SetupStatus = {
     steps, done, total: steps.length, currentId: current ? current.id : null,
     repo: hasRepo ? { owner: p.repoOwner!, name: p.repoName! } : null,
     suggestions, otherRepos: Array.from(new Set(otherRepos)),
   };
+  if (!opts.quick) fullCache.set(cacheKey, { at: now(), value: result });
+  return result;
 }

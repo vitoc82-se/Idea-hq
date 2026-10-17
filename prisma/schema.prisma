@@ -97,6 +97,7 @@ model Project {
   workflowInstalled Boolean  @default(false) // setup PR merged and workflow present
   setupPrNumber     Int?
   commandsConfirmed Boolean  @default(false) // build/test commands reviewed in the setup journey
+  secretConfirmed   Boolean  @default(false) // ANTHROPIC_API_KEY seen in the repo's secrets
   aiBias            String   @default("auto") // saver | auto | max: shifts the model tier
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)

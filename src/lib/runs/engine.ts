@@ -10,6 +10,7 @@ import {
 } from "./state";
 import { buildPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
 import { recommendTier, resolveTier, type Override, type Tier } from "./policy";
+import { invalidateSetupCache } from "./setup-cache";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -23,7 +24,7 @@ const g = (d?: Deps) => d?.gh ?? realGithub;
 // How long a dispatched/running run may stay silent before reconcile fails it.
 // Workflow timeout is 30 min; allow slack for queueing.
 export const STUCK_AFTER_MS = 45 * 60 * 1000;
-export const RECONCILE_COOLDOWN_MS = 15 * 1000;
+export const RECONCILE_COOLDOWN_MS = 30 * 1000;
 
 type RunRow = NonNullable<Awaited<ReturnType<typeof db.run.findUnique>>>;
 type ProjectRow = NonNullable<Awaited<ReturnType<typeof db.project.findUnique>>>;
@@ -317,6 +318,7 @@ export async function openSetupPr(
     body: "Lets Idea HQ run an AI implementation in this repo.\n\nIt uses the `ANTHROPIC_API_KEY` Actions secret, a 30 minute timeout and a turn cap. Review the file, merge it, then add the secret.",
   });
   await db.project.update({ where: { id: p.id }, data: { setupPrNumber: pr.number } });
+  invalidateSetupCache(p.id);
   return pr;
 }
 

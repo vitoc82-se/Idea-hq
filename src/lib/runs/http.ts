@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
-import { GitHubError } from "@/lib/github/client";
+import { GitHubError, GitHubRateLimitError } from "@/lib/github/client";
 import { RunError } from "./engine";
 import crypto from "crypto";
 
@@ -18,6 +18,9 @@ export async function requireUser(): Promise<{ userId: string } | { res: NextRes
 
 export function errorResponse(e: unknown): NextResponse {
   if (e instanceof RunError) return NextResponse.json({ error: e.message }, { status: e.status });
+  if (e instanceof GitHubRateLimitError) {
+    return NextResponse.json({ error: e.message, retryAfterSec: e.retryAfterSec }, { status: 429, headers: { "Retry-After": String(e.retryAfterSec) } });
+  }
   if (e instanceof GitHubError) return NextResponse.json({ error: e.message }, { status: 502 });
   console.error("run route error", e);
   return NextResponse.json({ error: "Something went wrong." }, { status: 500 });

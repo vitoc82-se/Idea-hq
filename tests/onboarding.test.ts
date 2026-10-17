@@ -6,6 +6,7 @@ const holder = vi.hoisted(() => ({ db: null as any })); // eslint-disable-line @
 vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get: (_t, k) => holder.db[k as string] }) }));
 
 import { getOnboarding, needsWelcome, MIN_CONTEXT_CHARS } from "@/lib/onboarding";
+import { clearSetupCache } from "@/lib/runs/setup-cache";
 import { buildContextPrompt, snapshotRepo } from "@/lib/context-draft";
 
 let t: ReturnType<typeof makeFakeDb>;
@@ -25,6 +26,7 @@ const BASE = { installationId: 5, repoOwner: "acme", repoName: "app", envBranche
 
 beforeEach(() => {
   t = makeFakeDb(); holder.db = t.db;
+  clearSetupCache();
   for (const k of Object.keys(state)) delete state[k];
   process.env.OWNER_EMAIL = "owner@x.se";
   t.tables.user.push({ id: "owner", email: "owner@x.se", approved: true }, { id: "u1", email: "f@x.se", approved: false });
