@@ -1,3 +1,4 @@
+# idea-hq-workflow-version: 2
 name: Idea HQ
 run-name: ${{ format('idea-hq {0}', inputs.run_id) }}
 
@@ -59,7 +60,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "idea-hq-niklas"
           prompt: ${{ inputs.prompt }}
-          claude_args: --max-turns 40
+          claude_args: --max-turns 40 --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
 
       - name: Verify (build and tests)
         id: verify
