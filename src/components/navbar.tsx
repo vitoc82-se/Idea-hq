@@ -4,17 +4,21 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, Settings } from "lucide-react";
 import { Button } from "./ui/button";
+import { Avatar } from "./ui/avatar";
 import { APP_VERSION } from "@/lib/version";
 
 const navLinks = [
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Navbar() {
+type Profile = { image?: string | null; name?: string | null; email?: string | null };
+
+export function Navbar({ profile }: { profile?: Profile }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,10 +52,16 @@ export function Navbar() {
         </nav>
 
         <div className="px-3 py-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              {session.user?.name?.[0]?.toUpperCase() || "U"}
-            </div>
+          <Link
+            href="/settings"
+            title="Settings"
+            className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <Avatar
+              image={profile?.image}
+              name={profile?.name ?? session.user?.name}
+              email={profile?.email ?? session.user?.email}
+            />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                 {session.user?.name || "User"}
@@ -60,7 +70,7 @@ export function Navbar() {
                 {session.user?.email}
               </p>
             </div>
-          </div>
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"
@@ -97,12 +107,21 @@ export function Navbar() {
               Idea HQ
             </span>
           </div>
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 text-gray-600 dark:text-gray-400"
-          >
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <Link href="/settings" title="Settings" className="p-1">
+              <Avatar
+                image={profile?.image}
+                name={profile?.name ?? session.user?.name}
+                email={profile?.email ?? session.user?.email}
+              />
+            </Link>
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="p-2 text-gray-600 dark:text-gray-400"
+            >
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
 
         {mobileOpen && (

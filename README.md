@@ -29,6 +29,10 @@ Set the same env vars in Vercel, then `git push origin main`. The build runs
 - `src/app/api/ideas/[id]/estimate` — AI effort/value/tags/scope
 - `src/app/api/ideas/[id]/plan` — AI build prompt for a coding agent
 - `src/lib/project-context.ts` — turns a project's context into the AI grounding block
+- `src/app/(app)/settings` — account settings (profile picture)
+- `src/app/api/profile` — `PATCH { image }`: sets/clears the signed-in user's avatar. Stored on
+  `User.image` as a ≤200 KB PNG/JPEG/WebP data URL (resized to 256×256 in the browser), so no blob
+  storage or extra env vars. Data URLs are kept out of the JWT; the app layout reads `User.image`.
 
 ## Implement with AI (GitHub App + Actions)
 
