@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users } from "lucide-react";
 import { Button } from "./ui/button";
+import { APP_VERSION } from "@/lib/version";
 
 const navLinks = [
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
@@ -76,6 +77,12 @@ export function Navbar() {
             <LogOut className="w-5 h-5" />
             Sign out
           </Button>
+          <p
+            className="px-3 pt-2 text-xs text-gray-500 dark:text-gray-400 truncate select-none"
+            title={APP_VERSION}
+          >
+            {APP_VERSION}
+          </p>
         </div>
       </aside>
 
