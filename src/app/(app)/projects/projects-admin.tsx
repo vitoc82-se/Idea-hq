@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -243,8 +243,8 @@ export function ProjectsAdmin() {
                     {!p.context && " · no context yet"}
                   </p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub">
-                  GitHub
+                <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
+                  <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => openEdit(p)} aria-label="Edit">
                   <Pencil className="w-4 h-4" />
