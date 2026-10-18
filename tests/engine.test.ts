@@ -40,6 +40,8 @@ function fakeGh(): typeof gh {
       state.lastInputs = inputs;
     },
     revertPr: async () => { log.push("revertPr"); return { number: 9 }; },
+    getSecretsPublicKey: async () => ({ keyId: "k1", key: "pk" }),
+    putSecret: async () => undefined,
     listDir: async () => [],
     listTree: async () => ({ paths: [], truncated: false }),
     commitsAhead: async () => 0,

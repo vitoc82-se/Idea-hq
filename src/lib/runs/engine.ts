@@ -9,7 +9,8 @@ import {
   runBranch,
 } from "./state";
 import { buildPrompt, buildLearnPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
-import { recommendTier, resolveTier, LEARN_TIER, type Override, type Tier } from "./policy";
+import { recommendTier, resolveTier, timeoutFor, type Override, type Tier } from "./policy";
+import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
 import { invalidateSetupCache } from "./setup-cache";
@@ -113,23 +114,30 @@ async function preflight(p: ProjectRow, base: string, gh: GitHubApi) {
   if (workflowVersion(wf.content) < WORKFLOW_VERSION) {
     throw new RunError(409, `The Idea HQ workflow in ${owner}/${repo} is outdated. Click "Update workflow" in the project's Repo & AI setup and merge that PR.`);
   }
-  if (!(await gh.secretExists(i, owner, repo, "ANTHROPIC_API_KEY"))) {
-    throw new RunError(409, `Add an ANTHROPIC_API_KEY secret to ${owner}/${repo} (Settings, Secrets and variables, Actions).`);
+  const provider = getProvider(p.aiProvider);
+  if (!provider.enabled()) {
+    throw new RunError(409, `${provider.label} is not available yet. Switch this project back to Claude, or wait until it is switched on.`);
+  }
+  if (!(await gh.secretExists(i, owner, repo, provider.secretName))) {
+    throw new RunError(409, `Add a Secret named ${provider.secretName} to ${owner}/${repo} (Settings, Secrets and variables, Actions, on the Secrets tab, not Variables).`);
   }
   return b;
 }
 
 async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, gh: GitHubApi) {
   const { i, owner, repo } = repoOf(p);
+  const provider = getProvider(p.aiProvider);
   try {
     await gh.dispatchWorkflow(i, owner, repo, WORKFLOW_FILE, run.baseBranch!, {
       run_id: run.id,
       branch: run.branch!,
       base: run.baseBranch!,
       prompt,
+      provider: provider.id,
       model: tier.model,
       effort: tier.effort,
       max_turns: String(tier.maxTurns),
+      timeout_minutes: String(timeoutFor(provider.id, tier.model, 1)),
     });
   } catch (e) {
     await db.run.updateMany({
@@ -142,11 +150,11 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, 
 
 // The tier we would pick for this run: from the idea's size and the project's
 // bias, one step up for every earlier failed attempt on the same idea.
-export async function recommendForRun(run: { ideaId: string | null; userId: string; id: string; project: { aiBias: string }; idea: { complexity: string | null } | null }) {
+export async function recommendForRun(run: { ideaId: string | null; userId: string; id: string; project: { aiBias: string; aiProvider?: string | null }; idea: { complexity: string | null } | null }) {
   const failed = run.ideaId
     ? await db.run.count({ where: { ideaId: run.ideaId, userId: run.userId, kind: "implement", status: "failed" } })
     : 0;
-  return recommendTier(run.idea?.complexity, run.project.aiBias, failed);
+  return recommendTier(run.idea?.complexity, run.project.aiBias, failed, run.project.aiProvider);
 }
 
 export async function approveRun(userId: string, runId: string, deps?: Deps, override: Override = {}) {
@@ -155,14 +163,14 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   if (run.status !== "awaiting_approval") throw new RunError(409, `Run is ${run.status}, not waiting for approval.`);
   const p = run.project;
   await preflight(p, run.baseBranch!, gh);
-  const { tier } = resolveTier(await recommendForRun(run), override);
+  const { tier } = resolveTier(await recommendForRun(run), override, p.aiProvider);
 
   const branch = runBranch(run.id);
   await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
     const ok = await tx.run.updateMany({
       where: { id: run.id, status: "awaiting_approval" },
-      data: { status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns },
+      data: { status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), provider: getProvider(p.aiProvider).id, model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns },
     });
     if (ok.count === 0) throw new RunError(409, "Run was already started.");
   });
@@ -192,7 +200,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
   // A revision keeps the tier the run started with.
   const rec = await recommendForRun(run);
-  const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns });
+  const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns }, run.provider ?? p.aiProvider);
   await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh);
   return fresh;
 }
@@ -228,20 +236,21 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
   const { env, base } = envBase(p);
   await preflight(p, base, gh);
   const loaded = await loadKnowledge(userId, projectId);
+  const learnTier = getProvider(p.aiProvider).learnTier;
 
   const runId = await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
     const row = await tx.run.create({
       data: {
         userId, projectId: p.id, ideaId: null, kind: "learn", status: "dispatched", env, baseBranch: base,
-        startedAt: deps?.now?.() ?? new Date(), model: LEARN_TIER.model, effort: LEARN_TIER.effort, maxTurns: LEARN_TIER.maxTurns,
+        startedAt: deps?.now?.() ?? new Date(), provider: getProvider(p.aiProvider).id, model: learnTier.model, effort: learnTier.effort, maxTurns: learnTier.maxTurns,
       },
     });
     await tx.run.update({ where: { id: row.id }, data: { branch: runBranch(row.id) } });
     return row.id;
   });
   const fresh = (await db.run.findUnique({ where: { id: runId } }))!;
-  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }), LEARN_TIER, gh);
+  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }), learnTier, gh);
   return fresh;
 }
 
@@ -405,7 +414,7 @@ export async function openSetupPr(
     head: branch,
     base,
     title: existingFile ? "Update Idea HQ workflow" : "Add Idea HQ workflow",
-    body: "Lets Idea HQ run an AI implementation in this repo.\n\nIt uses the `ANTHROPIC_API_KEY` Actions secret, a 30 minute timeout and a turn cap. Review the file, merge it, then add the secret.",
+    body: "Lets Idea HQ run an AI implementation in this repo.\n\nIt uses the API key you add as an Actions secret (never a variable), and has a hard time limit. Review the file, merge it, then add the key.",
   });
   await db.project.update({ where: { id: p.id }, data: { setupPrNumber: pr.number } });
   invalidateSetupCache(p.id);

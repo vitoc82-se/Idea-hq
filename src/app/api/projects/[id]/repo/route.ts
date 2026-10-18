@@ -4,6 +4,7 @@ import { github, installationConfigureUrl } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { safeCommand } from "@/lib/runs/workflow";
 import { invalidateSetupCache } from "@/lib/runs/setup-cache";
+import { getProvider, listProviders, isProviderId } from "@/lib/providers";
 import { WORKFLOW_PATH } from "@/lib/runs/state";
 import { WORKFLOW_VERSION, workflowVersion } from "@/lib/runs/workflow";
 
@@ -43,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       // Remember that the API key secret exists (one cheap call), so the progress
       // chip does not stay on "not done" for a key that is already there.
       if (current && !p.secretConfirmed) {
-        const has = await github.secretExists(p.installationId, p.repoOwner, p.repoName, "ANTHROPIC_API_KEY").catch(() => false);
+        const has = await github.secretExists(p.installationId, p.repoOwner, p.repoName, getProvider(p.aiProvider).secretName).catch(() => false);
         if (has) await db.project.update({ where: { id: p.id }, data: { secretConfirmed: true } });
       }
     }
@@ -52,10 +53,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       project: {
         installationId: p.installationId, repoOwner: p.repoOwner, repoName: p.repoName,
         envBranches: p.envBranches, defaultEnv: p.defaultEnv, autoMerge: p.autoMerge,
-        buildCommand: p.buildCommand, testCommand: p.testCommand, aiBias: p.aiBias,
+        buildCommand: p.buildCommand, testCommand: p.testCommand, aiBias: p.aiBias, aiProvider: getProvider(p.aiProvider).id,
         workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber,
       },
       available,
+      // What a user may pick, and the facts the UI needs (secret name, where to get a key).
+      providers: listProviders({ enabledOnly: true }).map((x) => ({ id: x.id, label: x.label, secretName: x.secretName, keyHelpUrl: x.keyHelpUrl, keyHelpText: x.keyHelpText })),
+      siblings: (await db.project.findMany({ where: { userId: auth.userId, id: { not: p.id }, repoOwner: { not: null } }, select: { id: true, name: true, repoOwner: true, repoName: true, aiProvider: true } })).map((x) => ({ id: x.id, name: x.name, repo: `${x.repoOwner}/${x.repoName}`, provider: getProvider(x.aiProvider).id })),
     });
   } catch (e) {
     return errorResponse(e);
@@ -101,12 +105,23 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: (e as Error).message }, { status: 400 });
     }
 
+    // Choosing a provider: only one that is switched on (or the one already set).
+    let aiProvider = getProvider(p.aiProvider).id;
+    if (b.aiProvider !== undefined) {
+      if (!isProviderId(b.aiProvider)) return NextResponse.json({ error: "Unknown AI provider." }, { status: 400 });
+      if (b.aiProvider !== aiProvider && !getProvider(b.aiProvider).enabled()) {
+        return NextResponse.json({ error: `${getProvider(b.aiProvider).label} is not available yet.` }, { status: 400 });
+      }
+      aiProvider = b.aiProvider;
+    }
+    const providerChanged = aiProvider !== getProvider(p.aiProvider).id;
+
     const changedRepo = p.repoOwner !== repo.owner || p.repoName !== repo.name || p.installationId !== installationId;
     const updated = await db.project.update({
       where: { id: p.id },
       data: {
         installationId, repoOwner: repo.owner, repoName: repo.name,
-        envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand, commandsConfirmed: true, aiBias: ["saver", "auto", "max"].includes(b.aiBias) ? b.aiBias : p.aiBias,
+        envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand, commandsConfirmed: true, aiProvider, ...(providerChanged ? { secretConfirmed: false } : {}), aiBias: ["saver", "auto", "max"].includes(b.aiBias) ? b.aiBias : p.aiBias,
         ...(changedRepo ? { workflowInstalled: false, setupPrNumber: null } : {}),
       },
     });

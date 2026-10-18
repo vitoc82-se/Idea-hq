@@ -70,7 +70,7 @@ describe("workflow template", () => {
   const wf = buildWorkflow({ appSlug: "idea-hq-app", buildCommand: "npm run build", testCommand: "npm test" });
   it("lets the app's bot dispatch, caps time and turns, and reports cost", () => {
     expect(wf).toContain('allowed_bots: "idea-hq-app"');
-    expect(wf).toContain("timeout-minutes: 30");
+    expect(wf).toContain("timeout-minutes: ${{ fromJSON(inputs.timeout_minutes || '30') }}");
     expect(wf).toContain("--max-turns ${{ inputs.max_turns ||");
     expect(wf).toContain("workflow_dispatch");
     expect(wf).toContain('context="idea-hq/run"');

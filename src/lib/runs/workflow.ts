@@ -1,4 +1,6 @@
 import { WORKFLOW_FILE } from "./state";
+import { claude, openai } from "../providers";
+import { CLAUDE_DEFAULT_MODEL } from "../providers/claude";
 import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from "../knowledge";
 
 // The workflow Idea HQ installs into a customer repo (via a one-time setup PR).
@@ -13,7 +15,7 @@ import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from
 
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
-export const WORKFLOW_VERSION = 3;
+export const WORKFLOW_VERSION = 4;
 export const VERSION_MARKER = "# idea-hq-workflow-version:";
 
 export function workflowVersion(content: string): number {
@@ -27,7 +29,7 @@ export function workflowVersion(content: string): number {
 export const ALLOWED_TOOLS =
   "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)";
 
-export const DEFAULT_MODEL = "claude-sonnet-5-5";
+export const DEFAULT_MODEL = CLAUDE_DEFAULT_MODEL;
 
 export type WorkflowOptions = {
   appSlug: string;
@@ -57,6 +59,9 @@ export function buildWorkflow(o: WorkflowOptions): string {
   if (build) checks.push(`          ${build} || FAILED="$FAILED build"`);
   if (test) checks.push(`          ${test} || FAILED="$FAILED tests"`);
 
+  const stepOpts = { appSlug: o.appSlug, maxTurns, allowedTools: ALLOWED_TOOLS };
+  const agentSteps = [claude, openai].map((p) => p.workflowStep(stepOpts)).join("\n").trimEnd();
+
   return `${VERSION_MARKER} ${WORKFLOW_VERSION}
 name: Idea HQ
 run-name: \${{ format('idea-hq {0}', inputs.run_id) }}
@@ -76,10 +81,18 @@ on:
       prompt:
         description: Instructions for the AI
         required: true
+      provider:
+        description: Which AI runs the work (claude or openai)
+        required: false
+        default: "claude"
       model:
-        description: Claude model id
+        description: Model id for the chosen provider
         required: false
         default: ${q(DEFAULT_MODEL)}
+      timeout_minutes:
+        description: Hard time limit for the run
+        required: false
+        default: ${q(String(timeout))}
       effort:
         description: Reasoning effort (low, medium, high, max)
         required: false
@@ -96,7 +109,7 @@ permissions:
 jobs:
   implement:
     runs-on: ubuntu-latest
-    timeout-minutes: ${timeout}
+    timeout-minutes: \${{ fromJSON(inputs.timeout_minutes || '${timeout}') }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -123,16 +136,7 @@ jobs:
         if: \${{ hashFiles('package-lock.json') != '' }}
         run: npm ci
 
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: \${{ secrets.GITHUB_TOKEN }}
-          allowed_bots: ${q(o.appSlug)}
-          prompt: \${{ inputs.prompt }}
-          claude_args: --max-turns \${{ inputs.max_turns || '${maxTurns}' }} --model \${{ inputs.model || '${DEFAULT_MODEL}' }} --effort \${{ inputs.effort || 'medium' }} --allowedTools "${ALLOWED_TOOLS}"
-
+${agentSteps}
       - name: Verify (build and tests)
         id: verify
         run: |
@@ -159,7 +163,7 @@ ${checks.length ? checks.join("\n") : '          echo "No build or test command 
           EXEC_FILE: \${{ steps.claude.outputs.execution_file }}
           SHA: \${{ steps.push.outputs.sha }}
           FAILED: \${{ steps.verify.outputs.failed }}
-          CONCLUSION: \${{ steps.claude.outputs.conclusion }}
+          AGENT_OK: \${{ ${claude.successExpr} || ${openai.successExpr} }}
         run: |
           COST=""; TURNS=""
           if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
@@ -167,7 +171,7 @@ ${checks.length ? checks.join("\n") : '          echo "No build or test command 
             TURNS=$(jq -r '[.[] | select(.type=="result")] | last | .num_turns // empty' "$EXEC_FILE" 2>/dev/null || true)
           fi
           STATE=success
-          [ "$CONCLUSION" = "success" ] || STATE=failure
+          [ "$AGENT_OK" = "true" ] || STATE=failure
           [ -z "$FAILED" ] || STATE=failure
           [ -n "$SHA" ] || SHA="\${{ github.sha }}"
           gh api "repos/\${{ github.repository }}/statuses/$SHA" \\

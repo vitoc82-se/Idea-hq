@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.6.0",
+    "libsodium-wrappers": "^0.8.4",
     "lucide-react": "^0.563.0",
     "next": "14.2.35",
     "next-auth": "^4.24.13",
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/libsodium-wrappers": "^0.7.14",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

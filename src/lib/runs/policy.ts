@@ -3,31 +3,25 @@
 // still safe. "Safe" comes from the gates around the AI (build + tests must pass
 // before merge, a human reads the diff, a one-click step up if a cheap run
 // fails), not from the model alone.
+//
+// The per-vendor facts (models, tiers, efforts) live in src/lib/providers. The
+// exports below keep their original names and, called without a provider, behave
+// exactly as before (Claude): frozen by tests/golden-claude.test.ts.
 
+import { claude, getProvider } from "../providers";
+import type { Effort, ModelChoice, ProviderId, Tier } from "../providers";
+
+export type { Effort, ModelChoice, Tier };
 export type Complexity = "S" | "M" | "L" | "XL";
-export type Effort = "low" | "medium" | "high" | "max";
 export type Bias = "saver" | "auto" | "max";
 
-export type ModelChoice = { id: string; label: string; note: string };
-export const MODELS: ModelChoice[] = [
-  { id: "claude-haiku-5-5", label: "Haiku 5.5", note: "cheapest, for small and clear changes" },
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5", note: "balanced, the everyday choice" },
-  { id: "claude-opus-5-5", label: "Opus 5.5", note: "strong, for bigger changes" },
-  { id: "claude-fable-5-1", label: "Fable 5.1", note: "strongest, for the hardest work" },
-];
+export const MODELS: ModelChoice[] = claude.models;
 export const MODEL_IDS = MODELS.map((m) => m.id);
-export const EFFORTS: Effort[] = ["low", "medium", "high", "max"];
+export const EFFORTS: Effort[] = claude.efforts;
 export const MAX_TURNS_RANGE = { min: 5, max: 100 };
 
-export type Tier = { model: string; effort: Effort; maxTurns: number };
-
 // Ordered cheap to strong. Index 0..3 matches S, M, L, XL.
-export const TIERS: Tier[] = [
-  { model: "claude-haiku-5-5", effort: "low", maxTurns: 15 },
-  { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 30 },
-  { model: "claude-opus-5-5", effort: "high", maxTurns: 50 },
-  { model: "claude-fable-5-1", effort: "high", maxTurns: 80 },
-];
+export const TIERS: Tier[] = claude.tiers;
 
 const BASE_INDEX: Record<Complexity, number> = { S: 0, M: 1, L: 2, XL: 3 };
 const clamp = (n: number) => Math.max(0, Math.min(TIERS.length - 1, n));
@@ -44,17 +38,19 @@ export type Recommendation = Tier & { index: number; reason: string };
 export function recommendTier(
   complexity: string | null | undefined,
   bias: string | null | undefined = "auto",
-  failedAttempts = 0
+  failedAttempts = 0,
+  provider: ProviderId | string | null | undefined = "claude"
 ): Recommendation {
+  const tiers = getProvider(provider).tiers;
   const known = isComplexity(complexity);
   const base = known ? BASE_INDEX[complexity] : 1; // unknown size: middle of the road
   const shift = bias === "saver" ? -1 : bias === "max" ? 1 : 0;
   const step = Math.max(0, Math.min(3, failedAttempts));
-  const index = clamp(base + shift + step);
+  const index = Math.max(0, Math.min(tiers.length - 1, base + shift + step));
   const parts = [known ? `${complexity} sized idea` : "size not estimated yet"];
   if (shift) parts.push(shift < 0 ? "project set to save money" : "project set to maximum quality");
   if (step) parts.push(`stepping up after ${step} failed attempt${step > 1 ? "s" : ""}`);
-  return { ...TIERS[index], index, reason: parts.join(", ") };
+  return { ...tiers[index], index, reason: parts.join(", ") };
 }
 
 export type Override = { model?: unknown; effort?: unknown; maxTurns?: unknown };
@@ -62,9 +58,15 @@ export type Override = { model?: unknown; effort?: unknown; maxTurns?: unknown }
 // Validate user choices against the allow-lists; anything missing or invalid
 // falls back to the recommendation. Returns the tier to run plus whether the
 // user changed anything.
-export function resolveTier(rec: Recommendation, o: Override = {}): { tier: Tier; overridden: boolean } {
-  const model = typeof o.model === "string" && MODEL_IDS.includes(o.model) ? o.model : rec.model;
-  const effort = typeof o.effort === "string" && (EFFORTS as string[]).includes(o.effort) ? (o.effort as Effort) : rec.effort;
+export function resolveTier(
+  rec: Recommendation,
+  o: Override = {},
+  provider: ProviderId | string | null | undefined = "claude"
+): { tier: Tier; overridden: boolean } {
+  const p = getProvider(provider);
+  const modelIds = p.models.map((m) => m.id);
+  const model = typeof o.model === "string" && modelIds.includes(o.model) ? o.model : rec.model;
+  const effort = typeof o.effort === "string" && (p.efforts as string[]).includes(o.effort) ? (o.effort as Effort) : rec.effort;
   const n = Number(o.maxTurns);
   const maxTurns =
     Number.isFinite(n) && n >= MAX_TURNS_RANGE.min && n <= MAX_TURNS_RANGE.max ? Math.round(n) : rec.maxTurns;
@@ -74,10 +76,25 @@ export function resolveTier(rec: Recommendation, o: Override = {}): { tier: Tier
   };
 }
 
-export const modelLabel = (id: string | null | undefined) => MODELS.find((m) => m.id === id)?.label ?? id ?? "default";
+// The time limit for a run: by the strongest tier whose model was chosen, so a
+// user who picks a big model is not cut off by a cheap tier's short timeout.
+export function timeoutFor(provider: ProviderId | string | null | undefined, model: string, fallbackIndex: number): number {
+  const p = getProvider(provider);
+  const i = p.tiers.findIndex((t) => t.model === model);
+  return p.timeoutMinutes(i >= 0 ? Math.max(i, 0) : fallbackIndex);
+}
+
+export const modelLabel = (id: string | null | undefined) => {
+  for (const pid of ["claude", "openai"] as const) {
+    const m = getProvider(pid).models.find((x) => x.id === id);
+    if (m) return m.label;
+  }
+  return id ?? "default";
+};
 
 // Models for the quick planning calls Idea HQ makes itself (server key, so
-// cost matters to the owner). Reasoning-heavy ones stay on the strong model.
+// cost matters to the owner). These stay on Claude whatever provider a project
+// runs its implementer on (review: helper calls are not part of this change).
 export const PLANNING_MODEL = {
   estimate: "claude-sonnet-5-5",
   context: "claude-sonnet-5-5",
@@ -90,4 +107,4 @@ export function planModel(complexity: string | null | undefined): string {
 
 // Learning a project means reading a whole repo and writing it up, so it gets a
 // stronger setup than a small change, but a bounded one.
-export const LEARN_TIER: Tier = { model: "claude-sonnet-5-5", effort: "high", maxTurns: 40 };
+export const LEARN_TIER: Tier = claude.learnTier;

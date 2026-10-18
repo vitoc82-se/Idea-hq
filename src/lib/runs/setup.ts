@@ -4,6 +4,7 @@ import { RunError } from "./engine";
 import { FULL_TTL_MS, fullCache } from "./setup-cache";
 import { WORKFLOW_PATH } from "./state";
 import { WORKFLOW_VERSION, workflowVersion } from "./workflow";
+import { getProvider } from "../providers";
 
 // The guided onboarding for one project. Every step's state is derived from the
 // real world (database + GitHub), never from "I clicked next", so the page
@@ -85,7 +86,7 @@ export async function getSetupStatus(
     const wf = await gh.getFile(i, o, r, WORKFLOW_PATH, base).catch(soft(null));
     workflowDone = !!wf && workflowVersion(wf.content) >= WORKFLOW_VERSION;
     workflowOutdated = !!wf && !workflowDone;
-    secretDone = workflowDone ? await gh.secretExists(i, o, r, "ANTHROPIC_API_KEY").catch(soft(false)) : false;
+    secretDone = workflowDone ? await gh.secretExists(i, o, r, getProvider(p.aiProvider).secretName).catch(soft(false)) : false;
     // Only needed to suggest commands before the user has confirmed them.
     if (!p.commandsConfirmed) {
       const pkg = await gh.getFile(i, o, r, "package.json", base).catch(soft(null));
@@ -115,7 +116,7 @@ export async function getSetupStatus(
     workflowOutdated ? "Your installed workflow is outdated. Update it to keep running." : p.setupPrNumber && !workflowDone ? `Merge setup PR #${p.setupPrNumber} on GitHub.` : undefined,
     p.setupPrNumber && repoUrl && !workflowDone ? `${repoUrl}/pull/${p.setupPrNumber}` : undefined);
   add("secret", secretDone ? "done" : steps[3].status !== "done" ? "blocked" : "todo",
-    secretDone ? undefined : "Add it as a Secret (not a Variable) named ANTHROPIC_API_KEY. Idea HQ never sees the key, it stays in GitHub.",
+    secretDone ? undefined : `Add it as a Secret (not a Variable) named ${getProvider(p.aiProvider).secretName}.`,
     repoUrl ? `${repoUrl}/settings/secrets/actions/new` : undefined);
   add("practice", merged ? "done" : steps[4].status !== "done" ? "blocked" : hasRun ? "warn" : "todo",
     merged ? "You have shipped a change with Idea HQ." : hasRun ? "A practice run exists. Finish it from the idea page." : "Try a tiny idea, like a one-line README change, before real work.");

@@ -99,6 +99,7 @@ model Project {
   commandsConfirmed Boolean  @default(false) // build/test commands reviewed in the setup journey
   knowledge         Json?    // structured project knowledge (see src/lib/knowledge.ts)
   knowledgePrNumber Int?     // open PR that saves the knowledge into the repo
+  aiProvider        String   @default("claude") // claude | openai (see src/lib/providers)
   secretConfirmed   Boolean  @default(false) // ANTHROPIC_API_KEY seen in the repo's secrets
   aiBias            String   @default("auto") // saver | auto | max: shifts the model tier
 
@@ -168,6 +169,7 @@ model Run {
   mergedSha    String?
   costUsd      Float?
   turns        Int?
+  provider     String?   // claude | openai
   model        String?   // model the run was dispatched with
   effort       String?
   maxTurns     Int?

@@ -10,6 +10,14 @@ export class GitHubError extends Error {
   }
 }
 
+// Writing a repo secret needs the app's "Secrets: write" permission, which an
+// installation may not have approved yet.
+export class SecretsPermissionError extends GitHubError {
+  constructor() {
+    super(403, "Idea HQ does not have permission to write secrets in this repo yet.");
+  }
+}
+
 // GitHub's per-installation limit (about 5,000 requests an hour) was hit. Carries
 // how long to wait so callers can back off instead of retrying.
 export class GitHubRateLimitError extends GitHubError {
@@ -38,6 +46,8 @@ export interface GitHubApi {
   listTree(i: number, owner: string, repo: string, ref: string): Promise<{ paths: string[]; truncated: boolean }>;
   commitsAhead(i: number, owner: string, repo: string, fromSha: string, toRef: string): Promise<number | null>;
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
+  getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
+  putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
   listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
   listRepos(i: number): Promise<{ owner: string; name: string; defaultBranch: string }[]>;
   closePr(i: number, owner: string, repo: string, n: number): Promise<void>;
@@ -237,6 +247,18 @@ export const github: GitHubApi = {
   async listPrFiles(i, owner, repo, n) {
     const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
     return (j || []).map((f) => f.filename);
+  },
+  async getSecretsPublicKey(i, owner, repo) {
+    const j = await call<{ key_id: string; key: string }>(i, "GET", `/repos/${owner}/${repo}/actions/secrets/public-key`);
+    return { keyId: j!.key_id, key: j!.key };
+  },
+  async putSecret(i, owner, repo, name, encryptedValue, keyId) {
+    try {
+      await call(i, "PUT", `/repos/${owner}/${repo}/actions/secrets/${name}`, { encrypted_value: encryptedValue, key_id: keyId });
+    } catch (e) {
+      if (e instanceof GitHubError && !(e instanceof GitHubRateLimitError) && e.status === 403) throw new SecretsPermissionError();
+      throw e;
+    }
   },
   async listDir(i, owner, repo, path, ref) {
     const j = await call<{ name: string; type: string }[]>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
