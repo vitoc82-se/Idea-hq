@@ -3,7 +3,7 @@ import { github as realGithub, GitHubRateLimitError, type GitHubApi } from "@/li
 import { RunError } from "./engine";
 import { FULL_TTL_MS, fullCache } from "./setup-cache";
 import { WORKFLOW_PATH } from "./state";
-import { WORKFLOW_VERSION, workflowVersion } from "./workflow";
+import { requiredWorkflowVersion, workflowVersion } from "./workflow";
 import { getProvider } from "../providers";
 
 // The guided onboarding for one project. Every step's state is derived from the
@@ -22,6 +22,8 @@ export type SetupStatus = {
   repo: { owner: string; name: string } | null;
   suggestions: { build: string | null; test: string | null };
   otherRepos: string[]; // other connected repos of this user, for the multi-repo key command
+  provider: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string };
+  siblings: { id: string; name: string; repo: string; provider: string }[]; // user's other connected projects (for the key relay)
 };
 
 // Suggest commands from a package.json. Prefer a dedicated typecheck as the
@@ -84,7 +86,7 @@ export async function getSetupStatus(
   if (!opts.quick && hasRepo && base) {
     const i = p.installationId!, o = p.repoOwner!, r = p.repoName!;
     const wf = await gh.getFile(i, o, r, WORKFLOW_PATH, base).catch(soft(null));
-    workflowDone = !!wf && workflowVersion(wf.content) >= WORKFLOW_VERSION;
+    workflowDone = !!wf && workflowVersion(wf.content) >= requiredWorkflowVersion(p.aiProvider);
     workflowOutdated = !!wf && !workflowDone;
     secretDone = workflowDone ? await gh.secretExists(i, o, r, getProvider(p.aiProvider).secretName).catch(soft(false)) : false;
     // Only needed to suggest commands before the user has confirmed them.
@@ -128,7 +130,13 @@ export async function getSetupStatus(
     .filter((x) => x.id !== p.id && x.repoOwner && x.repoName)
     .map((x) => `${x.repoOwner}/${x.repoName}`);
 
+  const prov = getProvider(p.aiProvider);
+  const siblings = mine
+    .filter((x) => x.id !== p.id && x.repoOwner && x.repoName)
+    .map((x) => ({ id: x.id, name: x.name, repo: `${x.repoOwner}/${x.repoName}`, provider: getProvider(x.aiProvider).id }));
   const result: SetupStatus = {
+    provider: { id: prov.id, label: prov.label, secretName: prov.secretName, keyHelpUrl: prov.keyHelpUrl, keyHelpText: prov.keyHelpText },
+    siblings,
     steps, done, total: steps.length, currentId: current ? current.id : null,
     repo: hasRepo ? { owner: p.repoOwner!, name: p.repoName! } : null,
     suggestions, otherRepos: Array.from(new Set(otherRepos)),

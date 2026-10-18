@@ -6,6 +6,7 @@ import { Check, Circle, Lock, AlertTriangle, Loader2, Copy, ExternalLink, Rocket
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProjectRepo } from "../../project-repo";
+import { KeyRelay } from "../../key-relay";
 
 type Step = { id: string; title: string; status: "done" | "todo" | "blocked" | "warn"; detail?: string; url?: string };
 type Status = {
@@ -13,6 +14,8 @@ type Status = {
   repo: { owner: string; name: string } | null;
   suggestions: { build: string | null; test: string | null };
   otherRepos: string[];
+  provider: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string };
+  siblings: { id: string; name: string; repo: string; provider: string }[];
 };
 
 const WHY: Record<string, string> = {
@@ -20,7 +23,7 @@ const WHY: Record<string, string> = {
   repo: "Pick the repo this project ships to, and the branch each pull request should target (for example live → main).",
   commands: "After the AI changes code, these commands decide if the change is safe: a type-check or build, and your tests. Empty is allowed, but then nothing verifies the work.",
   workflow: "A small file in your repo that lets GitHub run the AI for you, with a 30 minute and 40 turn cap. Idea HQ opens a pull request for it. You review and merge it once.",
-  secret: "The AI runs in your own GitHub Actions, so it needs your own Anthropic key. It lives only in your repo's secrets.",
+  secret: "The AI runs in your own GitHub Actions, so it needs your own API key from the AI company you chose. You can paste it here once and Idea HQ saves it in your repo as a secret and forgets it, or add it by hand.",
   practice: "Run one tiny idea end to end before real work, so you know what a run looks like and what it costs (usually 15 to 40 cents).",
 };
 
@@ -53,6 +56,7 @@ export function SetupJourney({
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
+  const [canRelay, setCanRelay] = useState<boolean | null>(null);
 
   const [limited, setLimited] = useState<string | null>(null);
   const pausedUntil = useRef(0);
@@ -78,6 +82,13 @@ export function SetupJourney({
       onStatus?.(j);
     }
   }, [projectId, onStatus]);
+
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/relay-capability`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setCanRelay(j ? !!j.canWrite : false))
+      .catch(() => setCanRelay(false));
+  }, [projectId]);
 
   const waitingOnGitHub = st?.currentId === "workflow" || st?.currentId === "secret";
   const waitingRef = useRef(false);
@@ -127,7 +138,7 @@ export function SetupJourney({
   };
 
   const allRepos = st.repo ? [`${st.repo.owner}/${st.repo.name}`, ...st.otherRepos.filter((r) => r !== `${st.repo!.owner}/${st.repo!.name}`)] : [];
-  const multiCmd = `read -s -p "Anthropic key: " KEY; echo; for r in ${allRepos.join(" ")}; do gh secret set ANTHROPIC_API_KEY --repo "$r" --body "$KEY"; done; unset KEY`;
+  const multiCmd = `read -s -p "API key: " KEY; echo; for r in ${allRepos.join(" ")}; do gh secret set ${st.provider.secretName} --repo "$r" --body "$KEY"; done; unset KEY`;
 
   const Icon = ({ s }: { s: Step["status"] }) =>
     s === "done" ? <Check className="w-5 h-5 text-emerald-600" /> : s === "warn" ? <AlertTriangle className="w-5 h-5 text-amber-500" /> : s === "blocked" ? <Lock className="w-4 h-4 text-gray-400" /> : <Circle className="w-5 h-5 text-emerald-600" />;
@@ -186,20 +197,29 @@ export function SetupJourney({
 
                   {s.id === "secret" && (
                     <div className="space-y-3">
-                      <ol className="text-sm text-gray-600 dark:text-gray-300 list-decimal pl-5 space-y-1">
-                        <li>Open the secret page on GitHub (button below). It must be a <b>Secret</b>, on the &quot;Secrets&quot; tab. Do not use the &quot;Variables&quot; tab: variables are shown in plain text and are not safe for a key.</li>
-                        <li>Name: <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">ANTHROPIC_API_KEY</code></li>
-                        <li>Secret: your key from console.anthropic.com. Use one with a small spending limit.</li>
-                        <li>Click Add secret, then come back. This page notices.</li>
-                      </ol>
-                      {s.url && <a href={s.url} target="_blank" rel="noreferrer"><Button size="sm">Open the secret page <ExternalLink className="w-3 h-3 ml-1" /></Button></a>}
-                      {allRepos.length > 1 && (
-                        <details className="text-sm">
-                          <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Several repos? Add the same key to all of them at once</summary>
-                          <p className="text-xs text-gray-500 my-2">Needs the GitHub CLI (<code>gh</code>) signed in. Paste your key when asked (it stays hidden). A personal GitHub account has no shared secrets, so each repo gets its own copy. An organization can use one organization secret instead.</p>
-                          <CopyBox text={multiCmd} />
-                        </details>
+                      {canRelay ? (
+                        <KeyRelay projectId={projectId} provider={st.provider} siblings={st.siblings} onDone={() => load("fresh")} />
+                      ) : (
+                        <p className="text-xs text-gray-500">Adding the key for you needs one more GitHub permission that has not been approved yet, so add it by hand below.</p>
                       )}
+                      <details className="text-sm" open={!canRelay}>
+                        <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Prefer to add it by hand on GitHub?</summary>
+                        <div className="mt-2 space-y-2">
+                          <ol className="text-sm text-gray-600 dark:text-gray-300 list-decimal pl-5 space-y-1">
+                            <li>Open the secret page on GitHub (button below). It must be a <b>Secret</b>, on the &quot;Secrets&quot; tab. Do not use the &quot;Variables&quot; tab: variables are shown in plain text and are not safe for a key.</li>
+                            <li>Name: <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">{st.provider.secretName}</code></li>
+                            <li>Secret: your key from {st.provider.keyHelpText}. Use one with a small spending limit.</li>
+                            <li>Click Add secret, then come back. This page notices.</li>
+                          </ol>
+                          {s.url && <a href={s.url} target="_blank" rel="noreferrer"><Button size="sm" variant="outline">Open the secret page <ExternalLink className="w-3 h-3 ml-1" /></Button></a>}
+                          {allRepos.length > 1 && (
+                            <div>
+                              <p className="text-xs text-gray-500 my-2">Several repos? With the GitHub CLI (<code>gh</code>) signed in, paste your key when asked (it stays hidden). A personal GitHub account has no shared secrets, so each repo gets its own copy.</p>
+                              <CopyBox text={multiCmd} />
+                            </div>
+                          )}
+                        </div>
+                      </details>
                     </div>
                   )}
 

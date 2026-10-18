@@ -8,7 +8,7 @@ import {
   isTerminal,
   runBranch,
 } from "./state";
-import { buildPrompt, buildLearnPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
+import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion } from "./workflow";
 import { recommendTier, resolveTier, timeoutFor, type Override, type Tier } from "./policy";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
@@ -111,8 +111,10 @@ async function preflight(p: ProjectRow, base: string, gh: GitHubApi) {
   if (!wf) {
     throw new RunError(409, `The Idea HQ workflow is missing on "${base}". Merge the setup PR first.`);
   }
-  if (workflowVersion(wf.content) < WORKFLOW_VERSION) {
-    throw new RunError(409, `The Idea HQ workflow in ${owner}/${repo} is outdated. Click "Update workflow" in the project's Repo & AI setup and merge that PR.`);
+  const wfVersion = workflowVersion(wf.content);
+  const need = requiredWorkflowVersion(p.aiProvider);
+  if (wfVersion < need) {
+    throw new RunError(409, `The Idea HQ workflow in ${owner}/${repo} is outdated${need > 3 ? " for this AI provider" : ""}. Click "Update workflow" in the project's Repo & AI setup and merge that PR.`);
   }
   const provider = getProvider(p.aiProvider);
   if (!provider.enabled()) {
@@ -121,10 +123,10 @@ async function preflight(p: ProjectRow, base: string, gh: GitHubApi) {
   if (!(await gh.secretExists(i, owner, repo, provider.secretName))) {
     throw new RunError(409, `Add a Secret named ${provider.secretName} to ${owner}/${repo} (Settings, Secrets and variables, Actions, on the Secrets tab, not Variables).`);
   }
-  return b;
+  return { branch: b, wfVersion };
 }
 
-async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, gh: GitHubApi) {
+async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, gh: GitHubApi, wfVersion: number) {
   const { i, owner, repo } = repoOf(p);
   const provider = getProvider(p.aiProvider);
   try {
@@ -133,11 +135,11 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, 
       branch: run.branch!,
       base: run.baseBranch!,
       prompt,
-      provider: provider.id,
       model: tier.model,
       effort: tier.effort,
       max_turns: String(tier.maxTurns),
-      timeout_minutes: String(timeoutFor(provider.id, tier.model, 1)),
+      // v4 inputs; a v3 workflow rejects inputs it does not declare.
+      ...(wfVersion >= 4 ? { provider: provider.id, timeout_minutes: String(timeoutFor(provider.id, tier.model, 1)) } : {}),
     });
   } catch (e) {
     await db.run.updateMany({
@@ -162,7 +164,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   const run = await loadOwned(userId, runId);
   if (run.status !== "awaiting_approval") throw new RunError(409, `Run is ${run.status}, not waiting for approval.`);
   const p = run.project;
-  await preflight(p, run.baseBranch!, gh);
+  const { wfVersion } = await preflight(p, run.baseBranch!, gh);
   const { tier } = resolveTier(await recommendForRun(run), override, p.aiProvider);
 
   const branch = runBranch(run.id);
@@ -176,7 +178,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   });
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
   if (run.ideaId) await db.idea.updateMany({ where: { id: run.ideaId, userId }, data: { status: "building" } });
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", testCommand: p.testCommand }), tier, gh);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", testCommand: p.testCommand }), tier, gh, wfVersion);
   return fresh;
 }
 
@@ -187,7 +189,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   if (run.kind !== "implement") throw new RunError(409, "Only an implementation can be revised.");
   if (run.status !== "pr_open") throw new RunError(409, "Only a run with an open PR can be revised.");
   const p = run.project;
-  await preflight(p, run.baseBranch!, gh);
+  const { wfVersion } = await preflight(p, run.baseBranch!, gh);
   await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
     const ok = await tx.run.updateMany({
@@ -201,7 +203,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   // A revision keeps the tier the run started with.
   const rec = await recommendForRun(run);
   const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns }, run.provider ?? p.aiProvider);
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh, wfVersion);
   return fresh;
 }
 
@@ -234,7 +236,7 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
   repoOf(p);
   if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
   const { env, base } = envBase(p);
-  await preflight(p, base, gh);
+  const { wfVersion } = await preflight(p, base, gh);
   const loaded = await loadKnowledge(userId, projectId);
   const learnTier = getProvider(p.aiProvider).learnTier;
 
@@ -250,7 +252,7 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
     return row.id;
   });
   const fresh = (await db.run.findUnique({ where: { id: runId } }))!;
-  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }), learnTier, gh);
+  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }), learnTier, gh, wfVersion);
   return fresh;
 }
 
@@ -393,7 +395,7 @@ export async function openSetupPr(
   const b = await gh.repoBranch(i, owner, repo, base);
   if (!b) throw new RunError(409, `Base branch "${base}" not found.`);
   const existingFile = await gh.getFile(i, owner, repo, WORKFLOW_PATH, base);
-  if (existingFile && workflowVersion(existingFile.content) >= WORKFLOW_VERSION) {
+  if (existingFile && workflowVersion(existingFile.content) >= requiredWorkflowVersion(p.aiProvider)) {
     await db.project.update({ where: { id: p.id }, data: { workflowInstalled: true } });
     throw new RunError(409, "The workflow is already installed on that branch.");
   }

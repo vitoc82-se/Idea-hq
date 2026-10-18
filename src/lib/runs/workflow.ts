@@ -16,6 +16,13 @@ import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
 export const WORKFLOW_VERSION = 4;
+// Claude runs only need the v3 inputs; the provider and timeout inputs arrived
+// with v4. So a repo still on v3 keeps working for Claude and is only asked to
+// update when its project switches to another provider.
+export const MIN_WORKFLOW_VERSION = 3;
+export function requiredWorkflowVersion(providerId: string | null | undefined): number {
+  return providerId && providerId !== "claude" ? WORKFLOW_VERSION : MIN_WORKFLOW_VERSION;
+}
 export const VERSION_MARKER = "# idea-hq-workflow-version:";
 
 export function workflowVersion(content: string): number {

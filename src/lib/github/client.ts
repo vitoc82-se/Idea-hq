@@ -311,3 +311,17 @@ export async function installationConfigureUrl(installationId: number): Promise<
     return fallback;
   }
 }
+
+// Does this installation have "Secrets: write" yet? (An installation keeps its old
+// permissions until its owner approves the new ones.) App-level request: it does
+// not use the installation's rate limit.
+export async function installationCanWriteSecrets(installationId: number): Promise<boolean> {
+  try {
+    const jwt = appJwt(process.env.GITHUB_APP_ID || "", privateKey());
+    const { res, json } = await raw(jwt, "GET", `/app/installations/${installationId}`);
+    if (!res.ok) return false;
+    return (json as { permissions?: Record<string, string> }).permissions?.secrets === "write";
+  } catch {
+    return false;
+  }
+}

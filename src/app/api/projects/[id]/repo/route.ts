@@ -6,7 +6,7 @@ import { safeCommand } from "@/lib/runs/workflow";
 import { invalidateSetupCache } from "@/lib/runs/setup-cache";
 import { getProvider, listProviders, isProviderId } from "@/lib/providers";
 import { WORKFLOW_PATH } from "@/lib/runs/state";
-import { WORKFLOW_VERSION, workflowVersion } from "@/lib/runs/workflow";
+import { requiredWorkflowVersion, workflowVersion } from "@/lib/runs/workflow";
 
 const BRANCH = /^[A-Za-z0-9._\/-]{1,100}$/;
 
@@ -35,7 +35,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       const map = (p.envBranches || {}) as Record<string, string>;
       const base = map[p.defaultEnv || ""] || Object.values(map)[0];
       const file = base ? await github.getFile(p.installationId, p.repoOwner, p.repoName, WORKFLOW_PATH, base).catch(() => null) : null;
-      const current = !!file && workflowVersion(file.content) >= WORKFLOW_VERSION;
+      const current = !!file && workflowVersion(file.content) >= requiredWorkflowVersion(p.aiProvider);
       workflowOutdated = !!file && !current;
       if (current !== p.workflowInstalled) {
         workflowInstalled = current;

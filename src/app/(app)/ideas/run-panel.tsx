@@ -20,6 +20,7 @@ type Run = {
   checksState: string | null;
   costUsd: number | null;
   turns: number | null;
+  provider?: string | null;
   model: string | null;
   effort: string | null;
   maxTurns: number | null;
@@ -55,6 +56,8 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
   const [instruction, setInstruction] = useState("");
   const [rec, setRec] = useState<Rec | null>(null);
   const [models, setModels] = useState<ModelChoice[]>([]);
+  const [efforts, setEfforts] = useState<string[]>(Object.keys(EFFORT_LABEL));
+  const [prov, setProv] = useState<{ id: string; label: string; reportsCost: boolean; supportsTurnCap: boolean } | null>(null);
   const [epic, setEpic] = useState<Epic | null>(null);
   const [pick, setPick] = useState<{ model: string; effort: string; maxTurns: number } | null>(null);
   const [changing, setChanging] = useState(false);
@@ -68,6 +71,8 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
         setRuns(j.runs);
         setRec(j.recommended);
         setModels(j.models || []);
+        if (j.efforts) setEfforts(j.efforts);
+        setProv(j.provider || null);
         setEpic(j.epic);
       }
     } finally {
@@ -176,6 +181,9 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                   <GitPullRequest className="w-4 h-4" /> PR #{run.prNumber} <ExternalLink className="w-3 h-3" />
                 </a>
               )}
+              {run.costUsd == null && prov && !prov.reportsCost && run.status !== "awaiting_approval" && (
+                <span className="text-xs text-gray-500">cost not reported by {prov.label.split(" ")[0]}</span>
+              )}
               {run.costUsd != null && (
                 <span className="text-xs text-gray-500">
                   ${run.costUsd.toFixed(2)}
@@ -193,7 +201,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                 {rec && tier && (
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2 text-sm">
                     <p className="text-gray-700 dark:text-gray-200">
-                      <b>{label(tier.model)}</b>, {EFFORT_LABEL[tier.effort]} effort, up to {tier.maxTurns} turns
+                      <b>{label(tier.model)}</b>, {EFFORT_LABEL[tier.effort]} effort{prov?.supportsTurnCap === false ? "" : `, up to ${tier.maxTurns} turns`}
                       <span className="text-xs text-gray-500"> · chosen automatically: {rec.reason}</span>
                     </p>
                     <button type="button" className="text-xs text-emerald-600 hover:underline" onClick={() => setChanging(!changing)}>
@@ -210,15 +218,15 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                         <div>
                           <label className="text-xs text-gray-500">Effort</label>
                           <Select value={tier.effort} onChange={(e) => setPick({ ...tier, effort: e.target.value })}>
-                            {Object.entries(EFFORT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                            {efforts.map((k) => <option key={k} value={k}>{EFFORT_LABEL[k] || k}</option>)}
                           </Select>
                         </div>
-                        <div>
+                        {prov?.supportsTurnCap !== false && <div>
                           <label className="text-xs text-gray-500">Max turns</label>
                           <Select value={String(tier.maxTurns)} onChange={(e) => setPick({ ...tier, maxTurns: Number(e.target.value) })}>
                             {[10, 15, 30, 50, 80, 100].map((n) => <option key={n} value={n}>{n}</option>)}
                           </Select>
-                        </div>
+                        </div>}
                       </div>
                     )}
                     <p className="text-xs text-gray-500">Stronger settings cost more. Small ideas do fine on the cheapest tier because build and tests must still pass before merge.</p>

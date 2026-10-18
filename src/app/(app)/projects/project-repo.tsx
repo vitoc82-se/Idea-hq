@@ -14,9 +14,11 @@ type Data = {
   project: {
     installationId: number | null; repoOwner: string | null; repoName: string | null;
     envBranches: Record<string, string> | null; defaultEnv: string | null; autoMerge: boolean;
-    buildCommand: string | null; testCommand: string | null; aiBias?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null;
+    buildCommand: string | null; testCommand: string | null; aiBias?: string; aiProvider?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null;
   };
   available: Available[];
+  providers?: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string }[];
+  siblings?: { id: string; name: string; repo: string; provider: string }[];
 };
 
 export function ProjectRepo({
@@ -42,6 +44,7 @@ export function ProjectRepo({
   const [test, setTest] = useState("");
   const [autoMerge, setAutoMerge] = useState(false);
   const [aiBias, setAiBias] = useState("auto");
+  const [aiProvider, setAiProvider] = useState("claude");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -60,6 +63,7 @@ export function ProjectRepo({
     setTest(p.testCommand || "");
     setAutoMerge(p.autoMerge);
     setAiBias(p.aiBias || "auto");
+    setAiProvider(p.aiProvider || "claude");
   }, [projectId]);
 
   useEffect(() => {
@@ -92,7 +96,7 @@ export function ProjectRepo({
       body: JSON.stringify({
         installationId: Number(inst), repoOwner: owner, repoName: name,
         envBranches: Object.fromEntries(envs.filter((e) => e.name && e.branch).map((e) => [e.name, e.branch])),
-        defaultEnv, autoMerge, aiBias, buildCommand: build, testCommand: test,
+        defaultEnv, autoMerge, aiBias, aiProvider, buildCommand: build, testCommand: test,
       }),
     });
     const j = await res.json().catch(() => ({}));
@@ -188,6 +192,16 @@ export function ProjectRepo({
                 Use them
               </button>
             </p>
+          )}
+
+          {(data.providers?.length ?? 0) > 1 && (
+            <div>
+              <Label className="text-xs">Which AI builds the changes</Label>
+              <Select value={aiProvider} onChange={(e) => setAiProvider(e.target.value)} className="mt-1">
+                {data.providers!.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+              </Select>
+              <p className="text-xs text-gray-400 mt-1">Each one needs its own API key in the repo ({data.providers!.find((x) => x.id === aiProvider)?.secretName}). Switching is instant, no new setup pull request.</p>
+            </div>
           )}
 
           <div>

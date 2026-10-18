@@ -2,18 +2,18 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { startRun, reconcileRun, recommendForRun } from "@/lib/runs/engine";
-import { MODELS } from "@/lib/runs/policy";
+import { getProvider } from "@/lib/providers";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
-  checksState: true, costUsd: true, turns: true, model: true, effort: true, maxTurns: true, error: true, createdAt: true, finishedAt: true, parentRunId: true,
+  checksState: true, costUsd: true, turns: true, provider: true, model: true, effort: true, maxTurns: true, error: true, createdAt: true, finishedAt: true, parentRunId: true,
 } as const;
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
-    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true } });
+    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, project: { select: { aiProvider: true } } } });
     if (!idea) return NextResponse.json({ error: "Idea not found" }, { status: 404 });
 
     // Epic: when the idea is split into stories, show them and which one is next.
@@ -54,7 +54,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       });
       if (full) recommended = await recommendForRun(full);
     }
-    return NextResponse.json({ runs, recommended, epic, models: MODELS });
+    const prov = getProvider(idea.project?.aiProvider);
+    return NextResponse.json({
+      runs, recommended, epic,
+      models: prov.models,
+      efforts: prov.efforts,
+      provider: { id: prov.id, label: prov.label, reportsCost: prov.reportsCost, supportsTurnCap: prov.supportsTurnCap },
+    });
   } catch (e) {
     return errorResponse(e);
   }

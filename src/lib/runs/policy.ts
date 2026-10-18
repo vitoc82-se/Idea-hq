@@ -24,7 +24,6 @@ export const MAX_TURNS_RANGE = { min: 5, max: 100 };
 export const TIERS: Tier[] = claude.tiers;
 
 const BASE_INDEX: Record<Complexity, number> = { S: 0, M: 1, L: 2, XL: 3 };
-const clamp = (n: number) => Math.max(0, Math.min(TIERS.length - 1, n));
 
 export function isComplexity(c: unknown): c is Complexity {
   return c === "S" || c === "M" || c === "L" || c === "XL";
