@@ -9,7 +9,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
-  startRun, approveRun, reviseRun, mergeRun, revertRun, cancelRun,
+  startRun, startLearnRun, approveRun, reviseRun, mergeRun, revertRun, cancelRun,
   handleWebhook, reconcileRun, openSetupPr, RunError, STUCK_AFTER_MS,
 } from "@/lib/runs/engine";
 
@@ -245,6 +245,130 @@ describe("epics (ideas split into stories)", () => {
     expect(r.status).toBe("awaiting_approval");
     t.tables.idea.find((i) => i.id === "s1")!.status = "done";
     expect((await startRun("u1", "s2", deps())).status).toBe("awaiting_approval");
+  });
+});
+
+describe("learn the project", () => {
+  const KMD = "# Shop: project knowledge\n\n## What it is and who it is for\n\nA small shop.\n\n## Technology\n\nNext.js and Prisma.\n";
+
+  it("dispatches a learn run with the strong learn tier and the knowledge prompt", async () => {
+    await startLearnRun("u1", "p1", deps());
+    const run = t.tables.run[0];
+    expect(run).toMatchObject({ kind: "learn", status: "dispatched", ideaId: null, model: "claude-sonnet-5-5", effort: "high", maxTurns: 40 });
+    expect(run.branch).toBe(`idea-hq/${run.id}`);
+    expect(gh.state.lastInputs.prompt).toContain(".idea-hq/KNOWLEDGE.md");
+    expect(gh.state.lastInputs.prompt).toContain("## Technology");
+    expect(gh.state.lastInputs.prompt).toContain("Do NOT run git commit");
+    expect(gh.state.lastInputs).toMatchObject({ model: "claude-sonnet-5-5", effort: "high", max_turns: "40" });
+  });
+
+  it("shares the one-run-at-a-time lock with implementations", async () => {
+    await dispatchedRun();
+    await expect(startLearnRun("u1", "p1", deps())).rejects.toThrow(/already executing/);
+  });
+
+  it("needs the workflow installed, and belongs to the owner only", async () => {
+    await expect(startLearnRun("u2", "p1", deps())).rejects.toMatchObject({ status: 404 });
+    t.tables.project[0].workflowInstalled = false;
+    await expect(startLearnRun("u1", "p1", deps())).rejects.toThrow(/setup/i);
+  });
+
+  async function finishLearn(content: string | null) {
+    await startLearnRun("u1", "p1", deps());
+    const id = t.tables.run[0].id;
+    gh.state.branches[`idea-hq/${id}`] = { sha: "learnhead", protected: false };
+    const realGetFile = gh.getFile;
+    gh.getFile = async (i: number, o: string, r: string, path: string, ref: string) =>
+      path === ".idea-hq/KNOWLEDGE.md" ? (content ? { sha: "k", content } : null) : realGetFile(i, o, r, path, ref);
+    await handleWebhook("workflow_run", { action: "completed", repository: { full_name: "acme/app" }, workflow_run: { id: 5, display_title: `idea-hq ${id}`, conclusion: "success" } }, "learn-1", deps());
+    return id;
+  }
+
+  it("opens a PR titled for the knowledge and stores what it wrote in Idea HQ right away", async () => {
+    await finishLearn(KMD);
+    expect(t.tables.run[0]).toMatchObject({ status: "pr_open", prNumber: 7 });
+    const k = t.tables.project[0].knowledge;
+    expect(k.sections.what).toMatchObject({ text: "A small shop.", source: "learn-run", status: "needs_review" });
+    expect(k.sections.stack.text).toBe("Next.js and Prisma.");
+    expect(k.learnedSha).toBe("base1");
+    expect(t.tables.project[0].context).toContain("A small shop.");
+  });
+
+  it("never overwrites what the owner already confirmed", async () => {
+    t.tables.project[0].knowledge = { sections: { what: { text: "Mine, confirmed", source: "you", status: "confirmed", updatedAt: "2026-01-01T00:00:00Z" } } };
+    await finishLearn(KMD);
+    expect(t.tables.project[0].knowledge.sections.what.text).toBe("Mine, confirmed");
+    expect(t.tables.project[0].knowledge.sections.stack.text).toBe("Next.js and Prisma.");
+  });
+
+  it("fails clearly (not as 'no changes') when the file was not written, and a missing file stores nothing", async () => {
+    await finishLearn(null);
+    expect(t.tables.project[0].knowledge ?? null).toBeNull();
+  });
+
+  it("a learn run cannot be revised or reverted, and merging it notes it in memory without touching ideas", async () => {
+    const id = await finishLearn(KMD);
+    await expect(reviseRun("u1", id, "x", deps())).rejects.toThrow(/Only an implementation/);
+    gh.state.pr = { ...gh.state.pr, headSha: "learnhead" };
+    gh.state.checks = { state: "green", failing: [] };
+    await mergeRun("u1", id, {}, deps());
+    expect(t.tables.run[0].status).toBe("merged");
+    expect(t.tables.idea[0].status).toBe("new");
+    expect(t.tables.projectMemory.some((m) => /saved into the repo/.test(m.text))).toBe(true);
+    await expect(revertRun("u1", id, deps())).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("project memory from runs", () => {
+  const texts = () => t.tables.projectMemory.map((m) => `${m.kind}: ${m.text}`);
+
+  it("records what shipped, with the areas touched", async () => {
+    await prOpenRun();
+    gh.listPrFiles = async () => ["pages/index.js", "pages/about.js", "lib/x.js"];
+    await mergeRun("u1", "RUN1", {}, deps());
+    expect(texts().some((x) => /^change: Shipped "Add dark mode" \(PR #7\)\. Touched: pages\/ \(2\), lib\/ \(1\)\./.test(x))).toBe(true);
+  });
+
+  it("records the owner's change requests as lessons, in their own words", async () => {
+    await prOpenRun();
+    await reviseRun("u1", "RUN1", "Use the existing Button component", deps());
+    expect(texts().some((x) => x.startsWith("lesson:") && x.includes("Use the existing Button component"))).toBe(true);
+  });
+
+  it("records a no-change attempt as a gotcha, a closed PR and a revert as lessons", async () => {
+    await dispatchedRun();
+    gh.state.branches["idea-hq/RUN1"] = { sha: "base1", protected: false };
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "m1", deps());
+    expect(texts().some((x) => x.startsWith("gotcha:") && x.includes("made no changes"))).toBe(true);
+  });
+
+  it("notes a PR closed without merging", async () => {
+    await prOpenRun();
+    await handleWebhook("pull_request", { action: "closed", number: 7, repository: { full_name: "acme/app" }, pull_request: { number: 7, merged: false } }, "m2", deps());
+    expect(texts().some((x) => x.startsWith("lesson:") && x.includes("closed without merging"))).toBe(true);
+  });
+
+  it("notes a revert", async () => {
+    await prOpenRun();
+    await mergeRun("u1", "RUN1", {}, deps());
+    await revertRun("u1", "RUN1", deps());
+    expect(texts().some((x) => x.includes("was reverted after shipping"))).toBe(true);
+  });
+
+  it("feeds memory into the context the AI reads", async () => {
+    await prOpenRun();
+    await mergeRun("u1", "RUN1", {}, deps());
+    expect(t.tables.project[0].context).toContain("Learned while working on this project");
+    expect(t.tables.project[0].context).toContain("Shipped");
+  });
+
+  it("a memory failure never breaks the run", async () => {
+    await prOpenRun();
+    const mem = (t.db as any).projectMemory; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const orig = mem.create;
+    mem.create = async () => { throw new Error("db down"); };
+    await expect(mergeRun("u1", "RUN1", {}, deps())).resolves.toMatchObject({ merged: true });
+    mem.create = orig;
   });
 });
 

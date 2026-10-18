@@ -8,8 +8,10 @@ import {
   isTerminal,
   runBranch,
 } from "./state";
-import { buildPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
-import { recommendTier, resolveTier, type Override, type Tier } from "./policy";
+import { buildPrompt, buildLearnPrompt, WORKFLOW_VERSION, workflowVersion } from "./workflow";
+import { recommendTier, resolveTier, LEARN_TIER, type Override, type Tier } from "./policy";
+import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
+import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
 import { invalidateSetupCache } from "./setup-cache";
 
 export class RunError extends Error {
@@ -174,7 +176,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   const gh = g(deps);
   if (!instruction.trim()) throw new RunError(400, "Describe what to change.");
   const run = await loadOwned(userId, runId);
-  if (run.kind === "revert") throw new RunError(409, "Revert PRs cannot be revised.");
+  if (run.kind !== "implement") throw new RunError(409, "Only an implementation can be revised.");
   if (run.status !== "pr_open") throw new RunError(409, "Only a run with an open PR can be revised.");
   const p = run.project;
   await preflight(p, run.baseBranch!, gh);
@@ -186,12 +188,81 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
     });
     if (ok.count === 0) throw new RunError(409, "Run changed, try again.");
   });
+  await remember(run, "lesson", `Asked for changes on "${run.idea?.title || "a change"}": ${instruction.trim().slice(0, 300)}`, false);
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
   // A revision keeps the tier the run started with.
   const rec = await recommendForRun(run);
   const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns });
   await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh);
   return fresh;
+}
+
+// ---- memory (what Idea HQ learns from working on the project) -------------
+
+// Never let a memory write break a run: it is a nicety on top of the real work.
+async function remember(run: { userId: string; projectId: string; id: string }, kind: string, text: string, withRunId = true) {
+  try {
+    await addMemory(run.userId, run.projectId, { kind, text, runId: withRunId ? run.id : undefined });
+  } catch (e) {
+    console.error("memory write failed", e);
+  }
+}
+
+function areasOf(files: string[]): string {
+  const counts = new Map<string, number>();
+  for (const f of files) {
+    const top = f.includes("/") ? f.split("/")[0] + "/" : f;
+    counts.set(top, (counts.get(top) || 0) + 1);
+  }
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${k} (${n})`).join(", ");
+}
+
+// ---- learn the project (runs in the owner's GitHub, like an implementation) --
+
+export async function startLearnRun(userId: string, projectId: string, deps?: Deps) {
+  const gh = g(deps);
+  const p = await db.project.findFirst({ where: { id: projectId, userId } });
+  if (!p) throw new RunError(404, "Project not found");
+  repoOf(p);
+  if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
+  const { env, base } = envBase(p);
+  await preflight(p, base, gh);
+  const loaded = await loadKnowledge(userId, projectId);
+
+  const runId = await db.$transaction(async (tx) => {
+    await lockAndCheckIdle(tx as unknown as typeof db, p.id);
+    const row = await tx.run.create({
+      data: {
+        userId, projectId: p.id, ideaId: null, kind: "learn", status: "dispatched", env, baseBranch: base,
+        startedAt: deps?.now?.() ?? new Date(), model: LEARN_TIER.model, effort: LEARN_TIER.effort, maxTurns: LEARN_TIER.maxTurns,
+      },
+    });
+    await tx.run.update({ where: { id: row.id }, data: { branch: runBranch(row.id) } });
+    return row.id;
+  });
+  const fresh = (await db.run.findUnique({ where: { id: runId } }))!;
+  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }), LEARN_TIER, gh);
+  return fresh;
+}
+
+// When a learn run opens its PR, read what it wrote and store it in Idea HQ
+// straight away (marked "needs review"). The repo copy follows when the PR merges.
+async function ingestLearn(run: { userId: string; projectId: string; branch: string | null; baseBranch: string | null; project: ProjectRow }, gh: GitHubApi) {
+  try {
+    const { i, owner, repo } = repoOf(run.project);
+    const file = run.branch ? await gh.getFile(i, owner, repo, KNOWLEDGE_FILE, run.branch) : null;
+    if (!file) return;
+    const parsed = parseMarkdown(file.content);
+    if (!Object.keys(parsed).length) return;
+    const loaded = await loadKnowledge(run.userId, run.projectId);
+    if (!loaded) return;
+    const baseHead = run.baseBranch ? await gh.repoBranch(i, owner, repo, run.baseBranch).catch(() => null) : null;
+    let k = mergeAiSections(loaded.knowledge, parsed, "learn-run");
+    k = { ...k, learnedSha: baseHead?.sha ?? k.learnedSha, learnedAt: new Date().toISOString() };
+    await saveKnowledge(run.userId, run.projectId, k);
+  } catch (e) {
+    console.error("learn ingest failed", e);
+  }
 }
 
 // ---- merge / revert / cancel ----------------------------------------------
@@ -222,15 +293,33 @@ export async function mergeRun(userId: string, runId: string, opts: { auto?: boo
   }
 
   const merged = await gh.mergePr(i, owner, repo, run.prNumber, pr.headSha);
-  await finishMerged(run, merged.sha);
+  await finishMerged(run, merged.sha, gh);
   return { merged: true, sha: merged.sha };
 }
 
 async function finishMerged(
-  run: { id: string; status: string; userId: string; ideaId: string | null; kind: string; prNumber: number | null },
-  sha: string
+  run: { id: string; status: string; userId: string; projectId?: string; ideaId: string | null; kind: string; prNumber: number | null; project?: ProjectRow; idea?: { title: string } | null },
+  sha: string,
+  gh?: GitHubApi
 ) {
   const ok = await transition(run, "merged", { mergedSha: sha, finishedAt: new Date(), checksState: "green" });
+  if (ok && run.projectId) {
+    const mem = { userId: run.userId, projectId: run.projectId, id: run.id };
+    if (run.kind === "implement") {
+      let areas = "";
+      if (gh && run.project && run.prNumber) {
+        try {
+          const { i, owner, repo } = repoOf(run.project);
+          areas = areasOf(await gh.listPrFiles(i, owner, repo, run.prNumber));
+        } catch { /* optional detail */ }
+      }
+      await remember(mem, "change", `Shipped "${run.idea?.title || "a change"}" (PR #${run.prNumber}).${areas ? ` Touched: ${areas}.` : ""}`);
+    } else if (run.kind === "learn") {
+      await remember(mem, "decision", "Project knowledge was saved into the repo (.idea-hq/KNOWLEDGE.md).");
+    } else if (run.kind === "revert") {
+      await remember(mem, "lesson", "A shipped change was reverted. Be careful with similar changes.");
+    }
+  }
   if (ok && run.ideaId && run.kind === "implement") {
     await db.idea.updateMany({
       where: { id: run.ideaId, userId: run.userId },
@@ -246,7 +335,7 @@ async function finishMerged(
 export async function revertRun(userId: string, runId: string, deps?: Deps) {
   const gh = g(deps);
   const run = await loadOwned(userId, runId);
-  if (run.status !== "merged" || !run.prNumber || run.kind === "revert") {
+  if (run.status !== "merged" || !run.prNumber || run.kind !== "implement") {
     throw new RunError(409, "Only a merged implementation can be reverted.");
   }
   const dup = await db.run.findFirst({ where: { parentRunId: run.id, kind: "revert", status: { in: ["pr_open", "merged"] } } });
@@ -255,6 +344,7 @@ export async function revertRun(userId: string, runId: string, deps?: Deps) {
   const { i, owner, repo } = repoOf(p);
   const pr = await gh.getPr(i, owner, repo, run.prNumber);
   const rev = await gh.revertPr(i, owner, repo, pr.nodeId, `Revert: ${run.idea?.title || "Idea HQ change"}`);
+  await remember(run, "lesson", `"${run.idea?.title || "A change"}" was reverted after shipping. Be careful with similar changes.`, false);
   return db.run.create({
     data: {
       userId, projectId: p.id, ideaId: run.ideaId, kind: "revert", status: "pr_open",
@@ -432,6 +522,7 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
     });
     return "failed";
   }
+  const isLearn = run.kind === "learn";
   if (run.prNumber) {
     // Revision: same PR, new commit.
     const pr = await gh.getPr(i, owner, repo, run.prNumber);
@@ -448,17 +539,21 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   }
   const base0 = await gh.repoBranch(i, owner, repo, base);
   if (base0 && base0.sha === head) {
-    await transition(run, "failed", { error: "The AI made no changes.", finishedAt: new Date() });
+    await transition(run, "failed", { error: isLearn ? "The AI did not write the knowledge file." : "The AI made no changes.", finishedAt: new Date() });
+    if (!isLearn) await remember(run, "gotcha", `An attempt at "${run.idea?.title || "a change"}" made no changes. The idea may need to be more specific.`);
     return "failed";
   }
   // Open the PR with the App token, so the repo's own pull_request CI fires.
   const pr = await gh.openPr(i, owner, repo, {
     head: run.branch!,
     base,
-    title: run.idea?.title || "Idea HQ change",
-    body: `Implemented by Idea HQ (run ${run.id}).\n\nPlan:\n\n${run.plan || ""}`.slice(0, 60000),
+    title: isLearn ? "Add project knowledge (Idea HQ)" : run.idea?.title || "Idea HQ change",
+    body: isLearn
+      ? `Idea HQ explored this repository and wrote down what it learned in ${KNOWLEDGE_FILE}, so people and AI tools starting work here begin with the same understanding. Review it, fix anything wrong, then merge.`
+      : `Implemented by Idea HQ (run ${run.id}).\n\nPlan:\n\n${run.plan || ""}`.slice(0, 60000),
   });
   await transition(run, "pr_open", { prNumber: pr.number, headSha: head, checksState: "pending", ghRunId: String(wr.id) });
+  if (isLearn) await ingestLearn(run, gh);
   return "pr_opened";
 }
 
@@ -476,10 +571,11 @@ async function onPullRequest(run: RunRow & { project: ProjectRow; idea: { title:
   const pr = payload.pull_request;
   if (payload.action === "closed") {
     if (pr?.merged) {
-      await finishMerged(run, pr.merge_commit_sha || "");
+      await finishMerged(run, pr.merge_commit_sha || "", gh);
       return "merged";
     }
-    await transition(run, "closed", { finishedAt: new Date() });
+    const closed = await transition(run, "closed", { finishedAt: new Date() });
+    if (closed && run.kind === "implement") await remember(run, "lesson", `The change for "${run.idea?.title || "an idea"}" was closed without merging, so it was not what the owner wanted.`);
     return "closed";
   }
   if (payload.action === "synchronize" && pr?.head?.sha && run.status === "pr_open") {
@@ -509,7 +605,7 @@ export async function reconcileRun(runId: string, deps?: Deps): Promise<void> {
   if (run.status === "pr_open" && run.prNumber) {
     const { i, owner, repo } = repoOf(run.project);
     const pr = await gh.getPr(i, owner, repo, run.prNumber);
-    if (pr.merged) return void (await finishMerged(run, pr.mergeCommitSha || ""));
+    if (pr.merged) return void (await finishMerged(run, pr.mergeCommitSha || "", gh));
     if (pr.state === "closed") return void (await transition(run, "closed", { finishedAt: now }));
     await recomputeChecks({ ...run, headSha: pr.headSha }, gh);
     await db.run.updateMany({ where: { id: run.id, status: "pr_open" }, data: { headSha: pr.headSha } });

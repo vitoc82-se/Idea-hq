@@ -87,3 +87,7 @@ export const PLANNING_MODEL = {
 export function planModel(complexity: string | null | undefined): string {
   return complexity === "L" || complexity === "XL" ? "claude-opus-5-5" : "claude-sonnet-5-5";
 }
+
+// Learning a project means reading a whole repo and writing it up, so it gets a
+// stronger setup than a small change, but a bounded one.
+export const LEARN_TIER: Tier = { model: "claude-sonnet-5-5", effort: "high", maxTurns: 40 };

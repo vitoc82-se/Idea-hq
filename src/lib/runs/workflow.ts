@@ -1,4 +1,5 @@
 import { WORKFLOW_FILE } from "./state";
+import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from "../knowledge";
 
 // The workflow Idea HQ installs into a customer repo (via a one-time setup PR).
 // Findings from the claude-code-action source read (eng review spike S6):
@@ -201,4 +202,29 @@ export function buildPrompt(args: {
     "- Do NOT edit anything under .github/workflows, and never print or write secrets.",
     "- Finish with a short summary of what changed and what you tested.",
   ].join("\n");
+}
+
+// Instructions for a "learn this project" run: explore the whole repo and write
+// what it finds in the exact headings Idea HQ reads back.
+export function buildLearnPrompt(projectName: string, known: Knowledge): string {
+  const told = SECTION_DEFS.filter((d) => known.sections[d.id]?.status === "confirmed")
+    .map((d) => `### ${d.title}\n${known.sections[d.id]!.text}`)
+    .join("\n\n");
+  return [
+    `Learn the project "${projectName}" by exploring this repository, then write down what you learned for people and AI tools that will work on it later.`,
+    "",
+    `Write ONE file: ${KNOWLEDGE_FILE}. Use exactly these second-level headings, in this order, and skip a heading only if you truly cannot tell:`,
+    ...SECTION_DEFS.filter((d) => d.core).map((d) => `## ${d.title}   (${d.hint})`),
+    "",
+    "How to explore: list the folders, read the README and any docs, the dependency/manifest files, the main entry points, the routes or pages, the data models or schema, the build and CI configuration, and a couple of representative source files. Follow imports to understand how the parts fit together.",
+    "Rules for the writing:",
+    "- Plain, concrete language. The reader may not be a developer. Name real folders, files, commands and data models you saw.",
+    "- Only write what you verified in the repo. Never invent. If you are unsure, say what you could not tell.",
+    "- Keep each section under 180 words.",
+    told ? `\nThe owner already confirmed these facts. Keep them, do not contradict them:\n${told}` : "",
+    "",
+    `Also make sure CLAUDE.md in the repository root contains the line ${CLAUDE_IMPORT_LINE}. If CLAUDE.md does not exist, create it with a short title and that line. If it exists, add that line at the end and change nothing else.`,
+    "Do not change any other file. Do NOT run git commit, git push or open pull requests: the workflow does that. Do not edit anything under .github/workflows, and never print or write secrets.",
+    "Finish with a two-sentence summary of what you found.",
+  ].filter((l) => l !== "").join("\n");
 }
