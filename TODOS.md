@@ -26,3 +26,16 @@
 **Why:** v1 shows "not reported by this provider" because the Codex and Gemini actions return no cost or usage (review D5).
 **Pros:** parity with Claude's cost display. **Cons:** price tables go stale; may not be possible if logs lack token counts.
 **Depends on:** provider spike showing whether token usage appears in the logs, and a maintainable price source.
+
+## Ticket attachments (screenshots)
+**What:** Let customers attach images to support tickets, stored privately with expiring links.
+**Why:** Faster support. Left out of v1 of the ticket system because anonymous uploads are the riskiest public surface (eng review 2026-10-18, T1).
+**Required safeguards:** size and type limits, content-type sniffing, virus scan, private storage (@vercel/blob) with expiring links, per-project storage cap, deletion with the ticket.
+**Depends on:** the ticket system shipped and abuse protection proven in production.
+
+## Reply to tickets by email (inbound email)
+**What:** Customers reply from their mail app and the reply lands in the ticket.
+**Why:** The familiar helpdesk flow. v1 is send-only; customers reply on a private ticket page (review D2, T2).
+**Needs:** a provider with inbound parsing, per-ticket reply address for threading, quote and signature stripping, bounce and auto-reply handling, spam filtering.
+**Trigger:** customers repeatedly ask to reply by email, or owners find the ticket page a barrier.
+**Depends on:** send-only email from v1.
