@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { knowledgeTone, KNOWLEDGE_TONE_CLASSES } from "@/lib/knowledge";
 
 type Section = { id: string; title: string; hint: string; core: boolean; text: string; source: string | null; status: string | null; updatedAt: string | null };
 type Mem = { id: string; kind: string; text: string; pinned: boolean; source: string; createdAt: string };
@@ -125,7 +126,7 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
           The AI reads this before every estimate and plan. The better it is, the better the results. Fix anything that is wrong, and fill in what it could not see.
         </p>
         <div className="mt-3">
-          <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"><div className="h-full bg-emerald-600 transition-all" style={{ width: `${pct}%` }} /></div>
+          <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"><div className={`h-full transition-all ${KNOWLEDGE_TONE_CLASSES[knowledgeTone(pct)].bar}`} style={{ width: `${pct}%` }} /></div>
           <p className="text-xs text-gray-500 mt-1">
             {pct}% complete · {d.completeness.filled} of {d.completeness.total} topics filled · {d.completeness.confirmed} confirmed by you
             {d.freshness.learnedAt && <> · learned {formatDistanceToNow(new Date(d.freshness.learnedAt), { addSuffix: true })}</>}

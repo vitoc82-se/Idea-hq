@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseKnowledge, knowledgeFor, setSection, mergeAiSections, confirmAll, completeness, assembleContext, selectMemory,
-  renderMarkdown, parseMarkdown, withClaudeImport, SECTION_DEFS, CORE_SECTION_COUNT, CLAUDE_IMPORT_LINE, type Knowledge,
+  renderMarkdown, parseMarkdown, withClaudeImport, knowledgeTone, KNOWLEDGE_TONE_CLASSES, SECTION_DEFS, CORE_SECTION_COUNT, CLAUDE_IMPORT_LINE, type Knowledge,
 } from "@/lib/knowledge";
 
 const NOW = new Date("2026-10-18T10:00:00Z");
@@ -117,5 +117,16 @@ describe("repo copy", () => {
     expect(existing.startsWith("# My rules\n\nBe nice.")).toBe(true);
     expect(existing).toContain(CLAUDE_IMPORT_LINE);
     expect(withClaudeImport(existing)).toBe(existing);
+  });
+});
+
+describe("knowledgeTone (traffic light)", () => {
+  it("0-49 red, 50-79 yellow, 80-94 light green, 95-100 green", () => {
+    const cases: [number, string][] = [[0, "red"], [1, "red"], [49, "red"], [50, "yellow"], [79, "yellow"], [80, "lime"], [94, "lime"], [95, "green"], [100, "green"]];
+    for (const [pct, tone] of cases) expect(knowledgeTone(pct), `${pct}%`).toBe(tone);
+  });
+  it("has a distinct button and bar style for every tone", () => {
+    const buttons = Object.values(KNOWLEDGE_TONE_CLASSES).map((c) => c.button);
+    expect(new Set(buttons).size).toBe(4);
   });
 });

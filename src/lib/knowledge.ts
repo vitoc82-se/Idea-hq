@@ -187,3 +187,21 @@ export function withClaudeImport(existing: string | null | undefined): string {
   if (!cur) return `# Project notes\n\nProject knowledge, kept up to date by Idea HQ:\n\n${CLAUDE_IMPORT_LINE}\n`;
   return `${cur}\n\n## Project knowledge (Idea HQ)\n\n${CLAUDE_IMPORT_LINE}\n`;
 }
+
+// Traffic-light colour for "how well does the AI know this project".
+// 0-49 red, 50-79 yellow, 80-94 light green, 95-100 green.
+export type KnowledgeTone = "red" | "yellow" | "lime" | "green";
+export function knowledgeTone(percent: number): KnowledgeTone {
+  if (percent >= 95) return "green";
+  if (percent >= 80) return "lime";
+  if (percent >= 50) return "yellow";
+  return "red";
+}
+
+// Full class strings (written out so Tailwind keeps them).
+export const KNOWLEDGE_TONE_CLASSES: Record<KnowledgeTone, { button: string; bar: string }> = {
+  red: { button: "bg-red-600 hover:bg-red-700 text-white", bar: "bg-red-600" },
+  yellow: { button: "bg-yellow-400 hover:bg-yellow-500 text-yellow-950", bar: "bg-yellow-400" },
+  lime: { button: "bg-lime-400 hover:bg-lime-500 text-lime-950", bar: "bg-lime-400" },
+  green: { button: "bg-green-600 hover:bg-green-700 text-white", bar: "bg-green-600" },
+};

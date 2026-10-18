@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { Project } from "../ideas/ideas-shared";
 import Link from "next/link";
 import { ProjectRepo } from "./project-repo";
-import { completeness, knowledgeFor } from "@/lib/knowledge";
+import { completeness, knowledgeFor, knowledgeTone, KNOWLEDGE_TONE_CLASSES } from "@/lib/knowledge";
 
 // How much of the project the AI knows, from the stored knowledge.
 const knowPct = (p: { knowledge?: unknown; context?: string | null }) => completeness(knowledgeFor(p.knowledge ?? null, p.context)).percent;
@@ -253,8 +253,13 @@ export function ProjectsAdmin() {
                     {progress[p.id].done >= progress[p.id].total ? "AI ready" : `Setup ${progress[p.id].done}/${progress[p.id].total}`}
                   </Link>
                 )}
-                <Link href={`/projects/${p.id}/knowledge`} className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${(knowPct(p) >= 70) ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}>
-                  Knows {knowPct(p)}%
+                <Link
+                  href={`/projects/${p.id}/knowledge`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm ${KNOWLEDGE_TONE_CLASSES[knowledgeTone(knowPct(p))].button}`}
+                  title="What the AI knows about this project. Click to improve it."
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Project knowledge {knowPct(p)}%
                 </Link>
                 <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
                   <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
