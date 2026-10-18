@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ const knowPct = (p: { knowledge?: unknown; context?: string | null }) => complet
 
 const BLANK = { name: "", slug: "", color: "", context: "", contextSourceUrl: "" };
 
-export function ProjectsAdmin() {
+export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boolean }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -261,6 +261,15 @@ export function ProjectsAdmin() {
                   <BookOpen className="w-4 h-4" />
                   Project knowledge {knowPct(p)}%
                 </Link>
+                {supportEnabled && (
+                  <Link
+                    href={`/projects/${p.id}/support`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
+                  >
+                    <LifeBuoy className="w-4 h-4" />
+                    Support
+                  </Link>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
                   <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
                 </Button>

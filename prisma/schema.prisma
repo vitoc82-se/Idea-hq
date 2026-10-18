@@ -57,6 +57,8 @@ model User {
   // Daily cap on server-paid AI calls (estimate / plan / breakdown).
   aiCallsDay    String?   // YYYY-MM-DD (UTC) the counter applies to
   aiCallsToday  Int       @default(0)
+  // Opt-in feature flags the owner grants per account (e.g. "tickets").
+  features      String[]  @default([])
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -107,6 +109,8 @@ model Project {
   ideas Idea[]
   runs  Run[]
   memory ProjectMemory[]
+  support SupportSpace?
+  tickets Ticket[]
 
   @@unique([userId, slug])
   @@index([userId])
@@ -225,4 +229,79 @@ model ProjectMemory {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
+}
+
+// ---- Support tickets (see src/lib/support). The public widget reaches these
+// tables only through src/lib/support/public-store.ts.
+
+// One per project: switches support on and holds the widget settings.
+model SupportSpace {
+  id               String   @id @default(cuid())
+  projectId        String   @unique
+  enabled          Boolean  @default(false)
+  publicKey        String   @unique   // appears in the embed code; not a secret
+  allowedOrigins   String[] @default([]) // sites allowed to frame the widget
+  title            String   @default("Support")
+  brandColor       String   @default("#047857")
+  logoUrl          String?
+  theme            String   @default("auto") // auto | light | dark
+  formSchema       Json?
+  aiEnabled        Boolean  @default(false)
+  aiDailyCap       Int      @default(50)
+  retentionDays    Int      @default(365)
+  notifyEmail      String?
+  replyTimeNote    String?
+  supportKnowledge Json?    // owner-reviewed help notes; only confirmed ones reach customers
+  ticketCounter    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id             String    @id @default(cuid())
+  projectId      String
+  number         Int
+  status         String    @default("open") // open | pending | resolved | closed
+  subject        String
+  customerEmail  String
+  customerName   String?
+  fields         Json
+  needsHuman     Boolean   @default(true)
+  aiAnswered     Boolean   @default(false)
+  unread         Boolean   @default(true)  // owner has not opened the latest customer activity
+  tokenHash      String    @unique         // sha256 of the customer's private link token
+  lastActivityAt DateTime  @default(now())
+  closedAt       DateTime?     // set when resolved or closed; retention counts from here
+  createdAt      DateTime  @default(now())
+
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@unique([projectId, number])
+  @@index([projectId, status])
+  @@index([projectId, customerEmail])
+  @@index([projectId, closedAt])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  author    String   // customer | owner | ai
+  body      String   @db.Text // plain text only
+  aiMeta    Json?
+  emailedAt DateTime?
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+// Fixed-window counters for public-route rate limits (keys hold hashed ids only).
+model RateBucket {
+  key         String   @id
+  windowStart DateTime
+  count       Int      @default(0)
 }

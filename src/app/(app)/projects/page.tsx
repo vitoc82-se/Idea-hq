@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { canUse } from "@/lib/access";
+import { hasTickets } from "@/lib/support/owner";
 import { ProjectsAdmin } from "./projects-admin";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,6 @@ export default async function ProjectsPage() {
     );
   }
 
-  return <ProjectsAdmin />;
+  const supportEnabled = await hasTickets(session?.user?.id as string, session?.user?.email ?? null);
+  return <ProjectsAdmin supportEnabled={supportEnabled} />;
 }

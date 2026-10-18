@@ -12,7 +12,7 @@ export async function GET() {
   }
   const users = await db.user.findMany({
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, email: true, approved: true, createdAt: true },
+    select: { id: true, name: true, email: true, approved: true, features: true, createdAt: true },
   });
   return NextResponse.json({ users });
 }

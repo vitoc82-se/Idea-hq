@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isOwner } from "@/lib/owner";
+import { KNOWN_FEATURES } from "@/lib/support/constants";
 
-// Owner-only: approve or revoke an account.
+// Owner-only: approve or revoke an account, and switch optional features (e.g. tickets) on or off.
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -14,8 +15,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.approved !== "boolean") {
-    return NextResponse.json({ error: "approved (boolean) required" }, { status: 400 });
+  const hasApproved = body && typeof body.approved === "boolean";
+  const hasFeatures = body && Array.isArray(body.features) && body.features.every((f: unknown) => typeof f === "string" && (KNOWN_FEATURES as readonly string[]).includes(f));
+  if (!hasApproved && !hasFeatures) {
+    return NextResponse.json({ error: "approved (boolean) or features (known names) required" }, { status: 400 });
   }
   const target = await db.user.findUnique({
     where: { id: params.id },
@@ -26,8 +29,11 @@ export async function PATCH(
   }
   const user = await db.user.update({
     where: { id: params.id },
-    data: { approved: body.approved },
-    select: { id: true, email: true, approved: true },
+    data: {
+      ...(hasApproved ? { approved: body.approved } : {}),
+      ...(hasFeatures ? { features: Array.from(new Set<string>(body.features)) } : {}),
+    },
+    select: { id: true, email: true, approved: true, features: true },
   });
   return NextResponse.json({ user });
 }

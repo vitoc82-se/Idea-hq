@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen, LifeBuoy } from "lucide-react";
 import { Button } from "./ui/button";
 import { APP_VERSION } from "@/lib/version";
 
@@ -15,12 +15,36 @@ const navLinks = [
   { href: "/guide", label: "Guide", icon: BookOpen },
 ];
 
+const supportLink = { href: "/support", label: "Support", icon: LifeBuoy };
+
 export function Navbar() {
   const { data: session } = useSession();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // The Support item only exists for accounts that have the tickets feature.
+  const [support, setSupport] = useState<{ enabled: boolean; unread: number }>({ enabled: false, unread: 0 });
+  const signedIn = !!session;
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let stop = false;
+    const load = () =>
+      fetch("/api/tickets/unread")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!stop && d) setSupport({ enabled: !!d.enabled, unread: Number(d.unread) || 0 });
+        })
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 60000);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [signedIn]);
 
   if (!session) return null;
+  const links = support.enabled ? [navLinks[0], navLinks[1], supportLink, ...navLinks.slice(2)] : navLinks;
 
   return (
     <>
@@ -36,7 +60,7 @@ export function Navbar() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navLinks.map((link) => (
+          {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -44,6 +68,11 @@ export function Navbar() {
             >
               <link.icon className="w-5 h-5" />
               {link.label}
+              {link.href === "/support" && support.unread > 0 && (
+                <span className="ml-auto rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-semibold text-white" aria-label={`${support.unread} unread`}>
+                  {support.unread}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -108,7 +137,7 @@ export function Navbar() {
 
         {mobileOpen && (
           <nav className="px-4 py-2 pb-4 space-y-1 border-t border-gray-100 dark:border-gray-800">
-            {navLinks.map((link) => (
+            {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -117,6 +146,11 @@ export function Navbar() {
               >
                 <link.icon className="w-5 h-5" />
                 {link.label}
+                {link.href === "/support" && support.unread > 0 && (
+                  <span className="ml-auto rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-semibold text-white" aria-label={`${support.unread} unread`}>
+                    {support.unread}
+                  </span>
+                )}
               </Link>
             ))}
             <Button
