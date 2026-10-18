@@ -150,11 +150,11 @@ function answer(d){
       h('span',{class:'tag'},['AI answer']),
       h('p',{class:'answer',id:'ans',tabindex:'-1',text:d.answer}),
       h('p',{class:'muted'},['Based on our help notes. Not what you needed? ',
-        h('button',{type:'button',class:'linkbtn',onclick:function(){form(state.question,'unsure');}},['Contact us'])])
+        h('button',{type:'button',class:'linkbtn inl',onclick:function(){form(state.question,'nothelp');}},['Contact us'])])
     ]),
     h('div',{class:'stack'},[
       h('button',{type:'button',class:'btn',onclick:thanks},['That solved it']),
-      h('button',{type:'button',class:'btn secondary',onclick:function(){form(state.question,'unsure');}},['This did not help, contact us'])
+      h('button',{type:'button',class:'btn secondary',onclick:function(){form(state.question,'nothelp');}},['This did not help, contact us'])
     ])
   ],'#ans');
 }
@@ -191,6 +191,7 @@ function form(prefill,kind){
   var parts=[];
   var intro=null;
   if(kind==='sensitive'){intro=h('p',{class:'kind',id:'kind'},['That one needs a person. Order and account questions are handled by our team, and we will reply by email.']);}
+  else if(kind==='nothelp'){intro=h('p',{class:'kind',id:'kind'},['Sorry that did not help. Send us a message and we will reply by email.']);}
   else if(kind==='unsure'){intro=h('p',{class:'kind',id:'kind'},['We could not find an answer in our help notes. Send us a message and we will reply by email.']);}
   var defs=[{id:'email',label:'Your email',type:'email',required:true,maxLength:254,helpText:'We reply here. Nobody else sees it.'}]
     .concat(cfg.form.fields)

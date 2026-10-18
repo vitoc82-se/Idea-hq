@@ -53,7 +53,7 @@ describe("guide page", () => {
 
   it("uses the same button names as the app, so people can follow along", async () => {
     const html = renderToStaticMarkup(await GuidePage());
-    for (const label of ["Generate build prompt", "Approve and run", "Approve and merge", "Request changes", "Revert this change", "Break into stories", "Check again", "Quick draft from my repo", "Learn deeply in my GitHub", "Answer a few questions", "Save a copy in my repo", "Read my repo and describe it", "This looks right"]) {
+    for (const label of ["Generate build prompt", "Approve and run", "Approve and merge", "Request changes", "Revert this change", "Break into stories", "Check again", "Quick draft from my repo", "Learn deeply in my GitHub", "Answer a few questions", "Save a copy in my repo", "Read my repo and describe it", "This looks right", "Turn on support", "Draft notes from my project knowledge", "Check my site"]) {
       expect(html, label).toContain(label);
     }
   });

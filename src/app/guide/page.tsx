@@ -21,6 +21,7 @@ const TOC = [
   ["ideas", "Writing good ideas"],
   ["safe", "Staying in control"],
   ["cost", "What it costs"],
+  ["support", "Support for your own users"],
   ["stuck", "If you get stuck"],
 ];
 
@@ -193,6 +194,19 @@ export default async function GuidePage() {
           <li>Each run has a time limit and a step cap, so a stuck run cannot run up a bill forever.</li>
           <li>After each run, Idea HQ shows what it cost.</li>
           <li>The quick helper steps (estimates, plans, project description) are paid by the Idea HQ owner and limited per person each day.</li>
+        </UL>
+
+        <H id="support">Support for your own users</H>
+        <P>
+          Optional, and switched on per account by the owner. It adds a Help button to your website. Visitors ask a question, get an answer from help notes you wrote and approved, or send you a message. You answer from one inbox called Support, and they get your reply by email.
+        </P>
+        <UL>
+          <li>Open a project, press Support, then Turn on support.</li>
+          <li>Under &quot;What the form asks&quot; choose what you need to know, such as an order number. Email and Message are always asked.</li>
+          <li>Under &quot;Help notes for the AI&quot; press &quot;Draft notes from my project knowledge&quot;, read each note, fix it, and press Approve. Only approved notes are ever used.</li>
+          <li>Under &quot;Put it on your site&quot; add your website to Allowed sites, then copy the code, or ask your AI to add it. Use &quot;Check my site&quot; to see that it works.</li>
+          <li>Questions about orders, payments or accounts are never answered by the AI. They always come to you.</li>
+          <li>Closed tickets are deleted after the number of days you choose, and you can download or delete everything from one customer.</li>
         </UL>
 
         <H id="stuck">If you get stuck</H>

@@ -45,3 +45,11 @@
 **Why:** The app's emerald #059669 with white text measures 3.77:1, below the 4.5:1 minimum for normal text. The ticket screens use the darker green (design review 2026-10-18, decision 6C), so old and new screens differ in shade until this is done.
 **Pros:** accessible everywhere, one accent token. **Cons:** touches every existing screen.
 **Depends on:** DESIGN.md written (design review decision 5B) so the token has one home.
+
+## Support tickets (shipped 2026-10-18), follow-ups
+- Attachments on tickets (screenshots): needs file storage (Vercel Blob is installed) plus scanning; v1 is text only.
+- Inbound email (customers replying to the notification email): needs an inbound mail provider; v1 is send-only and replies happen on the private ticket page.
+- Phones: the widget's send button is not pinned above the on-screen keyboard yet (design review 6A); it scrolls with the form.
+- Replies by customer after "resolved" reopen the ticket; consider a polite auto-close after N days of silence.
+- Assignment, canned replies, SLA timers, analytics, multi-language widget: not built.
+- Re-run `npm run support:eval` (live model, costs a few cents) after changing src/lib/support/ai.ts or the model.

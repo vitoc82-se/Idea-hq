@@ -343,6 +343,10 @@ describe("public pages and embed script", () => {
     const js = await res.text();
     expect(js).toContain(KEY);
     expect(js).toContain('"https://ideahq.cloud"');
+    const blocked = await embedJs(req("/embed/" + KEY + ".js", undefined, { referer: "https://not-allowed.example/page" }), { params: { file: KEY + ".js" } });
+    expect(await blocked.text()).toContain("not available");
+    const allowed = await embedJs(req("/embed/" + KEY + ".js", undefined, { referer: "https://shop.example.com/page" }), { params: { file: KEY + ".js" } });
+    expect(await allowed.text()).toContain("ORIGIN");
     expect((await embedJs(req("/embed/x"), { params: { file: KEY } })).status).toBe(404);
     expect((await embedJs(req("/embed/x"), { params: { file: "../../etc/passwd.js" } })).status).toBe(404);
   });

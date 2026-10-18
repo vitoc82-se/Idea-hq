@@ -83,6 +83,7 @@ button{font:inherit}
 .stack{display:grid;gap:10px}
 .pagemode{max-width:520px;margin:0 auto;border-left:1px solid var(--soft);border-right:1px solid var(--soft)}
 .wide{max-width:680px;margin:0 auto;padding:16px}
+.linkbtn.inl{display:inline;min-height:0;padding:0;font-size:inherit}
 .linkbtn{display:inline-block;min-height:44px;padding:10px 0;border:0;background:none;color:var(--link);text-decoration:underline;cursor:pointer}
 :focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .tag{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--tagbg);color:var(--tagfg);font-size:12px;font-weight:650}
@@ -98,7 +99,7 @@ button{font:inherit}
 .who b{color:var(--fg)}
 .txt{white-space:pre-wrap;overflow-wrap:anywhere}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-@media (max-width:480px){body{font-size:16px}.in{font-size:16px}}
+@media (max-width:480px){body{font-size:16px}.in{font-size:16px}.iconbtn{order:-1;margin:-6px 0 -6px -8px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 `;
 }
