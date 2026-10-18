@@ -35,6 +35,9 @@ export interface GitHubApi {
   checkSummary(i: number, owner: string, repo: string, sha: string, requireOwn?: boolean): Promise<CheckSummary>;
   dispatchWorkflow(i: number, owner: string, repo: string, file: string, ref: string, inputs: Record<string, string>): Promise<void>;
   revertPr(i: number, owner: string, repo: string, prNodeId: string, title: string): Promise<{ number: number }>;
+  listTree(i: number, owner: string, repo: string, ref: string): Promise<{ paths: string[]; truncated: boolean }>;
+  commitsAhead(i: number, owner: string, repo: string, fromSha: string, toRef: string): Promise<number | null>;
+  listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
   listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
   listRepos(i: number): Promise<{ owner: string; name: string; defaultBranch: string }[]>;
   closePr(i: number, owner: string, repo: string, n: number): Promise<void>;
@@ -222,6 +225,18 @@ export const github: GitHubApi = {
     if (!n) throw new GitHubError(422, `Revert failed: ${j?.errors?.[0]?.message || "unknown"}`);
     void owner; void repo;
     return { number: n };
+  },
+  async listTree(i, owner, repo, ref) {
+    const j = await call<{ tree: { path: string; type: string }[]; truncated: boolean }>(i, "GET", `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`, undefined, [404, 409]);
+    return { paths: (j?.tree || []).filter((t) => t.type === "blob").map((t) => t.path), truncated: !!j?.truncated };
+  },
+  async commitsAhead(i, owner, repo, fromSha, toRef) {
+    const j = await call<{ ahead_by: number }>(i, "GET", `/repos/${owner}/${repo}/compare/${fromSha}...${encodeURIComponent(toRef)}`, undefined, [404, 422]);
+    return j ? j.ahead_by : null;
+  },
+  async listPrFiles(i, owner, repo, n) {
+    const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
+    return (j || []).map((f) => f.filename);
   },
   async listDir(i, owner, repo, path, ref) {
     const j = await call<{ name: string; type: string }[]>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);

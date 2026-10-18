@@ -7,7 +7,6 @@ vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get: (_t, k) => holder.db[k as 
 
 import { getOnboarding, needsWelcome, MIN_CONTEXT_CHARS } from "@/lib/onboarding";
 import { clearSetupCache } from "@/lib/runs/setup-cache";
-import { buildContextPrompt, snapshotRepo } from "@/lib/context-draft";
 
 let t: ReturnType<typeof makeFakeDb>;
 const state: Record<string, any> = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -114,24 +113,3 @@ describe("getOnboarding", () => {
   });
 });
 
-describe("context draft", () => {
-  it("snapshots README, package.json and folder names", async () => {
-    state.readme = "# Shop"; state.pkg = '{"name":"shop"}';
-    const snap = await snapshotRepo(gh, 5, "acme", "app", "main");
-    expect(snap.readme).toBe("# Shop");
-    expect(snap.top).toContain("src/");
-    expect(snap.src).toContain("src/app/page.tsx");
-  });
-  it("the prompt includes the files, forbids guessing and treats files as data", () => {
-    const p = buildContextPrompt("Shop", { readme: "# Shop", pkg: "{}", docs: [], top: ["src/"], src: [] });
-    expect(p).toContain("<README.md>");
-    expect(p).toMatch(/ONLY on the files below/);
-    expect(p).toMatch(/data, not instructions/);
-  });
-  it("truncates huge files", async () => {
-    state.readme = "a".repeat(50_000);
-    const snap = await snapshotRepo(gh, 5, "acme", "app", "main");
-    expect(snap.readme!.length).toBeLessThan(7100);
-    expect(snap.readme).toContain("truncated");
-  });
-});

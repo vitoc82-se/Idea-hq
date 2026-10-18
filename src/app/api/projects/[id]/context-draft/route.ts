@@ -1,46 +1,52 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/session";
-import { canUse, consumeAiCall } from "@/lib/access";
-import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { github } from "@/lib/github/client";
-import { snapshotRepo, buildContextPrompt } from "@/lib/context-draft";
+import { snapshotRepo } from "@/lib/repo-snapshot";
+import { draftSections } from "@/lib/context-draft";
+import { PLANNING_MODEL } from "@/lib/runs/policy";
+import { mergeAiSections, completeness, SECTION_DEFS } from "@/lib/knowledge";
+import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
+import { requireUser, requireAi, errorResponse } from "@/lib/runs/http";
 
-// Drafts the project's context from its connected repo. Returns text only; the
-// user edits it and saves it through the normal project update.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  const userId = session?.user?.id;
-  if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const p = await db.project.findFirst({ where: { id: params.id, userId } });
-  if (!p) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+// Quick draft: reads the repo (full file list, the files that explain it) and
+// fills the knowledge sections. Never overwrites what the owner wrote or
+// confirmed, unless `force` is sent. Saved straight away so the AI can use it.
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const auth = await requireUser();
+  if ("res" in auth) return auth.res;
+  const loaded = await loadKnowledge(auth.userId, params.id);
+  if (!loaded) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  const p = loaded.project;
   if (!p.installationId || !p.repoOwner || !p.repoName) {
     return NextResponse.json({ error: "Connect a GitHub repo to this project first." }, { status: 409 });
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "AI is not configured (ANTHROPIC_API_KEY missing)." }, { status: 503 });
-  }
-  if (!(await consumeAiCall(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Daily AI limit reached. Try again tomorrow." }, { status: 429 });
-  }
+  const blocked = await requireAi(auth.userId, auth.email);
+  if (blocked) return blocked;
   try {
+    const body = await request.json().catch(() => ({}));
     const map = (p.envBranches || {}) as Record<string, string>;
     const ref = map[p.defaultEnv || ""] || Object.values(map)[0] || "main";
     const snap = await snapshotRepo(github, p.installationId, p.repoOwner, p.repoName, ref);
+    if (!snap.files.length) {
+      return NextResponse.json({ error: "Could not read any files from the repo. Check the branch name and that the app can see the repo." }, { status: 422 });
+    }
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const msg = await anthropic.messages.create({
-      model: PLANNING_MODEL.context,
-      max_tokens: 2500,
-      messages: [{ role: "user", content: buildContextPrompt(p.name, snap) }],
+    const sections = await draftSections(anthropic, PLANNING_MODEL.context, p.name, snap);
+    if (!Object.keys(sections).length) return NextResponse.json({ error: "The AI could not describe the project from what it found. Try again, or fill the sections in by hand." }, { status: 502 });
+
+    const head = await github.repoBranch(p.installationId, p.repoOwner, p.repoName, ref).catch(() => null);
+    let k = mergeAiSections(loaded.knowledge, sections, "quick-draft", { force: !!body?.force });
+    k = { ...k, learnedSha: head?.sha ?? k.learnedSha, learnedAt: new Date().toISOString() };
+    const saved = await saveKnowledge(auth.userId, p.id, k);
+    return NextResponse.json({
+      context: saved?.context ?? "",
+      sections: SECTION_DEFS.map((d) => ({ id: d.id, text: k.sections[d.id]?.text ?? "" })),
+      completeness: completeness(k),
+      read: { files: snap.files.map((f) => f.path), ecosystems: snap.ecosystems },
     });
-    const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
-    if (!text) return NextResponse.json({ error: "The AI returned nothing. Try again." }, { status: 502 });
-    return NextResponse.json({ context: text });
   } catch (e) {
-    console.error("context draft error", e);
-    return NextResponse.json({ error: "Could not draft the context. Try again." }, { status: 500 });
+    console.error("knowledge draft error", e);
+    return errorResponse(e);
   }
 }

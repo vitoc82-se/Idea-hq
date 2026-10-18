@@ -97,12 +97,15 @@ model Project {
   workflowInstalled Boolean  @default(false) // setup PR merged and workflow present
   setupPrNumber     Int?
   commandsConfirmed Boolean  @default(false) // build/test commands reviewed in the setup journey
+  knowledge         Json?    // structured project knowledge (see src/lib/knowledge.ts)
+  knowledgePrNumber Int?     // open PR that saves the knowledge into the repo
   secretConfirmed   Boolean  @default(false) // ANTHROPIC_API_KEY seen in the repo's secrets
   aiBias            String   @default("auto") // saver | auto | max: shifts the model tier
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   ideas Idea[]
   runs  Run[]
+  memory ProjectMemory[]
 
   @@unique([userId, slug])
   @@index([userId])
@@ -201,4 +204,23 @@ model GithubInstallation {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, id])
+}
+
+// What Idea HQ has learned while working on a project: shipped changes, lessons
+// from corrections and failures, and facts the owner pinned. Feeds the context
+// the AI reads (src/lib/knowledge.ts assembleContext).
+model ProjectMemory {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  kind      String   @default("change") // change | lesson | gotcha | decision | user
+  text      String   @db.Text
+  pinned    Boolean  @default(false)
+  source    String   @default("auto")   // auto | you
+  runId     String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
 }

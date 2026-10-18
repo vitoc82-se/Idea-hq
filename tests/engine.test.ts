@@ -41,6 +41,9 @@ function fakeGh(): typeof gh {
     },
     revertPr: async () => { log.push("revertPr"); return { number: 9 }; },
     listDir: async () => [],
+    listTree: async () => ({ paths: [], truncated: false }),
+    commitsAhead: async () => 0,
+    listPrFiles: async () => [],
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
   };

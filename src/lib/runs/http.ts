@@ -1,19 +1,31 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { canUse } from "@/lib/access";
+import { canUse, consumeAiCall } from "@/lib/access";
 import { GitHubError, GitHubRateLimitError } from "@/lib/github/client";
 import { RunError } from "./engine";
 import crypto from "crypto";
 
 // Session + approval gate used by the run routes. Returns the user id or a
 // ready 401 response.
-export async function requireUser(): Promise<{ userId: string } | { res: NextResponse }> {
+export async function requireUser(): Promise<{ userId: string; email: string | null } | { res: NextResponse }> {
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
     return { res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  return { userId };
+  return { userId, email: session?.user?.email ?? null };
+}
+
+// Gate for routes that spend the server's AI key: needs the key configured and
+// the user's daily allowance. Returns a ready response when blocked.
+export async function requireAi(userId: string, email: string | null): Promise<NextResponse | null> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "AI is not configured (ANTHROPIC_API_KEY missing)." }, { status: 503 });
+  }
+  if (!(await consumeAiCall(userId, email))) {
+    return NextResponse.json({ error: "Daily AI limit reached. Try again tomorrow." }, { status: 429 });
+  }
+  return null;
 }
 
 export function errorResponse(e: unknown): NextResponse {

@@ -13,7 +13,7 @@ function matchValue(actual: unknown, cond: unknown): boolean {
 
 export function makeFakeDb() {
   const tables: Record<string, Row[]> = {
-    user: [], project: [], idea: [], run: [], webhookDelivery: [], githubInstallation: [],
+    user: [], project: [], idea: [], run: [], webhookDelivery: [], githubInstallation: [], projectMemory: [],
   };
   let seq = 0;
   const rel: Record<string, string> = { project: "project", idea: "idea", user: "user" };
