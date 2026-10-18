@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Rocket } from "lucide-react";
@@ -12,6 +13,11 @@ export default function SignInPage() {
   const router = useRouter();
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // "Create account" links arrive with ?mode=register.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "register") setIsRegister(true);
+  }, []);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
 
@@ -70,6 +76,10 @@ export default function SignInPage() {
             {isRegister
               ? "Set up your Idea HQ"
               : "Sign in to Idea HQ"}
+          </p>
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+            Idea HQ keeps the ideas for all your projects in one place, and an AI can build them for you as changes you approve.{" "}
+            <Link href="/guide" className="text-emerald-600 hover:underline">What is this?</Link>
           </p>
         </div>
 

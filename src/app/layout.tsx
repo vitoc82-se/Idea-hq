@@ -11,9 +11,9 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Idea HQ — one backlog for all your projects",
+  title: "Idea HQ: turn your ideas into working changes",
   description:
-    "Capture and rank ideas across all your projects. The AI estimates each one against that project's real codebase.",
+    "One place for the ideas behind all your projects. An AI plans and builds them as changes in your own GitHub, and you approve each one.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen } from "lucide-react";
 import { Button } from "./ui/button";
 import { APP_VERSION } from "@/lib/version";
 
@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/guide", label: "Guide", icon: BookOpen },
 ];
 
 export function Navbar() {

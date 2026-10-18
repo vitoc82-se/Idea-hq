@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Rocket, Check, Loader2, PartyPopper, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -126,7 +127,8 @@ export function Welcome({ name }: { name: string }) {
             <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center"><Rocket className="w-5 h-5 text-white" /></div>
             <span className="text-lg font-bold text-gray-900 dark:text-white">Idea HQ</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Link href="/guide" target="_blank" className="text-sm text-gray-600 dark:text-gray-300 hover:text-emerald-600 px-2">Guide</Link>
             {ob.approved && <Button variant="ghost" size="sm" onClick={skip} disabled={busy !== null}>Skip for now</Button>}
             <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: "/" })}>Sign out</Button>
           </div>
@@ -136,7 +138,7 @@ export function Welcome({ name }: { name: string }) {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{name ? `Welcome, ${name.split(" ")[0]}` : "Welcome"}</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm">
             Idea HQ keeps your ideas for all your projects in one place, estimates them, and can have an AI implement one as a pull request in your GitHub repo.
-            You review and merge every change. This takes about 10 minutes and ends with your first AI-built change.
+            You review and merge every change. This takes about 10 minutes and ends with your first AI-built change. New to this? The <Link href="/guide" target="_blank" className="text-emerald-600 hover:underline">guide</Link> explains every step in plain language.
           </p>
           {ob.approved && (
             <div className="mt-3">
