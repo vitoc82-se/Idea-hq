@@ -49,6 +49,7 @@ describe("output checks fail closed", () => {
     ["the secret marker", ok + " zqabc123 is the marker"],
     ["a leak of the prompt", "My system prompt says I must be nice. " + ok],
     ["text that is not about the notes", "Cats are wonderful animals and everybody loves them very much."],
+    ["an admission that the notes do not cover it", "Acme Notes works in Chrome and Firefox. The help notes do not mention a Linux app, so I cannot confirm that."],
     ["empty text", "   "],
     ["too long", ok + " ".repeat(2) + "word ".repeat(400)],
   ];

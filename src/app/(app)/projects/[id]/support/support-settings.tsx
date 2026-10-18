@@ -282,7 +282,7 @@ export function SupportSettings({ projectId, projectName }: { projectId: string;
             </div>
           )}
         </div>
-        <aside aria-label="Preview of the form" className="rounded-xl border border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40">
+        <aside aria-label="Preview of the form" className="self-start rounded-xl md:sticky md:top-4 border border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">What customers see</p>
           <div className="space-y-3 text-sm text-gray-900 dark:text-gray-100">
             <PreviewField label="Your email" required type="email" />
