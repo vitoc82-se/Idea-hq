@@ -53,3 +53,17 @@
 - Replies by customer after "resolved" reopen the ticket; consider a polite auto-close after N days of silence.
 - Assignment, canned replies, SLA timers, analytics, multi-language widget: not built.
 - Re-run `npm run support:eval` (live model, costs a few cents) after changing src/lib/support/ai.ts or the model.
+
+## Paywall switch-over for AI build (later)
+**What:** The steps for the day AI build becomes a paid feature. Today only the per-person switch exists (User.aiBuild, default on).
+**Why:** The admin-panel eng review (2026-10-18, R2) chose "on by default" and built controls only; no paywall yet.
+**Steps:** choose what is free and what is paid; add a payment provider; flip the default for new accounts to off (existing accounts keep it unless switched off); decide who is grandfathered; replace "Ask the owner" with a request-access path; consider plans and quotas only when pricing is known.
+**Pros:** nothing to rediscover. **Cons:** needs pricing and provider decisions that do not exist yet.
+**Depends on:** the admin panel and AI build switch shipped, and a decision to charge.
+
+## Stop preview builds from changing the production database
+**What:** Preview builds must not run `prisma db push --accept-data-loss` against the production database.
+**Why:** The build script runs db push on every build, and DATABASE_URL is set for both Production and Preview in Vercel, so a preview branch can alter or drop live columns before its code ships (found in the admin-panel eng review, 2026-10-18).
+**Fix options:** a separate Neon branch/database for Preview with its own DATABASE_URL, or only run db push when VERCEL_ENV is production.
+**Pros:** removes a standing risk for every future schema change. **Cons:** a Neon preview branch and Vercel env setup, or a build-script change that affects every deploy.
+**Depends on:** nothing; do it before the next destructive schema change (rename or drop of a column).
