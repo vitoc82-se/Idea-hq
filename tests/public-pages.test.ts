@@ -13,13 +13,21 @@ import GuidePage from "@/app/guide/page";
 beforeEach(() => { sess.user = null; redirect.mockClear(); });
 
 describe("start page", () => {
-  it("explains what Idea HQ does to a signed-out visitor, with a way in", async () => {
+  it("puts Create account front and centre, with only small print below", async () => {
     const html = renderToStaticMarkup(await HomePage());
-    expect(html).toContain("Turn your ideas into working changes");
-    expect(html).toMatch(/How it works/);
-    expect(html).toContain("/auth/signin?mode=register");
-    expect(html).toContain('href="/guide"');
+    expect(html).toContain("Idea HQ");
+    expect(html).toMatch(/An AI builds them into your project/);
+    // the big primary button is the sign-up link
+    expect(html).toMatch(/<a[^>]*href="\/auth\/signin\?mode=register"[^>]*>Create account<\/a>/);
+    expect(html).toContain('href="/auth/signin"');
     expect(html).toMatch(/approved by the owner/);
+    expect(html).toContain('href="/guide"');
+  });
+
+  it("stays short: no marketing sections yet", async () => {
+    const html = renderToStaticMarkup(await HomePage());
+    expect(html).not.toMatch(/How it works<\/h2>|What you need|You stay in control/);
+    expect(html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length).toBeLessThan(80);
   });
 
   it("sends a signed-in user straight to their ideas", async () => {
