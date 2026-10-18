@@ -84,6 +84,40 @@ export function IdeasBoard() {
     }
   }, []);
 
+  // Ideas the AI has not estimated yet (imported ones, or an estimate that failed).
+  // Estimating is explicit: it costs AI calls, so it never starts by itself.
+  const [estimatingIds, setEstimatingIds] = useState<Set<string>>(new Set());
+  const [estimateMsg, setEstimateMsg] = useState("");
+  const estimateIdeas = useCallback(async (ids: string[]) => {
+    setEstimateMsg("");
+    setEstimatingIds((prev) => new Set([...Array.from(prev), ...ids]));
+    const queue = [...ids];
+    let stop = "";
+    const settle = (id: string) => setEstimatingIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    const worker = async () => {
+      for (let id = queue.shift(); id !== undefined && !stop; id = queue.shift()) {
+        try {
+          const res = await fetch(`/api/ideas/${id}/estimate`, { method: "POST" });
+          if (res.ok) {
+            const updated: Idea = await res.json();
+            setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated, project: i.project, _count: i._count } : i)));
+          } else if (res.status === 429) {
+            stop = "Daily AI limit reached. The rest can be estimated tomorrow.";
+          } else {
+            const d = await res.json().catch(() => ({}));
+            stop = d.error || "An estimate failed. Try again in a moment.";
+          }
+        } catch {
+          stop = "An estimate failed. Try again in a moment.";
+        }
+        settle(id);
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    queue.forEach(settle);
+    if (stop) setEstimateMsg(stop);
+  }, []);
+
   const fetchProjects = useCallback(async () => {
     try {
       const res = await fetch("/api/projects", { cache: "no-store" });
@@ -608,6 +642,23 @@ export function IdeasBoard() {
             )}
           </div>
 
+          {(() => {
+            const todo = ideas.filter((i) => !i.aiEstimatedAt && !i.scope && i.status !== "done" && !i.parentId);
+            const running = todo.some((i) => estimatingIds.has(i.id));
+            if (todo.length === 0 && !estimateMsg) return null;
+            return (
+              <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-300 p-3 text-sm text-gray-800 dark:border-gray-600 dark:text-gray-200">
+                {todo.length > 0 && <span>{todo.length} idea{todo.length === 1 ? " has" : "s have"} no estimate yet.</span>}
+                {todo.length > 0 && (
+                  <Button size="sm" variant="outline" disabled={running} onClick={() => estimateIdeas(todo.filter((i) => !estimatingIds.has(i.id)).map((i) => i.id))}>
+                    {running ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}{running ? "Estimating…" : "Estimate them all"}
+                  </Button>
+                )}
+                {estimateMsg && <span className="text-red-700 dark:text-red-400">{estimateMsg}</span>}
+              </div>
+            );
+          })()}
+
           {/* Board or list */}
           {view === "board" ? (
             kanbanIdeas.length === 0 ? (
@@ -639,6 +690,8 @@ export function IdeasBoard() {
                   blocked={blockedIds.has(idea.id)}
                   onStatus={patchStatus}
                   onClosure={patchClosure}
+                  estimating={estimatingIds.has(idea.id)}
+                  onEstimate={() => estimateIdeas([idea.id])}
                 />
               ))}
             </div>
@@ -684,14 +737,18 @@ function IdeaRow({
   blocked,
   onStatus,
   onClosure,
+  estimating,
+  onEstimate,
 }: {
   idea: Idea;
   blocked: boolean;
   onStatus: (id: string, status: string) => void;
   onClosure: (id: string, note: string) => void;
+  estimating: boolean;
+  onEstimate: () => void;
 }) {
   const quick = isQuickWin(idea);
-  const estimating = !idea.aiEstimatedAt && !idea.scope;
+  const needsEstimate = !idea.aiEstimatedAt && !idea.scope && idea.status !== "done" && !idea.parentId;
   const [showClosure, setShowClosure] = useState(false);
   const [closureText, setClosureText] = useState(idea.closureNote || "");
   return (
@@ -772,10 +829,15 @@ function IdeaRow({
                 {t}
               </span>
             ))}
-            {estimating && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+            {needsEstimate && estimating && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
                 <Loader2 className="w-3 h-3 animate-spin" /> estimating
               </span>
+            )}
+            {needsEstimate && !estimating && (
+              <button type="button" onClick={onEstimate} className="text-xs text-emerald-700 underline dark:text-emerald-400">
+                not estimated, estimate now
+              </button>
             )}
             {idea.status === "done" && idea.closureNote && (
               <span

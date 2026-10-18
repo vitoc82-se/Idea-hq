@@ -70,7 +70,7 @@ export function BacklogImport({ projectId, onImported, onSkip }: { projectId: st
   if (result) {
     return (
       <div role="status" className="space-y-2 text-sm text-gray-800 dark:text-gray-200">
-        <p><b>{result.created}</b> idea{result.created === 1 ? "" : "s"} imported{result.skipped ? `, ${result.skipped} skipped because you already had them` : ""}. The AI can estimate each one from its idea page.</p>
+        <p><b>{result.created}</b> idea{result.created === 1 ? "" : "s"} imported{result.skipped ? `, ${result.skipped} skipped because you already had them` : ""}. On the Ideas page, press <b>Estimate them all</b> to have the AI size them.</p>
         <Button size="sm" variant="outline" onClick={() => { setResult(null); setText(""); setMsg(null); }}>Import another list</Button>
       </div>
     );
