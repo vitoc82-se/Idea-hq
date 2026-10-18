@@ -38,9 +38,9 @@ The **Implement** button on an idea runs Claude Code in the project's own GitHub
 
 GitHub, Settings, Developer settings, GitHub Apps, New GitHub App:
 
-- **Homepage URL / Webhook URL:** `https://<your-idea-hq-domain>/api/github/webhook`
+- **Homepage URL / Webhook URL:** `https://ideahq.cloud/api/github/webhook`
 - **Webhook secret:** a long random string (`GITHUB_WEBHOOK_SECRET`)
-- **Setup URL:** `https://<your-idea-hq-domain>/api/github/callback`, and tick **Request user authorization (OAuth) during installation**
+- **Setup URL:** `https://ideahq.cloud/api/github/callback`, and tick **Request user authorization (OAuth) during installation**
 - **Repository permissions:** Contents: Read and write. Pull requests: Read and write. Workflows: Read and write. Actions: Read and write. Commit statuses: Read. Checks: Read. Secrets: Read (existence check only). Metadata: Read.
 - **Subscribe to events:** Workflow run, Pull request, Check suite, Check run, Status
 - **Where can this app be installed:** Any account (or only you, for a private start)
