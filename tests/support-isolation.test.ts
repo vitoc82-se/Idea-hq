@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const SUPPORT_LIB = path.join(SRC, "lib/support");
 
 // Owner-side modules: sign-in, project data, AI drafting. Never imported by public code.
-const OWNER_LIB = new Set(["owner.ts", "owner-tickets.ts", "settings.ts", "notes-draft.ts", "retention.ts", "site-check.ts"]);
+const OWNER_LIB = new Set(["owner.ts", "owner-tickets.ts", "settings.ts", "notes-draft.ts", "retention.ts", "site-check.ts", "install.ts"]);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

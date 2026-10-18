@@ -42,11 +42,16 @@ export function SupportSettings({ projectId, projectName }: { projectId: string;
   const [siteResult, setSiteResult] = useState<string>("");
   const [privEmail, setPrivEmail] = useState("");
   const [privMsg, setPrivMsg] = useState("");
+  const [aiReady, setAiReady] = useState(false);
+  const [install, setInstall] = useState<{ ideaId: string; runStatus: string | null; prNumber: number | null } | null>(null);
+  const [installing, setInstalling] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/support`, { cache: "no-store" });
     if (!res.ok) return setLoadError("Could not load the support settings.");
     const d = await res.json();
+    setAiReady(!!d.aiReady);
+    setInstall(d.install ?? null);
     if (d.space) {
       setS(d.space);
       setExists(true);
@@ -105,6 +110,17 @@ export function SupportSettings({ projectId, projectName }: { projectId: string;
     if (!res.ok) return setMsg({ ok: false, text: d.error || "Could not draft notes." });
     setS((cur) => (cur ? { ...cur, notes: d.notes } : cur));
     setMsg({ ok: true, text: `${d.added} draft notes added. Read each one, fix anything wrong, then approve it.` });
+  };
+
+  const addForMe = async () => {
+    setInstalling(true);
+    setMsg(null);
+    const res = await fetch(`/api/projects/${projectId}/support/install`, { method: "POST" });
+    setInstalling(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return setMsg({ ok: false, text: d.error || "Could not start." });
+    setInstall({ ideaId: d.ideaId, runStatus: "dispatched", prNumber: null });
+    setMsg({ ok: true, text: "Started. The AI is adding the Help button to your repo." });
   };
 
   const checkSite = async () => {
@@ -192,8 +208,29 @@ export function SupportSettings({ projectId, projectName }: { projectId: string;
           <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">The Help button only opens on these websites, one per line. Example: https://yourshop.com</p>
           <Textarea id="origins" rows={3} value={s.allowedOrigins.join("\n")} onChange={(e) => upd({ allowedOrigins: e.target.value.split("\n") })} placeholder="https://yourshop.com" />
         </div>
+        {aiReady && (
+          <div className="rounded-lg border border-emerald-700 p-4">
+            <p className="font-semibold text-gray-900 dark:text-white">Add it for me</p>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">This project is AI ready. Idea HQ can add the Help button to your site itself. It opens a pull request in your repo that you review and merge, and nothing goes live until you do.</p>
+            {install ? (
+              <p role="status" className="mt-2 text-sm text-gray-900 dark:text-white">
+                {install.runStatus === "merged" ? "Merged. Press Check my site below to confirm it is live."
+                  : install.runStatus === "pr_open" ? `The pull request${install.prNumber ? ` #${install.prNumber}` : ""} is ready for you to review and merge.`
+                  : install.runStatus === "failed" || install.runStatus === "cancelled" || install.runStatus === "closed" ? "The last attempt did not finish."
+                  : "The AI is working on it."}{" "}
+                <Link href={`/ideas/${install.ideaId}`} className="font-semibold text-emerald-700 underline dark:text-emerald-400">Follow it on the idea page</Link>
+              </p>
+            ) : null}
+            {(!install || ["failed", "cancelled", "closed", "reverted"].includes(install.runStatus ?? "")) && (
+              <Button className="mt-3 bg-emerald-700 hover:bg-emerald-800" onClick={addForMe} disabled={installing}>
+                {installing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{install ? "Try again" : "Add it for me"}
+              </Button>
+            )}
+            {s.allowedOrigins.filter(Boolean).length === 0 && <p className="mt-2 text-sm text-amber-800 dark:text-amber-300">Also add your website under Allowed sites and save, otherwise the button stays hidden.</p>}
+          </div>
+        )}
         <div role="tablist" aria-label="How to add it" className="flex flex-wrap gap-2">
-          {([["ai", "Ask your AI to add it"], ["code", "Paste a code snippet"], ["link", "Just a link"]] as const).map(([id, label]) => (
+          {([["ai", "Ask your own AI to add it"], ["code", "Paste a code snippet"], ["link", "Just a link"]] as const).map(([id, label]) => (
             <button key={id} role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls={`panel-${id}`} onClick={() => setTab(id)}
               className={`min-h-[44px] rounded-lg border px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${tab === id ? "border-emerald-700 bg-emerald-700 text-white" : "border-gray-400 bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-100"}`}>
               {label}

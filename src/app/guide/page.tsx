@@ -204,7 +204,7 @@ export default async function GuidePage() {
           <li>Open a project, press Support, then Turn on support.</li>
           <li>Under &quot;What the form asks&quot; choose what you need to know, such as an order number. Email and Message are always asked.</li>
           <li>Under &quot;Help notes for the AI&quot; press &quot;Draft notes from my project knowledge&quot;, read each note, fix it, and press Approve. Only approved notes are ever used.</li>
-          <li>Under &quot;Put it on your site&quot; add your website to Allowed sites, then copy the code, or ask your AI to add it. Use &quot;Check my site&quot; to see that it works.</li>
+          <li>Under &quot;Put it on your site&quot; add your website to Allowed sites, then press Add it for me (when the project is AI ready, it opens a pull request that adds the button), or copy the code yourself. Use &quot;Check my site&quot; to see that it works.</li>
           <li>Questions about orders, payments or accounts are never answered by the AI. They always come to you.</li>
           <li>Closed tickets are deleted after the number of days you choose, and you can download or delete everything from one customer.</li>
         </UL>

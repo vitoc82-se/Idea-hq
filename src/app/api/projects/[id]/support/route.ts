@@ -7,6 +7,7 @@ import { parseNotes } from "@/lib/support/notes";
 import { parseFormDef } from "@/lib/support/form-schema";
 import { errorResponse } from "@/lib/runs/http";
 import { baseUrl } from "@/lib/support/email";
+import { installStatus } from "@/lib/support/install";
 
 type SpaceRow = {
   publicKey: string; enabled: boolean; title: string; brandColor: string; logoUrl: string | null; theme: string; allowedOrigins: string[];
@@ -31,7 +32,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const project = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, name: true } });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
   const space = (await db.supportSpace.findUnique({ where: { projectId: project.id } })) as SpaceRow | null;
-  return NextResponse.json({ project, space: space ? dto(space) : null });
+  const p = await db.project.findFirst({ where: { id: project.id, userId: auth.userId }, select: { repoOwner: true, repoName: true, workflowInstalled: true, secretConfirmed: true } });
+  const aiReady = !!(p?.repoOwner && p.repoName && p.workflowInstalled && p.secretConfirmed);
+  const install = aiReady ? await installStatus(auth.userId, project.id) : null;
+  return NextResponse.json({ project, space: space ? dto(space) : null, aiReady, install });
 }
 
 // Owner: create or update the settings.
