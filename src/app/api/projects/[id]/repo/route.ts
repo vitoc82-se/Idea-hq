@@ -40,6 +40,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         workflowInstalled = current;
         await db.project.update({ where: { id: p.id }, data: { workflowInstalled: current } });
       }
+      // Remember that the API key secret exists (one cheap call), so the progress
+      // chip does not stay on "not done" for a key that is already there.
+      if (current && !p.secretConfirmed) {
+        const has = await github.secretExists(p.installationId, p.repoOwner, p.repoName, "ANTHROPIC_API_KEY").catch(() => false);
+        if (has) await db.project.update({ where: { id: p.id }, data: { secretConfirmed: true } });
+      }
     }
     return NextResponse.json({
       appConfigured: !!process.env.GITHUB_APP_SLUG,

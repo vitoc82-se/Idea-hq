@@ -24,6 +24,7 @@ export function ProjectRepo({
   showSetup = true,
   suggestions,
   onSaved,
+  onChanged,
   returnTo,
 }: {
   projectId: string;
@@ -31,6 +32,7 @@ export function ProjectRepo({
   showSetup?: boolean;
   suggestions?: { build: string | null; test: string | null };
   onSaved?: () => void;
+  onChanged?: () => void; // fires after every (re)load, so progress chips stay in step
 }) {
   const [data, setData] = useState<Data | null>(null);
   const [repoKey, setRepoKey] = useState("");
@@ -63,6 +65,11 @@ export function ProjectRepo({
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (data) onChanged?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   // Coming back from GitHub (after adding repos) refreshes the list by itself.
   useEffect(() => {

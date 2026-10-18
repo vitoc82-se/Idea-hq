@@ -41,17 +41,19 @@ export function ProjectsAdmin() {
   }, [fetchProjects]);
 
   // Cheap (no GitHub calls) setup progress for the chips.
+  const refreshProgress = useCallback(async (id: string) => {
+    try {
+      const r = await fetch(`/api/projects/${id}/setup-status?quick=1`, { cache: "no-store" });
+      if (r.ok) {
+        const j = await r.json();
+        setProgress((cur) => ({ ...cur, [id]: { done: j.done, total: j.total } }));
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
-    projects.forEach(async (p) => {
-      try {
-        const r = await fetch(`/api/projects/${p.id}/setup-status?quick=1`, { cache: "no-store" });
-        if (r.ok) {
-          const j = await r.json();
-          setProgress((cur) => ({ ...cur, [p.id]: { done: j.done, total: j.total } }));
-        }
-      } catch {}
-    });
-  }, [projects]);
+    projects.forEach((p) => refreshProgress(p.id));
+  }, [projects, refreshProgress]);
 
   const openNew = () => {
     setEditingId(null);
@@ -282,7 +284,7 @@ export function ProjectsAdmin() {
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
-              {repoOpen === p.id && <ProjectRepo projectId={p.id} />}
+              {repoOpen === p.id && <ProjectRepo projectId={p.id} onChanged={() => refreshProgress(p.id)} />}
               </CardContent>
             </Card>
           ))}
