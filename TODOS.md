@@ -39,3 +39,9 @@
 **Needs:** a provider with inbound parsing, per-ticket reply address for threading, quote and signature stripping, bounce and auto-reply handling, spam filtering.
 **Trigger:** customers repeatedly ask to reply by email, or owners find the ticket page a barrier.
 **Depends on:** send-only email from v1.
+
+## Bring the app's accent to the 4.5:1 contrast minimum
+**What:** Use the darker emerald (#047857, 5.48:1 with white) for text, links and filled buttons across the existing app.
+**Why:** The app's emerald #059669 with white text measures 3.77:1, below the 4.5:1 minimum for normal text. The ticket screens use the darker green (design review 2026-10-18, decision 6C), so old and new screens differ in shade until this is done.
+**Pros:** accessible everywhere, one accent token. **Cons:** touches every existing screen.
+**Depends on:** DESIGN.md written (design review decision 5B) so the token has one home.
