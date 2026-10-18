@@ -1,4 +1,4 @@
-# idea-hq-workflow-version: 2
+# idea-hq-workflow-version: 3
 name: Idea HQ
 run-name: ${{ format('idea-hq {0}', inputs.run_id) }}
 
@@ -17,6 +17,18 @@ on:
       prompt:
         description: Instructions for the AI
         required: true
+      model:
+        description: Claude model id
+        required: false
+        default: "claude-sonnet-5-5"
+      effort:
+        description: Reasoning effort (low, medium, high, max)
+        required: false
+        default: "medium"
+      max_turns:
+        description: Turn cap for the AI
+        required: false
+        default: "40"
 
 permissions:
   contents: write
@@ -60,7 +72,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "idea-hq-niklas"
           prompt: ${{ inputs.prompt }}
-          claude_args: --max-turns 40 --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
+          claude_args: --max-turns ${{ inputs.max_turns || '40' }} --model ${{ inputs.model || 'claude-sonnet-5-5' }} --effort ${{ inputs.effort || 'medium' }} --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
 
       - name: Verify (build and tests)
         id: verify
