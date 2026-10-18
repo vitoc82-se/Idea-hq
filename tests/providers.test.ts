@@ -88,6 +88,12 @@ describe("workflow v4", () => {
     expect(wf).toContain("openai-api-key: ${{ secrets.OPENAI_API_KEY }}");
     expect(wf).toContain("if: ${{ inputs.provider == 'openai' }}");
   });
+  it("pins the Codex CLI so a new release cannot change runs, and uses the verified models", () => {
+    expect(wf).toMatch(/codex-version: "\d+\.\d+\.\d+"/);
+    expect(openai.models.map((m) => m.id)).toEqual(["gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]);
+    expect(openai.efforts).toEqual(["low", "medium", "high"]);
+    expect(wf).toContain("sandbox: workspace-write");
+  });
   it("judges success from whichever agent step ran", () => {
     expect(wf).toContain("AGENT_OK: ${{ steps.claude.outputs.conclusion == 'success' || steps.codex.outcome == 'success' }}");
     expect(wf).toContain('[ "$AGENT_OK" = "true" ] || STATE=failure');
