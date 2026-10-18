@@ -226,12 +226,12 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
           {projects.map((p) => (
             <Card key={p.id}>
               <CardContent className="p-4">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: p.color || "#94a3b8" }}
                 />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[200px] flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-900 dark:text-white truncate">{p.name}</h3>
                     <span className="text-xs text-gray-400">/{p.slug}</span>
