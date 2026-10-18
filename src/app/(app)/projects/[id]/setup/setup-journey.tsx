@@ -187,7 +187,7 @@ export function SetupJourney({
                   {s.id === "secret" && (
                     <div className="space-y-3">
                       <ol className="text-sm text-gray-600 dark:text-gray-300 list-decimal pl-5 space-y-1">
-                        <li>Open the secret page on GitHub (button below).</li>
+                        <li>Open the secret page on GitHub (button below). It must be a <b>Secret</b>, on the &quot;Secrets&quot; tab. Do not use the &quot;Variables&quot; tab: variables are shown in plain text and are not safe for a key.</li>
                         <li>Name: <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">ANTHROPIC_API_KEY</code></li>
                         <li>Secret: your key from console.anthropic.com. Use one with a small spending limit.</li>
                         <li>Click Add secret, then come back. This page notices.</li>

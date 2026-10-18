@@ -115,7 +115,7 @@ export async function getSetupStatus(
     workflowOutdated ? "Your installed workflow is outdated. Update it to keep running." : p.setupPrNumber && !workflowDone ? `Merge setup PR #${p.setupPrNumber} on GitHub.` : undefined,
     p.setupPrNumber && repoUrl && !workflowDone ? `${repoUrl}/pull/${p.setupPrNumber}` : undefined);
   add("secret", secretDone ? "done" : steps[3].status !== "done" ? "blocked" : "todo",
-    secretDone ? undefined : "Name it ANTHROPIC_API_KEY. Idea HQ never sees the key, it stays in GitHub.",
+    secretDone ? undefined : "Add it as a Secret (not a Variable) named ANTHROPIC_API_KEY. Idea HQ never sees the key, it stays in GitHub.",
     repoUrl ? `${repoUrl}/settings/secrets/actions/new` : undefined);
   add("practice", merged ? "done" : steps[4].status !== "done" ? "blocked" : hasRun ? "warn" : "todo",
     merged ? "You have shipped a change with Idea HQ." : hasRun ? "A practice run exists. Finish it from the idea page." : "Try a tiny idea, like a one-line README change, before real work.");
