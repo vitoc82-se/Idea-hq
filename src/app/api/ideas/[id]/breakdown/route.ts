@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { canUse, consumeAiCall } from "@/lib/access";
+import { canUse } from "@/lib/access";
+import { requireAiCall } from "@/lib/runs/http";
 import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { projectPromptContext } from "@/lib/project-context";
@@ -50,12 +51,8 @@ export async function POST(
   if (!userId || !(await canUse(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!(await consumeAiCall(userId, session?.user?.email))) {
-    return NextResponse.json(
-      { error: "Daily AI limit reached. Try again tomorrow." },
-      { status: 429 }
-    );
-  }
+  const blocked = await requireAiCall(userId, session?.user?.email ?? null);
+  if (blocked) return blocked;
 
   const idea = await db.idea.findFirst({
     where: { id: params.id, userId },

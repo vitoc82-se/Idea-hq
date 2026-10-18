@@ -41,14 +41,14 @@ const SPACE_SELECT = {
   id: true, projectId: true, enabled: true, publicKey: true, allowedOrigins: true, title: true, brandColor: true,
   logoUrl: true, theme: true, formSchema: true, aiEnabled: true, aiDailyCap: true, retentionDays: true,
   replyTimeNote: true, notifyEmail: true, supportKnowledge: true,
-  project: { select: { name: true, user: { select: { features: true, email: true } } } },
+  project: { select: { name: true, user: { select: { features: true, email: true, aiDailyLimit: true } } } },
 } as const;
 
 type SpaceRow = {
   id: string; projectId: string; enabled: boolean; publicKey: string; allowedOrigins: string[]; title: string; brandColor: string;
   logoUrl: string | null; theme: string; formSchema: unknown; aiEnabled: boolean; aiDailyCap: number; retentionDays: number;
   replyTimeNote: string | null; notifyEmail: string | null; supportKnowledge: unknown;
-  project: { name: string; user: { features: string[]; email: string | null } };
+  project: { name: string; user: { features: string[]; email: string | null; aiDailyLimit?: number | null } };
 };
 
 function toPublic(s: SpaceRow): PublicSpace | null {
@@ -57,7 +57,9 @@ function toPublic(s: SpaceRow): PublicSpace | null {
   if (!s.enabled || !ownerAllowed(s.project.user)) return null;
   return {
     id: s.id, projectId: s.projectId, key: s.publicKey, title: s.title, brandColor: s.brandColor, logoUrl: s.logoUrl,
-    theme: s.theme, allowedOrigins: s.allowedOrigins, form: parseFormDef(s.formSchema), aiEnabled: s.aiEnabled,
+    theme: s.theme, allowedOrigins: s.allowedOrigins, form: parseFormDef(s.formSchema),
+    // The owner's helper limit of 0 switches off every AI call paid by the owner's key, Support answers included.
+    aiEnabled: s.aiEnabled && s.project.user.aiDailyLimit !== 0,
     aiDailyCap: s.aiDailyCap, retentionDays: s.retentionDays, replyTimeNote: s.replyTimeNote, notifyEmail: s.notifyEmail,
     ownerEmail: s.project.user.email, projectName: s.project.name, notes: confirmedNotes(s.supportKnowledge),
   };

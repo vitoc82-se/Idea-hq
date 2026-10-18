@@ -657,3 +657,85 @@ describe("openSetupPr", () => {
     await expect(openSetupPr("u2", "p1", "app", deps())).rejects.toMatchObject({ status: 404 });
   });
 });
+
+// ---- AI build switch (admin panel review, R2 and R3) -------------------------
+// u1 is an ordinary friend here: OWNER_EMAIL points at someone else.
+describe("AI build switch", () => {
+  const MSG = /AI build is switched off for your account/;
+  const off = () => { t.tables.user.find((u) => u.id === "u1")!.aiBuild = false; };
+  beforeEach(() => {
+    process.env.OWNER_EMAIL = "boss@x.se";
+    t.tables.user.find((u) => u.id === "u1")!.email = "friend@x.se";
+    t.tables.user.find((u) => u.id === "u2")!.email = "other@x.se";
+  });
+
+  it("is on by default: a friend with no setting runs the whole flow unchanged", async () => {
+    await prOpenRun();
+    expect(t.tables.run[0].status).toBe("pr_open");
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(true);
+    expect((await mergeRun("u1", "RUN1", {}, deps())).merged).toBe(true);
+  });
+
+  it("blocks start, approve, revise and learn with a plain 403 and starts nothing", async () => {
+    off();
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 403, message: expect.stringMatching(MSG) });
+    expect(t.tables.run).toHaveLength(0);
+    await expect(startLearnRun("u1", "p1", deps())).rejects.toMatchObject({ status: 403 });
+    expect(t.tables.run).toHaveLength(0);
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(false);
+  });
+
+  it("blocks approving a run that was waiting, and revising an open PR", async () => {
+    await startedRun();
+    off();
+    await expect(approveRun("u1", "RUN1", deps())).rejects.toMatchObject({ status: 403 });
+    expect(t.tables.run[0].status).toBe("awaiting_approval");
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(false);
+
+    t.tables.user.find((u) => u.id === "u1")!.aiBuild = true;
+    t.tables.run.length = 0;
+    await prOpenRun();
+    log.length = 0;
+    off();
+    await expect(reviseRun("u1", "RUN1", "Use blue", deps())).rejects.toMatchObject({ status: 403 });
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(false);
+    expect(t.tables.run[0].status).toBe("pr_open");
+  });
+
+  it("checks before the 'reuse the waiting run' shortcut, so a switched-off account gets a 403, not a run", async () => {
+    await startedRun();
+    off();
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("never blocks the owner, even with the switch off", async () => {
+    process.env.OWNER_EMAIL = "friend@x.se";
+    off();
+    const run = await startRun("u1", "i1", deps());
+    expect(run.status).toBe("awaiting_approval");
+  });
+
+  it("leaves merge, revert, cancel and webhooks open so nobody is stranded", async () => {
+    await prOpenRun();
+    off();
+    expect((await mergeRun("u1", "RUN1", {}, deps())).merged).toBe(true);
+    const rev = await revertRun("u1", "RUN1", deps());
+    expect(rev.status).toBe("pr_open");
+    await cancelRun("u1", rev.id, deps());
+    expect(t.tables.run.find((r) => r.id === rev.id)!.status).toBe("closed");
+  });
+
+  it("lets a run that is already in flight finish when the switch is turned off", async () => {
+    await dispatchedRun();
+    off();
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "inflight", deps());
+    expect(t.tables.run[0].status).toBe("pr_open");
+  });
+
+  it("switching it back on restores access", async () => {
+    off();
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 403 });
+    t.tables.user.find((u) => u.id === "u1")!.aiBuild = true;
+    expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+});

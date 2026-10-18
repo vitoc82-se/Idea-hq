@@ -11,6 +11,7 @@ const st = vi.hoisted(() => ({
   approveError: null as Error | null,
   space: { publicKey: "ihq_zVRhxITZAc8lM9uq" } as Record<string, unknown> | null,
   ownerOk: true,
+  aiBuild: true,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -30,6 +31,7 @@ vi.mock("@/lib/runs/engine", async () => {
   const real = await vi.importActual<typeof import("@/lib/runs/engine")>("@/lib/runs/engine");
   return {
     ...real,
+    assertAiBuild: async () => { if (!st.aiBuild) throw new real.RunError(403, "AI build is switched off for your account. Ask the owner."); },
     startRun: async (_u: string, ideaId: string) => { st.started.push(ideaId); const r = { id: "run1", ideaId, status: st.startStatus }; st.runs.push(r); return r; },
     approveRun: async (_u: string, runId: string) => { if (st.approveError) throw st.approveError; st.approved.push(runId); },
   };
@@ -55,6 +57,7 @@ beforeEach(() => {
   st.approveError = null;
   st.space = { publicKey: "ihq_zVRhxITZAc8lM9uq" };
   st.ownerOk = true;
+  st.aiBuild = true;
 });
 
 describe("Add it for me", () => {
@@ -91,6 +94,12 @@ describe("Add it for me", () => {
     expect(st.ideas).toHaveLength(0);
     expect(st.started).toHaveLength(0);
   });
+  it("a switched-off account is refused before any idea is created (no stray idea)", async () => {
+    st.aiBuild = false;
+    await expect(installSupport("u1", "p1", SNIPPET, "k", "https://ideahq.cloud")).rejects.toMatchObject({ status: 403 });
+    expect(st.ideas).toHaveLength(0);
+    expect(st.started).toHaveLength(0);
+  });
   it("never touches another user's project", async () => {
     await expect(installSupport("someone-else", "p1", SNIPPET, "k", "https://ideahq.cloud")).rejects.toMatchObject({ status: 404 });
     expect(st.ideas).toHaveLength(0);
@@ -124,6 +133,13 @@ describe("POST /api/projects/[id]/support/install", () => {
   it("404s for a project that is not yours", async () => {
     st.project = { ...ready, userId: "u2" };
     expect((await call()).status).toBe(404);
+  });
+  it("returns the plain 403 message for a switched-off account", async () => {
+    st.aiBuild = false;
+    const res = await call();
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/switched off/);
+    expect(st.ideas).toHaveLength(0);
   });
   it("passes on plain-language problems from the run engine", async () => {
     st.approveError = new RunError(409, "Another run is already executing on this project. Wait for it to finish.");

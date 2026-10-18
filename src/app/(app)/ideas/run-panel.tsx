@@ -59,6 +59,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
   const [efforts, setEfforts] = useState<string[]>(Object.keys(EFFORT_LABEL));
   const [prov, setProv] = useState<{ id: string; label: string; reportsCost: boolean; supportsTurnCap: boolean } | null>(null);
   const [epic, setEpic] = useState<Epic | null>(null);
+  const [aiBuild, setAiBuild] = useState(true); // false: the owner switched AI build off for this account
   const [pick, setPick] = useState<{ model: string; effort: string; maxTurns: number } | null>(null);
   const [changing, setChanging] = useState(false);
   const lastStatus = useRef<string | null>(null);
@@ -74,6 +75,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
         if (j.efforts) setEfforts(j.efforts);
         setProv(j.provider || null);
         setEpic(j.epic);
+        setAiBuild(j.aiBuild !== false);
       }
     } finally {
       setLoaded(true);
@@ -119,7 +121,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
   };
 
   const prUrl = run?.prNumber && run.project.repoOwner ? `https://github.com/${run.project.repoOwner}/${run.project.repoName}/pull/${run.prNumber}` : null;
-  const canStart = !epic && (!run || ["merged", "closed", "failed", "cancelled"].includes(run.status));
+  const canStart = aiBuild && !epic && (!run || ["merged", "closed", "failed", "cancelled"].includes(run.status));
   const tier = pick ?? (rec ? { model: rec.model, effort: rec.effort, maxTurns: rec.maxTurns } : null);
   const label = (id: string) => models.find((m) => m.id === id)?.label ?? id;
 
@@ -138,6 +140,12 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
             </Button>
           )}
         </div>
+
+        {loaded && !aiBuild && (
+          <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
+            AI build is switched off for your account. Ask the owner.
+          </p>
+        )}
 
         {epic && (
           <div className="space-y-2 text-sm">
@@ -192,7 +200,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
               )}
             </div>
 
-            {run.status === "awaiting_approval" && plan && (
+            {aiBuild && run.status === "awaiting_approval" && plan && (
               <div className="space-y-2">
                 <details className="text-sm">
                   <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Review the plan the AI will follow</summary>
@@ -276,7 +284,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                     Close PR
                   </Button>
                 </div>
-                {run.kind !== "revert" && (
+                {aiBuild && run.kind !== "revert" && (
                   <div className="space-y-2">
                     <Textarea
                       value={instruction}

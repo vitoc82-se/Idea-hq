@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isOwner } from "@/lib/owner";
-import { KNOWN_FEATURES } from "@/lib/support/constants";
+import { cleanUserPatch } from "@/lib/admin-users";
 
-// Owner-only: approve or revoke an account, and switch optional features (e.g. tickets) on or off.
+// Owner-only: change one account's settings: approval, optional features
+// (Support tickets), AI build and the daily helper-AI call limit.
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -14,12 +15,8 @@ export async function PATCH(
   if (!userId || !(await isOwner(userId, session?.user?.email))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const body = await request.json().catch(() => null);
-  const hasApproved = body && typeof body.approved === "boolean";
-  const hasFeatures = body && Array.isArray(body.features) && body.features.every((f: unknown) => typeof f === "string" && (KNOWN_FEATURES as readonly string[]).includes(f));
-  if (!hasApproved && !hasFeatures) {
-    return NextResponse.json({ error: "approved (boolean) or features (known names) required" }, { status: 400 });
-  }
+  const checked = cleanUserPatch(await request.json().catch(() => null));
+  if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
   const target = await db.user.findUnique({
     where: { id: params.id },
     select: { id: true },
@@ -29,11 +26,8 @@ export async function PATCH(
   }
   const user = await db.user.update({
     where: { id: params.id },
-    data: {
-      ...(hasApproved ? { approved: body.approved } : {}),
-      ...(hasFeatures ? { features: Array.from(new Set<string>(body.features)) } : {}),
-    },
-    select: { id: true, email: true, approved: true, features: true },
+    data: checked.patch,
+    select: { id: true, email: true, approved: true, features: true, aiBuild: true, aiDailyLimit: true },
   });
   return NextResponse.json({ user });
 }

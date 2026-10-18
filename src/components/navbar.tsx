@@ -11,7 +11,7 @@ import { APP_VERSION } from "@/lib/version";
 const navLinks = [
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/users", label: "Users", icon: Users },
+  { href: "/users", label: "Admin", icon: Users },
   { href: "/guide", label: "Guide", icon: BookOpen },
 ];
 

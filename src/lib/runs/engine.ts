@@ -14,11 +14,21 @@ import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
 import { invalidateSetupCache } from "./setup-cache";
+import { aiBuildAllowed } from "../access";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
+}
+
+export const AI_BUILD_OFF_MESSAGE = "AI build is switched off for your account. Ask the owner.";
+
+// One check for everything that starts AI work in a person's GitHub (start,
+// approve, revise, learn, and the Support "Add it for me" install). Merge,
+// revert, cancel and webhooks stay open so nobody is stranded with an open PR.
+export async function assertAiBuild(userId: string): Promise<void> {
+  if (!(await aiBuildAllowed(userId))) throw new RunError(403, AI_BUILD_OFF_MESSAGE);
 }
 
 type Deps = { gh?: GitHubApi; now?: () => Date };
@@ -68,6 +78,7 @@ async function transition(run: { id: string; status: string }, to: string, data:
 // ---- start / approve -------------------------------------------------------
 
 export async function startRun(userId: string, ideaId: string, deps?: Deps) {
+  await assertAiBuild(userId); // before the "reuse the waiting run" return below
   const idea = await db.idea.findFirst({ where: { id: ideaId, userId }, include: { project: true } });
   if (!idea) throw new RunError(404, "Idea not found");
   if (!idea.plan) throw new RunError(409, "Create the plan first (Promote to plan), then implement.");
@@ -160,6 +171,7 @@ export async function recommendForRun(run: { ideaId: string | null; userId: stri
 }
 
 export async function approveRun(userId: string, runId: string, deps?: Deps, override: Override = {}) {
+  await assertAiBuild(userId);
   const gh = g(deps);
   const run = await loadOwned(userId, runId);
   if (run.status !== "awaiting_approval") throw new RunError(409, `Run is ${run.status}, not waiting for approval.`);
@@ -183,6 +195,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
 }
 
 export async function reviseRun(userId: string, runId: string, instruction: string, deps?: Deps) {
+  await assertAiBuild(userId);
   const gh = g(deps);
   if (!instruction.trim()) throw new RunError(400, "Describe what to change.");
   const run = await loadOwned(userId, runId);
@@ -230,6 +243,7 @@ function areasOf(files: string[]): string {
 // ---- learn the project (runs in the owner's GitHub, like an implementation) --
 
 export async function startLearnRun(userId: string, projectId: string, deps?: Deps) {
+  await assertAiBuild(userId);
   const gh = g(deps);
   const p = await db.project.findFirst({ where: { id: projectId, userId } });
   if (!p) throw new RunError(404, "Project not found");

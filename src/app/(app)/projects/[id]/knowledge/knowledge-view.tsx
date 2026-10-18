@@ -15,6 +15,7 @@ type Mem = { id: string; kind: string; text: string; pinned: boolean; source: st
 type LearnRun = { id: string; status: string; prNumber: number | null; checksState: string | null; costUsd: number | null; error: string | null; createdAt: string } | null;
 type Data = {
   projectName: string;
+  aiBuild?: boolean; // false: the owner switched AI build off for this account
   repo: { owner: string; name: string } | null;
   workflowInstalled: boolean;
   sections: Section[];
@@ -141,7 +142,7 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
             <Button size="sm" variant="outline" disabled={!d.repo || busy !== null} onClick={() => quickDraft(false)}>
               {busy === "draft" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}Quick draft from my repo
             </Button>
-            <Button size="sm" disabled={!d.repo || !d.workflowInstalled || busy !== null || !!learning} onClick={learn}>
+            <Button size="sm" disabled={d.aiBuild === false || !d.repo || !d.workflowInstalled || busy !== null || !!learning} onClick={learn}>
               {busy === "learn" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Learn deeply in my GitHub
             </Button>
             <Button size="sm" variant="outline" disabled={busy !== null} onClick={interview}>
@@ -154,7 +155,7 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
           </div>
           <p className="text-xs text-gray-500">
             <b>Quick draft</b> reads the key files, takes seconds, uses Idea HQ&apos;s AI. <b>Learn deeply</b> lets the AI explore your whole repo inside your own GitHub (about a few minutes, uses your Anthropic key, usually under a dollar). It opens a pull request with what it wrote.
-            {!d.repo && " Connect a repo first."}{d.repo && !d.workflowInstalled && " Deep learning needs the repo setup finished (the workflow merged)."}
+            {d.aiBuild === false && " AI build is switched off for your account. Ask the owner."}{!d.repo && " Connect a repo first."}{d.repo && !d.workflowInstalled && " Deep learning needs the repo setup finished (the workflow merged)."}
           </p>
           {d.exportPr && repoUrl && (
             <p className="text-sm"><GitPullRequest className="w-4 h-4 inline mr-1" />A copy is waiting in <a className="text-emerald-600 hover:underline" href={`${repoUrl}/pull/${d.exportPr}`} target="_blank" rel="noreferrer">pull request #{d.exportPr} <ExternalLink className="w-3 h-3 inline" /></a>. Merge it to keep it in the repo.</p>

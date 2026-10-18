@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { canUse, consumeAiCall } from "@/lib/access";
+import { canUse, consumeAiCallDetailed, AI_LIMIT_MESSAGE, AI_OFF_MESSAGE } from "@/lib/access";
 import { GitHubError, GitHubRateLimitError } from "@/lib/github/client";
 import { RunError } from "./engine";
 import crypto from "crypto";
@@ -16,16 +16,23 @@ export async function requireUser(): Promise<{ userId: string; email: string | n
   return { userId, email: session?.user?.email ?? null };
 }
 
+// Counts one helper AI call for the person; returns a ready response when the
+// person is switched off or out of calls. Used by every route that spends the
+// server's AI key.
+export async function requireAiCall(userId: string, email: string | null): Promise<NextResponse | null> {
+  const r = await consumeAiCallDetailed(userId, email);
+  if (r === "off") return NextResponse.json({ error: AI_OFF_MESSAGE }, { status: 403 });
+  if (r === "limit") return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 });
+  return null;
+}
+
 // Gate for routes that spend the server's AI key: needs the key configured and
 // the user's daily allowance. Returns a ready response when blocked.
 export async function requireAi(userId: string, email: string | null): Promise<NextResponse | null> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "AI is not configured (ANTHROPIC_API_KEY missing)." }, { status: 503 });
   }
-  if (!(await consumeAiCall(userId, email))) {
-    return NextResponse.json({ error: "Daily AI limit reached. Try again tomorrow." }, { status: 429 });
-  }
-  return null;
+  return requireAiCall(userId, email);
 }
 
 export function errorResponse(e: unknown): NextResponse {

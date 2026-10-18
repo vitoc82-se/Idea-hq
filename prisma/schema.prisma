@@ -59,6 +59,12 @@ model User {
   aiCallsToday  Int       @default(0)
   // Opt-in feature flags the owner grants per account (e.g. "tickets").
   features      String[]  @default([])
+  // AI build: may this account start AI runs in its own GitHub (Implement, Learn deeply)?
+  // Default on; the owner switches people off in the admin panel (a paywall can flip the default later).
+  aiBuild       Boolean   @default(true)
+  // Per-person daily cap on server-paid helper AI calls. null = the site default
+  // (AI_DAILY_LIMIT, 20); 0 = off (also turns off AI answers in their Support widgets).
+  aiDailyLimit  Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

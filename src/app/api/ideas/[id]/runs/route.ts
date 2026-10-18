@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { startRun, reconcileRun, recommendForRun } from "@/lib/runs/engine";
 import { getProvider } from "@/lib/providers";
+import { aiBuildAllowed } from "@/lib/access";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
@@ -57,6 +58,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const prov = getProvider(idea.project?.aiProvider);
     return NextResponse.json({
       runs, recommended, epic,
+      aiBuild: await aiBuildAllowed(auth.userId), // false: show a notice instead of the AI build buttons
       models: prov.models,
       efforts: prov.efforts,
       provider: { id: prov.id, label: prov.label, reportsCost: prov.reportsCost, supportsTurnCap: prov.supportsTurnCap },

@@ -63,6 +63,16 @@ describe("loadPublicSpace (the feature gate on every public request)", () => {
     dbm.spaceRow = row({ enabled: false });
     expect(await loadPublicSpace(KEY)).toBeNull();
   });
+  it("a project owner's helper limit of 0 switches off AI answers but keeps the widget open", async () => {
+    dbm.spaceRow = row({ project: { name: "Acme", user: { features: ["tickets"], email: "owner@x.se", aiDailyLimit: 0 } } });
+    const s = await loadPublicSpace(KEY);
+    expect(s).not.toBeNull();
+    expect(s?.aiEnabled).toBe(false);
+    dbm.spaceRow = row({ project: { name: "Acme", user: { features: ["tickets"], email: "owner@x.se", aiDailyLimit: 5 } } });
+    expect((await loadPublicSpace(KEY))?.aiEnabled).toBe(true);
+    dbm.spaceRow = row({ project: { name: "Acme", user: { features: ["tickets"], email: "owner@x.se", aiDailyLimit: null } } });
+    expect((await loadPublicSpace(KEY))?.aiEnabled).toBe(true);
+  });
   it("is closed when the owner no longer has the tickets feature", async () => {
     dbm.spaceRow = row({ project: { name: "Acme", user: { features: [], email: "friend@x.se" } } });
     expect(await loadPublicSpace(KEY)).toBeNull();

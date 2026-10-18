@@ -70,3 +70,9 @@ New accounts are locked out until the owner approves them under **Users**. The o
 ### Tests
 
 `npm test` (Vitest) and CI (`.github/workflows/ci.yml`) run the access matrix, the run engine against a fake GitHub, and the webhook/workflow helpers.
+
+## AI limits and AI build (admin panel)
+- `AI_DAILY_LIMIT` is the site default for helper AI calls (estimates, plans, drafts) per person per UTC day. Unset, empty, junk or `0` all mean the default of 20; it cannot switch AI off.
+- Per person, the Admin page sets `aiDailyLimit`: empty = the site default, a number = that many a day, `0` = off (this also turns off AI answers in that person's Support widgets). The owner is never limited.
+- `aiBuild` (per person, default on) allows the Implement and Learn deeply buttons and the Support "Add it for me" install. Merge, revert and cancel stay available when it is off, and runs already in flight finish.
+- Rolling back the two User columns (`aiBuild`, `aiDailyLimit`) would drop their data (`prisma db push --accept-data-loss`).
