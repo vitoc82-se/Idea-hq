@@ -45,8 +45,7 @@ export function Welcome({ name }: { name: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [projectName, setProjectName] = useState("");
-  const [context, setContext] = useState("");
-  const [ctxTouched, setCtxTouched] = useState(false);
+  const [drafted, setDrafted] = useState<{ sections: { id: string; text: string }[]; read: { files: string[] } } | null>(null);
   const [ideaTitle, setIdeaTitle] = useState("");
   const [ideaNotes, setIdeaNotes] = useState("");
 
@@ -62,17 +61,6 @@ export function Welcome({ name }: { name: string }) {
     document.addEventListener("visibilitychange", onVis);
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
   }, [load]);
-
-  // Pull the saved project context into the editor once (and never overwrite typing).
-  useEffect(() => {
-    if (!ob?.projectId || ctxTouched || !ob.approved) return;
-    fetch("/api/projects", { cache: "no-store" }).then(async (r) => {
-      if (!r.ok) return;
-      const list: { id: string; context: string }[] = await r.json();
-      const p = list.find((x) => x.id === ob.projectId);
-      if (p && !ctxTouched) setContext(p.context || "");
-    });
-  }, [ob?.projectId, ob?.approved, ctxTouched]);
 
   const post = async (label: string, url: string, body?: unknown, method = "POST") => {
     setBusy(label); setMsg(null);
@@ -101,11 +89,11 @@ export function Welcome({ name }: { name: string }) {
   const draftContext = async () => {
     if (!ob.projectId) return;
     const j = await post("draft", `/api/projects/${ob.projectId}/context-draft`);
-    if (j?.context) { setCtxTouched(true); setContext(j.context); }
+    if (j) { setDrafted({ sections: j.sections, read: j.read }); load(); }
   };
-  const saveContext = async () => {
+  const confirmContext = async () => {
     if (!ob.projectId) return;
-    const j = await post("ctx", `/api/projects/${ob.projectId}`, { context }, "PATCH");
+    const j = await post("ctx", `/api/projects/${ob.projectId}/knowledge`, { confirmAll: true }, "PATCH");
     if (j) { setMsg({ ok: true, text: "Saved." }); load(); }
   };
   const createIdea = async () => {
@@ -182,22 +170,34 @@ export function Welcome({ name }: { name: string }) {
             </PhaseCard>
 
             <PhaseCard n={3} title="Teach the AI about your project" status={phaseOf("Teach the AI")}>
-              {st("context") === "blocked" ? (
+              {st("context") === "blocked" && !drafted ? (
                 <p className="text-sm text-gray-500">Finish connecting your repo first.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    The AI reads this before every estimate and every change, so it builds things that fit your project. Let it read your repo and draft this, then fix anything it got wrong.
+                    The AI reads this before every estimate and every change, so it builds things that fit your project. Let it read your repo and describe it, then correct anything it got wrong.
                   </p>
                   <Button size="sm" variant="outline" onClick={draftContext} disabled={busy !== null}>
-                    {busy === "draft" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Draft it from my repo
+                    {busy === "draft" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}{drafted || ob.contextLength > 0 ? "Read my repo again" : "Read my repo and describe it"}
                   </Button>
-                  <Textarea value={context} onChange={(e) => { setCtxTouched(true); setContext(e.target.value); }} className="min-h-[200px] text-xs font-mono"
-                    placeholder="What the project is, its stack, the important folders, and how it is built and tested." />
-                  <Button size="sm" onClick={saveContext} disabled={busy !== null || context.trim().length < 120}>
-                    {busy === "ctx" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Save
-                  </Button>
-                  {context.trim().length < 120 && <p className="text-xs text-gray-400">At least a few sentences, so the AI has something to go on.</p>}
+                  {drafted && (
+                    <div className="space-y-2 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                      <p className="text-xs text-gray-500">It read {drafted.read.files.length} files ({drafted.read.files.slice(0, 6).join(", ")}{drafted.read.files.length > 6 ? ", …" : ""}). Here is what it understood:</p>
+                      {drafted.sections.filter((x) => x.text).map((x) => (
+                        <div key={x.id}>
+                          <p className="text-xs font-medium text-gray-500">{({ what: "What it is", stack: "Technology", structure: "How it is organised", run: "How to run, test and ship", rules: "Rules", gotchas: "Quirks" } as Record<string, string>)[x.id] || x.id}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{x.text}</p>
+                        </div>
+                      ))}
+                      {drafted.sections.every((x) => !x.text) && <p className="text-sm text-gray-500">It could not tell much from the files. You can add details on the knowledge page.</p>}
+                    </div>
+                  )}
+                  {(drafted || ob.contextLength > 0) && ob.projectId && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button size="sm" onClick={confirmContext} disabled={busy !== null}>This looks right</Button>
+                      <Link href={`/projects/${ob.projectId}/knowledge`} target="_blank" className="text-sm text-emerald-600 hover:underline">Fix or add details (opens the knowledge page)</Link>
+                    </div>
+                  )}
                 </div>
               )}
             </PhaseCard>

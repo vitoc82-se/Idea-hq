@@ -15,6 +15,7 @@ const TOC = [
   ["words", "Words used here"],
   ["before", "Before you start"],
   ["setup", "Setup, step by step"],
+  ["knows", "How the AI learns your project"],
   ["first", "Your first AI change"],
   ["daily", "Everyday use"],
   ["ideas", "Writing good ideas"],
@@ -127,9 +128,23 @@ export default async function GuidePage() {
           <Step n={4} title="Set the checks">These are the commands that test a change. The app suggests them from your project, so just click Use them. If you do not know, leaving them empty works, but then nothing tests the AI&apos;s work.</Step>
           <Step n={5} title="Install the workflow">Click the button. Idea HQ opens a pull request in your repo that adds one small file. Open it on GitHub and click Merge. You only do this once per project. It is the file that lets GitHub run the AI for you, with a time limit.</Step>
           <Step n={6} title="Add your API key to the repo">Open the page the app links to. Name the secret <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">ANTHROPIC_API_KEY</code>, paste your key, and save. The key stays in GitHub. Idea HQ never sees it.</Step>
-          <Step n={7} title="Teach the AI about your project">Click Draft it from my repo. The AI reads your project and writes a short description. Fix anything it got wrong and save. A good description makes every later estimate and plan better.</Step>
+          <Step n={7} title="Teach the AI about your project">Click Read my repo and describe it. The AI looks through your project and writes down what it is, how it is built and how to run it. Read it, then click This looks right, or fix what is wrong. A good description makes every later estimate and plan better. The next section explains how to improve it further.</Step>
         </ol>
         <Tip>Several projects? On a personal GitHub account the key has to be added to each repo once. The app gives you a one-line command to add it to all of them at once.</Tip>
+
+        <H id="knows">How the AI learns your project</H>
+        <P>
+          The AI can only do good work if it understands your project. Idea HQ keeps a page for that: open Projects and click <b>Knows 60%</b> (or the percentage you see) on any project. It shows what the AI knows, in six plain topics: what it is, the technology, how it is organised, how to run and ship it, rules, and known quirks. Each topic says whether it is <b>Missing</b>, <b>Needs review</b> or <b>Confirmed</b>, and where it came from.
+        </P>
+        <UL>
+          <li><b>Quick draft from my repo:</b> reads the key files in seconds and fills in what it can see. Safe to repeat. It never overwrites what you wrote or confirmed.</li>
+          <li><b>Learn deeply in my GitHub:</b> the AI explores your whole project inside your own GitHub, like a new teammate reading the code. It takes a few minutes, uses your Anthropic key (usually under a dollar), and what it writes appears on the page marked Needs review.</li>
+          <li><b>Answer a few questions:</b> optional. The AI asks plain questions about the gaps, like what must never change, and adds your answers.</li>
+          <li><b>This is right / Edit:</b> check each topic. Anything you edit or confirm is protected, so the AI will not overwrite it later.</li>
+          <li><b>Save a copy in my repo:</b> opens a pull request that adds the knowledge to your project as a text file, so other AI tools you use start with the same understanding. Idea HQ always keeps its own copy too.</li>
+          <li><b>What it learns over time:</b> after each change, Idea HQ notes what shipped, what you asked to be fixed, and what failed. You can pin the ones that matter, add your own rules, or delete any.</li>
+        </UL>
+        <Tip>If an estimate or plan feels off, the knowledge is usually the reason. Open the page, fix the topic that is wrong or missing, and generate the plan again.</Tip>
 
         <H id="first">Your first AI change</H>
         <P>Start tiny, so you learn the loop cheaply. The practice idea (add one line to the README) is perfect.</P>
@@ -188,6 +203,7 @@ export default async function GuidePage() {
         <Q q="&quot;Add your API key&quot; will not tick off">Check that the secret is named exactly <code>ANTHROPIC_API_KEY</code> in the same repo you connected, then click Check again. The name must match letter for letter.</Q>
         <Q q="GitHub says it is limiting requests">GitHub allows a fixed number of requests per hour. Wait for the time shown, and avoid pressing Check again repeatedly. Your progress is saved.</Q>
         <Q q="I do not see my repo in the list">The app only sees repos you allowed on GitHub. Use the link under the repo list to give it access to more repos, then come back. The list refreshes by itself.</Q>
+        <Q q="The AI seems confused about my project">Open the project&apos;s knowledge page. Click Learn deeply in my GitHub, or Answer a few questions, and correct anything that is wrong. A missing README or unusual folder layout is the most common cause.</Q>
         <Q q="The AI built something I do not want">That is what the review step is for. Close the pull request, or request changes. Nothing was added to your project.</Q>
         <Q q="I want to start the setup over">Open Projects, then Repo and AI setup on the project. Every step can be redone. Nothing is lost.</Q>
 

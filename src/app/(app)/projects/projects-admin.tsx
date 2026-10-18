@@ -6,11 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { formatDistanceToNow } from "date-fns";
 import type { Project } from "../ideas/ideas-shared";
 import Link from "next/link";
 import { ProjectRepo } from "./project-repo";
+import { completeness, knowledgeFor } from "@/lib/knowledge";
+
+// How much of the project the AI knows, from the stored knowledge.
+const knowPct = (p: { knowledge?: unknown; context?: string | null }) => completeness(knowledgeFor(p.knowledge ?? null, p.context)).percent;
 
 const BLANK = { name: "", slug: "", color: "", context: "", contextSourceUrl: "" };
 
@@ -90,7 +93,6 @@ export function ProjectsAdmin() {
           name: form.name,
           slug: form.slug || undefined,
           color: form.color || null,
-          context: form.context,
           contextSourceUrl: form.contextSourceUrl || null,
         }),
       });
@@ -190,29 +192,12 @@ export function ProjectsAdmin() {
                   className="mt-1.5 w-full sm:w-48"
                 />
               </div>
-              <div>
-                <Label htmlFor="context">Project context</Label>
-                <Textarea
-                  id="context"
-                  value={form.context}
-                  onChange={(e) => setForm({ ...form, context: e.target.value })}
-                  placeholder="Paste this project's ARCHITECTURE.md (or stack, data models, routes, deploy flow, conventions). This is exactly what the AI reads to estimate an idea's effort and write a build prompt."
-                  className="mt-1.5 min-h-[220px] font-mono text-xs"
-                />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Editing this marks every existing estimate for this project as stale, so you can re-run them.
+              {editingId && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  What the AI knows about this project lives on its{" "}
+                  <Link href={`/projects/${editingId}/knowledge`} className="text-emerald-600 hover:underline">knowledge page</Link>.
                 </p>
-              </div>
-              <div>
-                <Label htmlFor="contextSourceUrl">Context source URL (optional, for later auto-refresh)</Label>
-                <Input
-                  id="contextSourceUrl"
-                  value={form.contextSourceUrl}
-                  onChange={(e) => setForm({ ...form, contextSourceUrl: e.target.value })}
-                  placeholder="https://raw.githubusercontent.com/you/repo/main/ARCHITECTURE.md"
-                  className="mt-1.5"
-                />
-              </div>
+              )}
               {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
               <Button type="submit" disabled={saving} className="w-full">
                 {saving ? "Saving..." : editingId ? "Save changes" : "Create project"}
@@ -268,6 +253,9 @@ export function ProjectsAdmin() {
                     {progress[p.id].done >= progress[p.id].total ? "AI ready" : `Setup ${progress[p.id].done}/${progress[p.id].total}`}
                   </Link>
                 )}
+                <Link href={`/projects/${p.id}/knowledge`} className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${(knowPct(p) >= 70) ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}>
+                  Knows {knowPct(p)}%
+                </Link>
                 <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
                   <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
                 </Button>

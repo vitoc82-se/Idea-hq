@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
+import { reconcileRun } from "@/lib/runs/engine";
 import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
 import { SECTION_DEFS, completeness, confirmAll, isSectionId, setSection, type SectionId } from "@/lib/knowledge";
 
@@ -31,7 +32,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         await db.project.update({ where: { id: p.id }, data: { knowledgePrNumber: null } });
       }
     }
-    const learn = await db.run.findFirst({ where: { projectId: p.id, userId: auth.userId, kind: "learn" }, orderBy: { createdAt: "desc" } });
+    let learn = await db.run.findFirst({ where: { projectId: p.id, userId: auth.userId, kind: "learn" }, orderBy: { createdAt: "desc" } });
+    if (learn && ["dispatched", "running", "pr_open"].includes(learn.status)) {
+      await reconcileRun(learn.id).catch(() => undefined); // repairs missed webhooks (30s cooldown)
+      learn = (await db.run.findFirst({ where: { id: learn.id, userId: auth.userId } })) ?? learn;
+    }
     return NextResponse.json({
       projectName: p.name,
       repo: hasRepo ? { owner: p.repoOwner, name: p.repoName } : null,

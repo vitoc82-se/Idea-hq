@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
 import { snapshotRepo } from "@/lib/repo-snapshot";
 import { draftSections } from "@/lib/context-draft";
