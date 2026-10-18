@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -270,6 +270,13 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                     Support
                   </Link>
                 )}
+                <Link
+                  href={`/projects/${p.id}/import`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
+                >
+                  <Upload className="w-4 h-4" />
+                  Import ideas
+                </Link>
                 <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
                   <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
                 </Button>

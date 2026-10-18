@@ -21,6 +21,8 @@ export type Onboarding = {
   projectName: string | null;
   ideaId: string | null;
   idea: { id: string; title: string; plan: string | null } | null;
+  // Every idea of the project (newest first), so a user who imported a backlog can pick where to start.
+  ideas: { id: string; title: string; plan: string | null }[];
   contextLength: number;
   shipped: boolean;
 };
@@ -81,12 +83,14 @@ export async function getOnboarding(
     ctxLen >= MIN_CONTEXT_CHARS ? undefined : "A short description of what the project is and how it is built. The AI can draft it from your repo.");
 
   let idea: { id: string; title: string; plan: string | null } | null = null;
+  let allIdeas: { id: string; title: string; plan: string | null }[] = [];
   let runs: { status: string; prNumber: number | null; ideaId: string | null }[] = [];
   if (project) {
     const ideas = await db.idea.findMany({ where: { userId, projectId: project.id }, orderBy: { createdAt: "desc" } });
     runs = await db.run.findMany({ where: { userId, projectId: project.id, kind: "implement" } });
+    allIdeas = ideas.filter((i) => i.status !== "done").slice(0, 40).map((i) => ({ id: i.id, title: i.title, plan: i.plan ?? null }));
     const withRun = ideas.find((i) => runs.some((r) => r.ideaId === i.id));
-    const pick = withRun ?? ideas[0];
+    const pick = withRun ?? ideas.find((i) => i.status !== "done") ?? ideas[0];
     if (pick) idea = { id: pick.id, title: pick.title, plan: pick.plan ?? null };
   }
   const ideaRuns = idea ? runs.filter((r) => r.ideaId === idea!.id) : [];
@@ -104,6 +108,6 @@ export async function getOnboarding(
   return {
     approved, dismissed, steps, done, total: steps.length, currentId: current ? current.id : null,
     projectId: project?.id ?? null, projectName: project?.name ?? null,
-    ideaId: idea?.id ?? null, idea, contextLength: ctxLen, shipped,
+    ideaId: idea?.id ?? null, idea, ideas: allIdeas, contextLength: ctxLen, shipped,
   };
 }

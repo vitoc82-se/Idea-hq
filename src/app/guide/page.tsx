@@ -174,6 +174,10 @@ export default async function GuidePage() {
           <li><b>Too big?</b> If the estimate says large or extra large, break it into stories first. Smaller steps are cheaper and fail less.</li>
         </UL>
 
+        <P>
+          Already have a TODO.md, a Notion page or any list of ideas? Press <b>Import ideas</b> on the project (it is also offered during setup). Idea HQ looks for a TODO file in your repo, or you paste or upload the list, the AI turns it into separate ideas, and you tick which ones to keep before anything is saved.
+        </P>
+
         <H id="safe">Staying in control</H>
         <UL>
           <li>You approve the plan before anything runs.</li>

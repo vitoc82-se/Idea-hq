@@ -12,12 +12,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SetupJourney } from "@/app/(app)/projects/[id]/setup/setup-journey";
 import { RunPanel } from "@/app/(app)/ideas/run-panel";
+import { BacklogImport } from "@/components/backlog-import";
+import { Select } from "@/components/ui/select";
 
 type Step = { id: string; title: string; status: "done" | "todo" | "blocked" | "warn"; phase: string; detail?: string };
 type Onboarding = {
   approved: boolean; steps: Step[]; done: number; total: number; currentId: string | null;
   projectId: string | null; projectName: string | null;
   idea: { id: string; title: string; plan: string | null } | null;
+  ideas: { id: string; title: string; plan: string | null }[];
   contextLength: number; shipped: boolean;
 };
 
@@ -48,6 +51,19 @@ export function Welcome({ name }: { name: string }) {
   const [drafted, setDrafted] = useState<{ sections: { id: string; text: string }[]; read: { files: string[] } } | null>(null);
   const [ideaTitle, setIdeaTitle] = useState("");
   const [ideaNotes, setIdeaNotes] = useState("");
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const [importSkipped, setImportSkipped] = useState(false);
+  const [imported, setImported] = useState<number | null>(null);
+
+  // Remember "no, I will start fresh" per project, so the question is not asked again.
+  useEffect(() => {
+    if (!ob?.projectId) return;
+    try { setImportSkipped(localStorage.getItem(`ihq-import-skip-${ob.projectId}`) === "1"); } catch { /* private mode */ }
+  }, [ob?.projectId]);
+  const skipImport = () => {
+    setImportSkipped(true);
+    try { if (ob?.projectId) localStorage.setItem(`ihq-import-skip-${ob.projectId}`, "1"); } catch { /* private mode */ }
+  };
 
   const load = useCallback(async () => {
     const res = await fetch("/api/onboarding", { cache: "no-store" });
@@ -78,6 +94,8 @@ export function Welcome({ name }: { name: string }) {
   if (!ob) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-emerald-600" /></div>;
 
   const st = (id: string) => ob.steps.find((s) => s.id === id)!.status;
+  // Which idea the first AI change is about: the user's pick, else the default.
+  const cur = (chosenId && ob.ideas.find((i) => i.id === chosenId)) || ob.idea;
   const phaseDone = (phase: string) => ob.steps.filter((s) => s.phase === phase).every((s) => s.status === "done");
   const phaseOf = (phase: string): "done" | "current" | "later" =>
     phaseDone(phase) ? "done" : PHASES.slice(0, PHASES.indexOf(phase)).every(phaseDone) ? "current" : "later";
@@ -102,8 +120,8 @@ export function Welcome({ name }: { name: string }) {
     if (j) { setIdeaTitle(""); setIdeaNotes(""); load(); }
   };
   const makePlan = async () => {
-    if (!ob.idea) return;
-    const j = await post("plan", `/api/ideas/${ob.idea.id}/plan`);
+    if (!cur) return;
+    const j = await post("plan", `/api/ideas/${cur.id}/plan`);
     if (j) load();
   };
 
@@ -202,10 +220,31 @@ export function Welcome({ name }: { name: string }) {
               )}
             </PhaseCard>
 
-            <PhaseCard n={4} title="Your first AI change" status={phaseOf("Your first AI change")}>
+            {ob.projectId && st("project") === "done" && (
+              <Card>
+                <CardContent className="p-5 space-y-3">
+                  <h2 className="font-semibold text-gray-900 dark:text-white">Do you already have a list of ideas? <span className="text-sm font-normal text-gray-500">(optional)</span></h2>
+                  {importSkipped && imported === null ? (
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      No problem. You can import a TODO.md or any list later: Projects, then <b>Import ideas</b>.{" "}
+                      <button type="button" className="text-emerald-700 underline dark:text-emerald-400" onClick={() => setImportSkipped(false)}>Import one now</button>
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Maybe a TODO.md in your repo, a Notion page, a Trello board or just a note on your phone. Bring it here and the AI turns it into ideas you can rank, estimate and build. You choose what to import first.
+                      </p>
+                      <BacklogImport projectId={ob.projectId} onImported={(n) => { setImported(n); load(); }} onSkip={skipImport} />
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            <PhaseCard n={5} title="Your first AI change" status={phaseOf("Your first AI change")}>
               {st("idea") === "blocked" ? (
                 <p className="text-sm text-gray-500">Teach the AI about your project first.</p>
-              ) : !ob.idea ? (
+              ) : !cur ? (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600 dark:text-gray-300">Write an idea in plain words, or start with a tiny practice one.</p>
                   <div><Label className="text-xs">Idea</Label><Input value={ideaTitle} onChange={(e) => setIdeaTitle(e.target.value)} className="mt-1" placeholder="Show the app version in the footer" /></div>
@@ -217,8 +256,17 @@ export function Welcome({ name }: { name: string }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-700 dark:text-gray-200">Idea: <b>{ob.idea.title}</b></p>
-                  {!ob.idea.plan ? (
+                  {ob.ideas.length > 1 ? (
+                    <div className="space-y-1">
+                      <Label htmlFor="first-idea" className="text-xs">Pick the idea to build first. A small one works best.</Label>
+                      <Select id="first-idea" value={cur.id} onChange={(e) => setChosenId(e.target.value)}>
+                        {ob.ideas.map((i) => <option key={i.id} value={i.id}>{i.title}</option>)}
+                      </Select>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-700 dark:text-gray-200">Idea: <b>{cur.title}</b></p>
+                  )}
+                  {!cur.plan ? (
                     <div className="space-y-2">
                       <p className="text-sm text-gray-600 dark:text-gray-300">Next the AI writes a build prompt: a precise plan for this idea, using your project context. You read and approve it before anything runs.</p>
                       <Button size="sm" onClick={makePlan} disabled={busy !== null}>
@@ -228,9 +276,9 @@ export function Welcome({ name }: { name: string }) {
                   ) : (
                     <>
                       <details className="text-sm"><summary className="cursor-pointer text-gray-600 dark:text-gray-300">Read the build prompt</summary>
-                        <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-auto">{ob.idea.plan}</pre>
+                        <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-auto">{cur.plan}</pre>
                       </details>
-                      <RunPanel ideaId={ob.idea.id} projectId={ob.projectId!} plan={ob.idea.plan} />
+                      <RunPanel key={cur.id} ideaId={cur.id} projectId={ob.projectId!} plan={cur.plan} />
                     </>
                   )}
                 </div>
