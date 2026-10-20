@@ -57,6 +57,7 @@ export function SetupJourney({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
   const [canRelay, setCanRelay] = useState<boolean | null>(null);
+  const [relayReason, setRelayReason] = useState<string | null>(null);
 
   const [limited, setLimited] = useState<string | null>(null);
   const pausedUntil = useRef(0);
@@ -86,8 +87,14 @@ export function SetupJourney({
   useEffect(() => {
     fetch(`/api/projects/${projectId}/relay-capability`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setCanRelay(j ? !!j.canWrite : false))
-      .catch(() => setCanRelay(false));
+      .then((j) => {
+        setCanRelay(j ? !!j.canWrite : false);
+        setRelayReason(j?.reason ?? (j ? null : "check_failed"));
+      })
+      .catch(() => {
+        setCanRelay(false);
+        setRelayReason("check_failed");
+      });
   }, [projectId]);
 
   const waitingOnGitHub = st?.currentId === "workflow" || st?.currentId === "secret";
@@ -200,7 +207,15 @@ export function SetupJourney({
                       {canRelay ? (
                         <KeyRelay projectId={projectId} provider={st.provider} siblings={st.siblings} onDone={() => load("fresh")} />
                       ) : (
-                        <p className="text-xs text-gray-500">Adding the key for you needs one more GitHub permission that has not been approved yet, so add it by hand below.</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          {relayReason === "no_repo"
+                            ? "Connect this project to its GitHub repo first (the repo step above). Then you can paste the key here."
+                            : relayReason === "permission"
+                            ? "Your GitHub installation of Idea HQ cannot save secrets yet. In GitHub, open Settings, Applications, Installed GitHub Apps, Idea HQ, and approve the updated permissions. Until then, add the key by hand below."
+                            : canRelay === null
+                            ? "Checking whether Idea HQ can save the key for you…"
+                            : "Could not check with GitHub just now. Reload the page to try again, or add the key by hand below."}
+                        </p>
                       )}
                       <details className="text-sm" open={!canRelay}>
                         <summary className="cursor-pointer text-gray-600 dark:text-gray-300">Prefer to add it by hand on GitHub?</summary>

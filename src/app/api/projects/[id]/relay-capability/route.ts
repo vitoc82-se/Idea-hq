@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { installationCanWriteSecrets } from "@/lib/github/client";
+import { installationSecretsAccess } from "@/lib/github/client";
 import { requireUser } from "@/lib/runs/http";
 
-// Can Idea HQ save an API key into this project's repo for the user? Only once
-// the GitHub App's "Secrets: write" permission has been approved for the install.
+// Can Idea HQ save an API key into this project's repo for the user? Only when the project
+// is connected to a repo and its GitHub installation has "Secrets: write". `reason` says
+// which part is missing, so the setup page can tell the person exactly what to do.
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
-  const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { installationId: true } });
+  const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { installationId: true, repoOwner: true, repoName: true } });
   if (!p) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  const canWrite = p.installationId ? await installationCanWriteSecrets(p.installationId) : false;
-  return NextResponse.json({ canWrite });
+  if (!p.installationId || !p.repoOwner || !p.repoName) return NextResponse.json({ canWrite: false, reason: "no_repo" });
+  const access = await installationSecretsAccess(p.installationId);
+  if (access === "write") return NextResponse.json({ canWrite: true, reason: null });
+  return NextResponse.json({ canWrite: false, reason: access === "error" ? "check_failed" : "permission" });
 }
