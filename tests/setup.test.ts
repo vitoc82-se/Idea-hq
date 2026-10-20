@@ -67,6 +67,39 @@ describe("getSetupStatus", () => {
     expect(s2.steps.find((x) => x.id === "workflow")?.url).toBe("https://github.com/acme/app/pull/3");
   });
 
+  describe("an optional workflow update", () => {
+    const older = `# idea-hq-workflow-version: ${WORKFLOW_VERSION - 1}\nname: Idea HQ`;
+    const withPr = (pr: { number: number; state: string } | null) => ({ ...gh, getPr: async () => { if (!pr) throw new Error("gone"); return pr; } });
+    beforeEach(() => {
+      t.tables.githubInstallation.push({ userId: "u1", id: 5 });
+      t.tables.project.push(proj({ ...ready, commandsConfirmed: true, workflowInstalled: true, setupPrNumber: 9 }));
+      state.workflow = true;
+      state.secret = true;
+      state.workflowContent = older;
+    });
+    it("is offered, never blocking, when the installed workflow works but is older", async () => {
+      const s = await getSetupStatus("u1", "p1", { gh: withPr(null), fresh: true });
+      expect(s.workflowUpdateAvailable).toBe(true);
+      expect(ids(s).workflow).toBe("done");
+      expect(t.tables.project[0].workflowVersionSeen).toBe(WORKFLOW_VERSION - 1);
+    });
+    it("links the pull request when the update is already waiting on GitHub", async () => {
+      const s = await getSetupStatus("u1", "p1", { gh: withPr({ number: 9, state: "open" }), fresh: true });
+      expect(s.updatePrUrl).toBe("https://github.com/acme/app/pull/9");
+    });
+    it("does not link a pull request that is merged, closed or gone", async () => {
+      expect((await getSetupStatus("u1", "p1", { gh: withPr({ number: 9, state: "closed" }), fresh: true })).updatePrUrl).toBeNull();
+      clearSetupCache();
+      expect((await getSetupStatus("u1", "p1", { gh: withPr(null), fresh: true })).updatePrUrl).toBeNull();
+    });
+    it("is not offered once the newest workflow is installed", async () => {
+      state.workflowContent = `# idea-hq-workflow-version: ${WORKFLOW_VERSION}\nname: Idea HQ`;
+      const s = await getSetupStatus("u1", "p1", { gh: withPr({ number: 9, state: "open" }), fresh: true });
+      expect(s.workflowUpdateAvailable).toBe(false);
+      expect(s.updatePrUrl).toBeNull();
+    });
+  });
+
   it("marks practice done only after a merged implement run", async () => {
     t.tables.githubInstallation.push({ userId: "u1", id: 5 });
     t.tables.project.push(proj({ ...ready, commandsConfirmed: true, workflowInstalled: true }));

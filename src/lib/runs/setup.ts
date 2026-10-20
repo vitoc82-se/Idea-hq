@@ -22,6 +22,7 @@ export type SetupStatus = {
   currentId: StepId | null;
   repo: { owner: string; name: string } | null;
   suggestions: { build: string | null; test: string | null };
+  updatePrUrl: string | null; // the open pull request that updates the workflow, when there is one
   workflowUpdateAvailable: boolean; // a newer workflow exists than the installed one (optional, never forced)
   otherRepos: string[]; // other connected repos of this user, for the multi-repo key command
   provider: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string };
@@ -83,6 +84,7 @@ export async function getSetupStatus(
   let workflowDone = p.workflowInstalled;
   let workflowOutdated = false;
   let versionSeen: number | null = p.workflowVersionSeen;
+  let updatePrUrl: string | null = null;
   let secretDone: boolean | null = opts.quick ? (workflowDone ? p.secretConfirmed : false) : null;
   let suggestions = { build: null as string | null, test: null as string | null };
 
@@ -92,6 +94,11 @@ export async function getSetupStatus(
     workflowDone = !!wf && workflowVersion(wf.content) >= requiredWorkflowVersion(p.aiProvider);
     workflowOutdated = !!wf && !workflowDone;
     versionSeen = wf ? workflowVersion(wf.content) : null;
+    // An update already waiting on GitHub: link to it instead of offering to open another.
+    if (workflowDone && workflowUpdateAvailable(versionSeen, p.aiProvider) && p.setupPrNumber) {
+      const pr = await gh.getPr(i, o, r, p.setupPrNumber).catch(() => null);
+      if (pr && pr.state === "open") updatePrUrl = `https://github.com/${o}/${r}/pull/${pr.number}`;
+    }
     if (versionSeen !== p.workflowVersionSeen) await db.project.update({ where: { id: p.id }, data: { workflowVersionSeen: versionSeen } }).catch(() => undefined);
     secretDone = workflowDone ? await gh.secretExists(i, o, r, getProvider(p.aiProvider).secretName).catch(soft(false)) : false;
     // Only needed to suggest commands before the user has confirmed them.
@@ -145,6 +152,7 @@ export async function getSetupStatus(
     steps, done, total: steps.length, currentId: current ? current.id : null,
     repo: hasRepo ? { owner: p.repoOwner!, name: p.repoName! } : null,
     suggestions, otherRepos: Array.from(new Set(otherRepos)),
+    updatePrUrl,
     workflowUpdateAvailable: workflowDone && workflowUpdateAvailable(versionSeen, p.aiProvider),
   };
   if (!opts.quick) fullCache.set(cacheKey, { at: now(), value: result });

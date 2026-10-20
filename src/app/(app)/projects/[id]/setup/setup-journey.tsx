@@ -17,6 +17,7 @@ type Status = {
   provider: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string };
   siblings: { id: string; name: string; repo: string; provider: string }[];
   workflowUpdateAvailable?: boolean;
+  updatePrUrl?: string | null;
 };
 
 const WHY: Record<string, string> = {
@@ -55,7 +56,7 @@ export function SetupJourney({
 }) {
   const [st, setSt] = useState<Status | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; url?: string } | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
   const [canRelay, setCanRelay] = useState<boolean | null>(null);
   const [relayReason, setRelayReason] = useState<string | null>(null);
@@ -127,7 +128,9 @@ export function SetupJourney({
     setBusy("pr"); setMsg(null);
     const res = await fetch(`/api/projects/${projectId}/setup`, { method: "POST" });
     const j = await res.json().catch(() => ({}));
-    setMsg(res.ok ? { ok: true, text: `Pull request #${j.prNumber} is open. Merge it on GitHub, this page updates by itself.` } : { ok: false, text: j.error || "Could not open the PR." });
+    setMsg(res.ok
+      ? { ok: true, text: `Pull request #${j.prNumber} is open. Merge it on GitHub, this page updates by itself.`, url: st.repo ? `https://github.com/${st.repo.owner}/${st.repo.name}/pull/${j.prNumber}` : undefined }
+      : { ok: false, text: j.error || "Could not open the PR." });
     setBusy(null); load("fresh");
   };
 
@@ -168,9 +171,16 @@ export function SetupJourney({
         <div role="status" className="rounded-xl border border-amber-600 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <p className="font-semibold">A newer workflow is available</p>
           <p className="mt-1">The one in your repo still works. The newer one also keeps going when your lock file is out of sync, and passes the AI&apos;s final message back, so you can see why a run changed nothing. Updating opens a pull request that you merge.</p>
-          <Button size="sm" className="mt-3 bg-emerald-700 hover:bg-emerald-800" onClick={openPr} disabled={busy !== null}>
-            {busy === "pr" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Update the workflow
-          </Button>
+          {st.updatePrUrl ? (
+            <p className="mt-3">
+              The update is waiting for you on GitHub.{" "}
+              <a href={st.updatePrUrl} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Open the pull request and merge it</a>. This page updates by itself.
+            </p>
+          ) : (
+            <Button size="sm" className="mt-3 bg-emerald-700 hover:bg-emerald-800" onClick={openPr} disabled={busy !== null}>
+              {busy === "pr" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Update the workflow
+            </Button>
+          )}
         </div>
       )}
 
@@ -271,7 +281,12 @@ export function SetupJourney({
       })}
 
       {limited && <p className="text-sm text-amber-600 dark:text-amber-400">{limited}</p>}
-      {msg && <p className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600 dark:text-red-400"}`}>{msg.text}</p>}
+      {msg && (
+        <p className={`text-sm ${msg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+          {msg.text}{" "}
+          {msg.url && <a href={msg.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Open the pull request on GitHub</a>}
+        </p>
+      )}
       <Button size="sm" variant="ghost" onClick={() => load("fresh")}>Check again</Button>
     </div>
   );
