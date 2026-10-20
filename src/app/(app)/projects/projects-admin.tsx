@@ -2,7 +2,7 @@
 
 import { Notice } from "@/components/notice";
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Github, BookOpen, LifeBuoy, Upload, Megaphone } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Github, BookOpen, LifeBuoy, Upload, Megaphone, Rocket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -263,13 +263,8 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <h3 className="font-semibold text-gray-900 dark:text-white [overflow-wrap:anywhere]">{p.name}</h3>
-                    {progress[p.id] && (
-                      <Link
-                        href={`/projects/${p.id}/setup`}
-                        className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${progress[p.id].done >= progress[p.id].total - 1 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"}`}
-                      >
-                        {progress[p.id].done >= progress[p.id].total ? "AI ready" : `Setup ${progress[p.id].done}/${progress[p.id].total}`}
-                      </Link>
+                    {progress[p.id] && progress[p.id].done >= progress[p.id].total && (
+                      <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">AI ready</span>
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
@@ -288,15 +283,28 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 pl-6">
-                <Link
-                  href={`/projects/${p.id}/knowledge`}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm ${KNOWLEDGE_TONE_CLASSES[knowledgeTone(knowPct(p))].button}`}
-                  title="What the AI knows about this project. Click to improve it."
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Project knowledge {knowPct(p)}%
-                </Link>
+                {progress[p.id] && progress[p.id].done < progress[p.id].total ? (
+                  // Not set up yet: the next step is setting the project up, so that is the one main button.
+                  <Link
+                    href={`/projects/${p.id}/setup`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm bg-emerald-700 text-white hover:bg-emerald-800"
+                    title="Connect the repo, add the API key and let the AI start building in your project."
+                  >
+                    <Rocket className="w-4 h-4" aria-hidden="true" />
+                    Set up this project · {progress[p.id].done} of {progress[p.id].total} steps
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/projects/${p.id}/knowledge`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm ${KNOWLEDGE_TONE_CLASSES[knowledgeTone(knowPct(p))].button}`}
+                    title="What the AI knows about this project. Click to improve it."
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Project knowledge {knowPct(p)}%
+                  </Link>
+                )}
                 {[
+                  ...(progress[p.id] && progress[p.id].done < progress[p.id].total ? [{ href: `/projects/${p.id}/knowledge`, label: `Project knowledge ${knowPct(p)}%`, icon: BookOpen }] : []),
                   ...(supportEnabled ? [{ href: `/projects/${p.id}/support`, label: "Support", icon: LifeBuoy }] : []),
                   { href: `/projects/${p.id}/changes`, label: "What\u2019s new page", icon: Megaphone },
                   { href: `/projects/${p.id}/import`, label: "Import ideas", icon: Upload },

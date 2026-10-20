@@ -124,6 +124,9 @@ export default async function GuidePage() {
         </UL>
 
         <H id="setup">Setup, step by step</H>
+        <P>
+          On the Projects page, a project that is not finished shows a green <b>Set up this project</b> button with how many steps are done. It takes you straight to the next step. Once the project says <b>AI ready</b>, <b>Project knowledge</b> becomes the main button instead.
+        </P>
         <P>The app walks you through this and ticks each step off by itself. This is what you will see and why.</P>
         <ol>
           <Step n={1} title="Create your first project">Give it a name. It is only a label for you.</Step>
