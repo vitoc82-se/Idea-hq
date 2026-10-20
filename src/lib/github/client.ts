@@ -259,11 +259,14 @@ export const github: GitHubApi = {
   },
   async runNote(i, owner, repo, ghRunId) {
     const j = await call<{ jobs: { id: number }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=5`, undefined, [404]);
-    const jobId = j?.jobs?.[0]?.id;
-    if (!jobId) return null;
-    // The log comes back as plain text (GitHub redirects to a signed address; the token is not forwarded there).
-    const { res, json } = await raw(await installationToken(i), "GET", `/repos/${owner}/${repo}/actions/jobs/${jobId}/logs`);
-    return res.ok && typeof json === "string" ? extractNote(json) : null;
+    // Workflow v8 prints the note in its last job (publish); older ones have a single job. Look from the last one back.
+    for (const job of [...(j?.jobs ?? [])].reverse()) {
+      // The log comes back as plain text (GitHub redirects to a signed address; the token is not forwarded there).
+      const { res, json } = await raw(await installationToken(i), "GET", `/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`);
+      const note = res.ok && typeof json === "string" ? extractNote(json) : null;
+      if (note) return note;
+    }
+    return null;
   },
   async failedStep(i, owner, repo, ghRunId) {
     const j = await call<{ jobs: { steps?: { name: string; conclusion: string | null }[] }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=10`, undefined, [404]);

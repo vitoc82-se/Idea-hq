@@ -58,7 +58,7 @@ export const claude: ProviderAdapter = {
           github_token: \${{ secrets.GITHUB_TOKEN }}
           allowed_bots: ${q(appSlug)}
           prompt: \${{ inputs.prompt }}
-          claude_args: --max-turns \${{ inputs.max_turns || '${maxTurns}' }} --model \${{ inputs.model || '${CLAUDE_DEFAULT_MODEL}' }} --effort \${{ inputs.effort || 'medium' }} --allowedTools "${allowedTools}"
+          claude_args: --max-turns \${{ inputs.max_turns || '${maxTurns}' }} --model \${{ inputs.model || '${CLAUDE_DEFAULT_MODEL}' }} --effort \${{ inputs.effort || 'medium' }} --allowedTools "${allowedTools}" --disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**)"
 `;
   },
   successExpr: "steps.claude.outputs.conclusion == 'success'",

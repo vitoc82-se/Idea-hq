@@ -27,10 +27,12 @@ describe("extractNote", () => {
 describe("the workflow prints the note safely", () => {
   const wf = buildWorkflow({ buildCommand: "npm run build", testCommand: "npm test" } as never);
   it("prefixes every line so the AI's text can never act as a workflow command, and reads both the Claude result and the Codex message", () => {
+    // v8: the AI's job collects the note (Claude result or Codex message); the publishing job prints it.
+    const collect = wf.slice(wf.indexOf("- name: Hand over the AI's changes"), wf.indexOf("- name: Upload the AI's changes"));
+    expect(collect).toContain("CODEX_NOTE: ${{ steps.codex.outputs.final-message }}");
+    expect(collect).toMatch(/\.result \/\/ empty/);
     const step = wf.slice(wf.indexOf("- name: Report result"));
     expect(step).toContain("sed 's/^/IDEAHQ-NOTE| /'");
     expect(step).toContain("head -c 4000");
-    expect(step).toContain("CODEX_NOTE: ${{ steps.codex.outputs.final-message }}");
-    expect(step).toMatch(/\.result \/\/ empty/);
   });
 });

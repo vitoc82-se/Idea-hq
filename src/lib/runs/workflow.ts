@@ -48,7 +48,7 @@ export const ALLOWED_TOOLS = [
   "Bash(npm test:*)", "Bash(npm run:*)", "Bash(npm ls:*)",
   "Bash(npm install --ignore-scripts:*)", "Bash(npm ci --ignore-scripts:*)",
   "Bash(npx tsc:*)", "Bash(npx vitest:*)", "Bash(npx jest:*)", "Bash(npx eslint:*)", "Bash(npx prettier:*)",
-  "Bash(ls:*)", "Bash(cat:*)", "Bash(git diff:*)", "Bash(git status:*)",
+  "Bash(ls:*)", "Bash(git diff:*)", "Bash(git status:*)",
 ].join(",");
 
 export const DEFAULT_MODEL = CLAUDE_DEFAULT_MODEL;
@@ -83,6 +83,40 @@ export function buildWorkflow(o: WorkflowOptions): string {
 
   const stepOpts = { appSlug: o.appSlug, maxTurns, allowedTools: ALLOWED_TOOLS };
   const agentSteps = [claude, openai].map((p) => p.workflowStep(stepOpts)).join("\n").trimEnd();
+
+  // Steps both jobs start with. No credentials are stored in the checkout (everything the AI runs, and every
+  // script in the repo, could read them); the token is passed to the one git command that needs it.
+  const CHECKOUT_STEPS = `      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: \${{ inputs.base }}
+          persist-credentials: false
+
+      - name: Check out the working branch
+        env:
+          BRANCH: \${{ inputs.branch }}
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\\n')"
+          if git -c "http.https://github.com/.extraheader=$AUTH" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git -c "http.https://github.com/.extraheader=$AUTH" fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+          else
+            git checkout -b "$BRANCH"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: \${{ hashFiles('package.json') != '' }}
+        with:
+          node-version: 20`;
+  // Best effort: a lock file that is out of sync with package.json (a common repo problem)
+  // must not stop the AI from making a change. The Verify step reports what broke.
+  const INSTALL_STEP = `      - name: Install dependencies
+        if: \${{ hashFiles('package-lock.json') != '' }}
+        continue-on-error: true
+        run: |
+          npm ci || npm install --no-audit --no-fund
+          git checkout -- package-lock.json 2>/dev/null || true`;
 
   return `${VERSION_MARKER} ${WORKFLOW_VERSION}
 name: Idea HQ
@@ -124,57 +158,94 @@ on:
         required: false
         default: ${q(String(maxTurns))}
 
-permissions:
-  contents: write
-  statuses: write
+# Two jobs, so the AI never works next to anything that can write to the repository:
+#  - implement: has the AI key, but only a read-only repository token. The AI works here, and the job
+#    hands its changes over as a patch.
+#  - publish: has the write token, but never the AI key and never the AI's shell. It applies the patch to a
+#    clean copy, runs the project's build and tests, pushes the branch and reports.
+permissions: {}
 
 jobs:
   implement:
     runs-on: ubuntu-latest
     timeout-minutes: \${{ fromJSON(inputs.timeout_minutes || '${timeout}') }}
+    permissions:
+      contents: read
     steps:
-      # No credentials are stored in the checkout: everything the AI runs would be able to read them.
-      # Only the two steps that talk to GitHub (this one and "Push branch") get the token, for one command each.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: \${{ inputs.base }}
-          persist-credentials: false
+${CHECKOUT_STEPS}
 
-      - name: Check out the working branch
-        env:
-          BRANCH: \${{ inputs.branch }}
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-        run: |
-          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\\n')"
-          if git -c "http.https://github.com/.extraheader=$AUTH" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git -c "http.https://github.com/.extraheader=$AUTH" fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-          else
-            git checkout -b "$BRANCH"
-          fi
+${INSTALL_STEP}
 
-      - uses: actions/setup-node@v4
-        if: \${{ hashFiles('package.json') != '' }}
-        with:
-          node-version: 20
-
-      # Best effort: a lock file that is out of sync with package.json (a common repo problem)
-      # must not stop the AI from making a change. The Verify step below reports what broke.
-      - name: Install dependencies
-        if: \${{ hashFiles('package-lock.json') != '' }}
-        continue-on-error: true
-        run: |
-          npm ci || npm install --no-audit --no-fund
-          git checkout -- package-lock.json 2>/dev/null || true
+      # Claude Code can only separate its API key from the commands it runs with this installed.
+      - name: Install bubblewrap
+        if: \${{ inputs.provider == 'claude' || inputs.provider == '' }}
+        run: sudo apt-get install -y --no-install-recommends bubblewrap
 
 ${agentSteps}
 
-      # Belt and braces: whatever an earlier step may have left in the git settings is removed before the
-      # repo's own build and tests run.
-      - name: Remove stored git credentials
+      # The Claude action writes the token into the remote address; it is taken out again here, and
+      # nothing of the AI's work leaves this job except a patch and a small summary.
+      - name: Hand over the AI's changes
+        id: handover
         if: \${{ always() }}
-        run: git config --local --unset-all http.https://github.com/.extraheader || true
+        env:
+          EXEC_FILE: \${{ steps.claude.outputs.execution_file }}
+          CODEX_NOTE: \${{ steps.codex.outputs.final-message }}
+          AGENT_OK: \${{ ${claude.successExpr} || ${openai.successExpr} }}
+        run: |
+          git remote set-url origin "https://github.com/\${{ github.repository }}" || true
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          OUT="$RUNNER_TEMP/out"; mkdir -p "$OUT"
+          git add -A -- . ':(exclude).github/workflows'
+          git diff --cached --binary HEAD > "$OUT/changes.patch"
+          COST=""; TURNS=""; NOTE=""
+          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
+            COST=$(jq -r '[.[] | select(.type=="result")] | last | .total_cost_usd // empty' "$EXEC_FILE" 2>/dev/null || true)
+            TURNS=$(jq -r '[.[] | select(.type=="result")] | last | .num_turns // empty' "$EXEC_FILE" 2>/dev/null || true)
+            # What the AI said at the end (why it changed nothing, or what it did).
+            NOTE=$(jq -r '([.[] | select(.type=="result")] | last | .result // empty) // ([.[] | select(.type=="assistant")] | last | [.message.content[]? | select(.type=="text") | .text] | join("\\n"))' "$EXEC_FILE" 2>/dev/null || true)
+          fi
+          [ -n "$NOTE" ] || NOTE="$CODEX_NOTE"
+          jq -n --arg cost "$COST" --arg turns "$TURNS" --arg note "$NOTE" --arg ok "$AGENT_OK" \\
+            '{cost: $cost, turns: $turns, note: $note, agent_ok: ($ok == "true")}' > "$OUT/meta.json"
+
+      - name: Upload the AI's changes
+        if: \${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: idea-hq-output
+          path: \${{ runner.temp }}/out
+          retention-days: 1
+          if-no-files-found: ignore
+
+  publish:
+    needs: implement
+    if: \${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: \${{ fromJSON(inputs.timeout_minutes || '${timeout}') }}
+    permissions:
+      contents: write
+      statuses: write
+    steps:
+${CHECKOUT_STEPS}
+
+      - name: Download the AI's changes
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: idea-hq-output
+          path: \${{ runner.temp }}/out
+
+      - name: Apply the AI's changes
+        run: |
+          PATCH="$RUNNER_TEMP/out/changes.patch"
+          if [ -s "$PATCH" ]; then
+            git apply --index --whitespace=nowarn "$PATCH"
+          else
+            echo "The AI made no changes"
+          fi
+
+${INSTALL_STEP}
 
       - name: Verify (build and tests)
         id: verify
@@ -201,24 +272,18 @@ ${checks.length ? checks.join("\n") : '          echo "No build or test command 
         if: \${{ always() }}
         env:
           GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          EXEC_FILE: \${{ steps.claude.outputs.execution_file }}
           SHA: \${{ steps.push.outputs.sha }}
           FAILED: \${{ steps.verify.outputs.failed }}
-          CODEX_NOTE: \${{ steps.codex.outputs.final-message }}
-          AGENT_OK: \${{ ${claude.successExpr} || ${openai.successExpr} }}
         run: |
-          COST=""; TURNS=""
-          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
-            COST=$(jq -r '[.[] | select(.type=="result")] | last | .total_cost_usd // empty' "$EXEC_FILE" 2>/dev/null || true)
-            TURNS=$(jq -r '[.[] | select(.type=="result")] | last | .num_turns // empty' "$EXEC_FILE" 2>/dev/null || true)
+          META="$RUNNER_TEMP/out/meta.json"
+          COST=""; TURNS=""; NOTE=""; AGENT_OK="false"
+          if [ -f "$META" ]; then
+            COST=$(jq -r '.cost // empty' "$META" 2>/dev/null || true)
+            TURNS=$(jq -r '.turns // empty' "$META" 2>/dev/null || true)
+            NOTE=$(jq -r '.note // empty' "$META" 2>/dev/null || true)
+            AGENT_OK=$(jq -r '.agent_ok // false' "$META" 2>/dev/null || echo false)
           fi
-          # What the AI said at the end (why it changed nothing, or what it did). Printed with a
-          # prefix on every line, so nothing in it can act as a workflow command; Idea HQ reads it back from the log.
-          NOTE=""
-          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
-            NOTE=$(jq -r '([.[] | select(.type=="result")] | last | .result // empty) // ([.[] | select(.type=="assistant")] | last | [.message.content[]? | select(.type=="text") | .text] | join("\\n"))' "$EXEC_FILE" 2>/dev/null || true)
-          fi
-          [ -n "$NOTE" ] || NOTE="$CODEX_NOTE"
+          # Printed with a prefix on every line, so nothing in it can act as a workflow command; Idea HQ reads it back from the log.
           if [ -n "$NOTE" ]; then printf '%s\\n' "$NOTE" | head -c 4000 | sed 's/^/IDEAHQ-NOTE| /'; fi
           STATE=success
           [ "$AGENT_OK" = "true" ] || STATE=failure

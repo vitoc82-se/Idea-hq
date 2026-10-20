@@ -5,6 +5,7 @@ const HINTS: [RegExp, string][] = [
   [/install dependencies/i, "Installing your project's dependencies failed. This is usually a package-lock.json that does not match package.json: run npm install in your repo, commit the updated package-lock.json, and try again."],
   [/run claude code/i, "The AI step failed. Check that the ANTHROPIC_API_KEY secret in your repo is correct and that your Anthropic account has credit and is not over its spending limit."],
   [/run codex/i, "The AI step failed. Check that the OPENAI_API_KEY secret in your repo is correct and that your OpenAI account has credit."],
+  [/apply the ai/i, "The AI's changes could not be put onto a clean copy of the branch. Run it again; if it keeps happening, the branch was probably changed by someone else in the meantime."],
   [/verify/i, "Your project's build or tests failed after the change."],
   [/push branch/i, "Saving the change to a branch failed. Check that the Idea HQ app is still allowed to write to this repo."],
   [/check out/i, "GitHub could not check out the repo. Check that the Idea HQ app can still see it."],

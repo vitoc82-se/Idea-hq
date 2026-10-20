@@ -58,9 +58,10 @@ describe("golden: Claude workflow step", () => {
   it("grants exactly this tool allow-list and nothing like an unrestricted shell (v8: no bare npm, npx or node)", () => {
     expect(ALLOWED_TOOLS).toBe(
       "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm test:*),Bash(npm run:*),Bash(npm ls:*),Bash(npm install --ignore-scripts:*),Bash(npm ci --ignore-scripts:*)," +
-        "Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
+        "Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(git diff:*),Bash(git status:*)"
     );
     expect(wf).toContain(`--allowedTools "${ALLOWED_TOOLS}"`);
+    expect(wf).toContain('--disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**)"');
   });
   it("passes the prompt as an action input, never through a shell", () => {
     expect(wf).toContain("prompt: ${{ inputs.prompt }}");
