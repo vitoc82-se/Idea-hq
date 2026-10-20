@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 
 type U = {
   id: string; name: string | null; email: string | null; approved: boolean; features: string[]; aiBuild: boolean;
-  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
+  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; emailWarning?: "duplicate" | "padded" | null; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
 };
 type Patch = Partial<{ approved: boolean; features: string[]; aiBuild: boolean; aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number }>;
 
@@ -237,7 +237,66 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
         </div>
       )}
       {note && <p role="status" className="mt-1 text-sm text-gray-800 dark:text-gray-200">{note}</p>}
+      {u.emailWarning && !u.owner && (
+        <div role="alert" className="mt-2 rounded-lg border border-red-700 bg-red-50 p-3 text-sm text-red-900 dark:border-red-400 dark:bg-red-950/40 dark:text-red-100">
+          <p className="font-semibold">Suspicious email</p>
+          <p className="mt-1">
+            {u.emailWarning === "duplicate"
+              ? "Another account has this email in different letters. Someone may be pretending to be that person. If you did not create both, remove this one."
+              : "This email has spaces around it, which a normal sign-up does not produce. If you do not recognise this person, remove the account."}
+          </p>
+          <RemoveAccount user={u} onDone={onChanged} />
+        </div>
+      )}
       {err && <p role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">{err}</p>}
+    </div>
+  );
+}
+
+// Removing an account (two steps; an account with work in it needs a second, stronger confirmation).
+function RemoveAccount({ user, onDone }: { user: U; onDone: () => void }) {
+  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const remove = async (force: boolean) => {
+    setBusy(true);
+    setMsg("");
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force }) });
+      const d = await res.json().catch(() => ({}));
+      if (res.status === 409 && !force) {
+        setMsg(d.error || "This account has work in it.");
+        setStep(2);
+        return;
+      }
+      if (!res.ok) {
+        setMsg(d.error || "Could not remove the account. Try again in a moment.");
+        return;
+      }
+      onDone();
+    } catch {
+      setMsg("Could not reach Idea HQ. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      {step === 0 && <Button variant="outline" size="sm" onClick={() => setStep(1)}>Remove this account</Button>}
+      {step === 1 && (
+        <>
+          <span>Remove {user.email}?</span>
+          <Button size="sm" className="bg-red-700 hover:bg-red-800" disabled={busy} onClick={() => remove(false)}>Yes, remove it</Button>
+          <Button variant="outline" size="sm" onClick={() => setStep(0)}>Keep it</Button>
+        </>
+      )}
+      {step === 2 && (
+        <>
+          <Button size="sm" className="bg-red-700 hover:bg-red-800" disabled={busy} onClick={() => remove(true)}>Remove it and its work</Button>
+          <Button variant="outline" size="sm" onClick={() => { setStep(0); setMsg(""); }}>Keep it</Button>
+        </>
+      )}
+      {msg && <span role="status">{msg}</span>}
     </div>
   );
 }

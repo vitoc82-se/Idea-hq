@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
+import { normalizeEmail } from "./support/sanitize";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db) as NextAuthOptions["adapter"],
@@ -23,30 +24,21 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Email and password required");
         }
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email },
+        // Same standard form as sign-up. Case-insensitive, so older accounts stored with capitals
+        // still work. If a few accounts share the address (older lookalikes), the password decides.
+        const email = normalizeEmail(credentials.email);
+        if (!email) throw new Error("Invalid credentials");
+        const candidates = await db.user.findMany({
+          where: { email: { equals: email, mode: "insensitive" } },
           select: { id: true, email: true, name: true, image: true, password: true },
+          take: 5,
         });
-
-        if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+        for (const user of candidates) {
+          if (user.password && (await bcrypt.compare(credentials.password, user.password))) {
+            return { id: user.id, email: user.email, name: user.name, image: user.image };
+          }
         }
-
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isValid) {
-          throw new Error("Invalid credentials");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        };
+        throw new Error("Invalid credentials");
       },
     }),
   ],

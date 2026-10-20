@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { isOwner } from "@/lib/owner";
+import { isOwner, ownerUserId } from "@/lib/owner";
 import { dailyAiLimit } from "@/lib/access";
 import { isPro, paywallOn } from "@/lib/billing";
 
@@ -29,15 +29,19 @@ export async function GET() {
   const count = (rows: { userId: string; _count: { _all: number } }[]) => new Map(rows.map((r) => [r.userId, r._count._all]));
   const pc = count(projects), ic = count(ideas), rc = count(runs);
   const today = new Date().toISOString().slice(0, 10); // usage is per UTC day
-  // Same rule as isOwner, decided once: OWNER_EMAIL if set, else the first account.
-  const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
-  const firstId = ownerEmail ? null : (await db.user.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } }))?.id ?? null;
+  // Same rule as isOwner, decided once: the oldest account holding OWNER_EMAIL, else the first account.
+  const ownerId = await ownerUserId();
+  // Accounts whose email looks like another account's (different letters, or padding): the sign-up
+  // hole that let a lookalike become the owner. Shown so they can be removed.
+  const seen = new Map<string, number>();
+  for (const u of users) if (u.email) seen.set(u.email.trim().toLowerCase(), (seen.get(u.email.trim().toLowerCase()) ?? 0) + 1);
   const out = [];
   for (const u of users) {
     out.push({
       id: u.id, name: u.name, email: u.email, approved: u.approved, features: u.features, aiBuild: u.aiBuild,
       aiDailyLimit: u.aiDailyLimit, freeAccess: u.freeAccess, aiCredits: u.aiCredits, pro: isPro(u), proRevoked: !!u.proRevokedAt, lsSubscriptionId: u.lsSubscriptionId, subStatus: u.subStatus, subEndsAt: u.subEndsAt, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
-      owner: ownerEmail ? u.email?.trim().toLowerCase() === ownerEmail : u.id === firstId, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
+      owner: u.id === ownerId,
+      emailWarning: !u.email ? null : (seen.get(u.email.trim().toLowerCase()) ?? 0) > 1 ? "duplicate" : u.email !== u.email.trim() ? "padded" : null, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
     });
   }
   return NextResponse.json({ users: out, defaultDailyLimit: dailyAiLimit(), usageDay: today, paywall: paywallOn() });

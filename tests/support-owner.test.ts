@@ -25,6 +25,7 @@ vi.mock("@/lib/db", () => {
       if (v && typeof v === "object" && !(v instanceof Date)) {
         if ("in" in v) return v.in.includes(row[k]);
         if ("lt" in v) return row[k] != null && row[k] < v.lt;
+        if ("equals" in v) return typeof row[k] === "string" && row[k].toLowerCase() === String(v.equals).toLowerCase();
       }
       return row[k] === v;
     });
