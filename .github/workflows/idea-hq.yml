@@ -83,10 +83,10 @@ jobs:
           npm ci || npm install --no-audit --no-fund
           git checkout -- package-lock.json 2>/dev/null || true
 
-      # Claude Code can only separate its API key from the commands it runs with this installed.
-      - name: Install bubblewrap
+      # Claude Code can only separate its API key from the commands it runs with these two installed.
+      - name: Install the shell sandbox tools
         if: ${{ inputs.provider == 'claude' || inputs.provider == '' }}
-        run: sudo apt-get install -y --no-install-recommends bubblewrap
+        run: sudo apt-get install -y --no-install-recommends bubblewrap socat
 
       - name: Run Claude Code
         if: ${{ inputs.provider == 'claude' || inputs.provider == '' }}

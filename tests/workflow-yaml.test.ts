@@ -128,8 +128,12 @@ describe("what the AI's shell can reach", () => {
     const agent = implement.steps.find((s) => s.name === "Run Claude Code")!;
     expect(agent.env?.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB).toBe("1");
     const order = names(implement);
-    expect(order.indexOf("Install bubblewrap")).toBeGreaterThan(-1);
-    expect(order.indexOf("Install bubblewrap")).toBeLessThan(order.indexOf("Run Claude Code"));
+    expect(order.indexOf("Install the shell sandbox tools")).toBeGreaterThan(-1);
+    expect(order.indexOf("Install the shell sandbox tools")).toBeLessThan(order.indexOf("Run Claude Code"));
+    // without both, every shell command of the AI fails ("Sandbox is required but failed to initialize")
+    const install = implement.steps.find((s) => s.name === "Install the shell sandbox tools")!;
+    expect(install.run).toMatch(/bubblewrap/);
+    expect(install.run).toMatch(/socat/);
   });
   it("the shell allow-list has no bare npm, npx or node, no network tools and no git writes", () => {
     const tools = ALLOWED_TOOLS.split(",");

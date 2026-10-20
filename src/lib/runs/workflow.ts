@@ -176,10 +176,10 @@ ${CHECKOUT_STEPS}
 
 ${INSTALL_STEP}
 
-      # Claude Code can only separate its API key from the commands it runs with this installed.
-      - name: Install bubblewrap
+      # Claude Code can only separate its API key from the commands it runs with these two installed.
+      - name: Install the shell sandbox tools
         if: \${{ inputs.provider == 'claude' || inputs.provider == '' }}
-        run: sudo apt-get install -y --no-install-recommends bubblewrap
+        run: sudo apt-get install -y --no-install-recommends bubblewrap socat
 
 ${agentSteps}
 
