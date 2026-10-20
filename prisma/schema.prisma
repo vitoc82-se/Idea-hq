@@ -127,6 +127,8 @@ model Project {
   aiProvider        String   @default("claude") // claude | openai (see src/lib/providers)
   secretConfirmed   Boolean  @default(false) // ANTHROPIC_API_KEY seen in the repo's secrets
   aiBias            String   @default("auto") // saver | auto | max: shifts the model tier
+  // Spending cap for AI runs in this project, USD per UTC month. null = no cap.
+  monthlyCapUsd     Float?
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   ideas Idea[]

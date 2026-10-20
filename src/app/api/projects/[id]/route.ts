@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
+import { cleanCap } from "@/lib/spend";
 
 export async function PATCH(
   request: Request,
@@ -26,8 +27,14 @@ export async function PATCH(
       context?: string;
       contextSourceUrl?: string | null;
       contextUpdatedAt?: Date;
+      monthlyCapUsd?: number | null;
     } = {};
 
+    if (body?.monthlyCapUsd !== undefined) {
+      const cap = cleanCap(body.monthlyCapUsd);
+      if (!cap.ok) return NextResponse.json({ error: cap.error }, { status: 400 });
+      data.monthlyCapUsd = cap.value;
+    }
     if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
     if (body?.color !== undefined) data.color = body.color ? String(body.color) : null;
     if (body?.contextSourceUrl !== undefined) {

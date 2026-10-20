@@ -884,3 +884,60 @@ describe("notifications from the run engine", () => {
     expect(t.tables.run[0].status).toBe("pr_open");
   });
 });
+
+// ---- Monthly spending cap -------------------------------------------------------
+describe("monthly spending cap", () => {
+  const MSG = /monthly spending cap for Proj is reached/;
+  const thisMonth = () => new Date();
+  const spent = (usd: number, extra: Record<string, unknown> = {}) =>
+    t.tables.run.push({ id: `old${t.tables.run.length}`, userId: "u1", projectId: "p1", kind: "implement", status: "merged", costUsd: usd, createdAt: thisMonth(), ...extra });
+
+  it("no cap means no limit", async () => {
+    spent(500);
+    expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+  it("work under the cap goes ahead", async () => {
+    await startedRun();
+    t.tables.project[0].monthlyCapUsd = 5;
+    spent(3);
+    await approveRun("u1", "RUN1", deps());
+    expect(t.tables.run.find((r) => r.id === "RUN1")!.status).toBe("dispatched");
+  });
+  it("blocks a new run and a deep learn once the month's cost reaches the cap, with a plain 409", async () => {
+    t.tables.project[0].monthlyCapUsd = 5;
+    spent(5);
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 409, message: expect.stringMatching(MSG) });
+    await expect(startLearnRun("u1", "p1", deps())).rejects.toMatchObject({ status: 409, message: expect.stringMatching(MSG) });
+    expect(t.tables.run.filter((r) => r.status === "awaiting_approval")).toHaveLength(0);
+  });
+  it("blocks approving a waiting run, and nothing is dispatched", async () => {
+    await startedRun();
+    t.tables.project[0].monthlyCapUsd = 5;
+    spent(5);
+    await expect(approveRun("u1", "RUN1", deps())).rejects.toMatchObject({ status: 409, message: expect.stringMatching(MSG) });
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(false);
+    expect(t.tables.run.find((r) => r.id === "RUN1")!.status).toBe("awaiting_approval");
+  });
+  it("blocks asking for changes on an open PR", async () => {
+    await prOpenRun();
+    t.tables.project[0].monthlyCapUsd = 1;
+    spent(1);
+    log.length = 0;
+    await expect(reviseRun("u1", "RUN1", "Use blue", deps())).rejects.toMatchObject({ status: 409 });
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(false);
+  });
+  it("only this month's implement and learn runs count, and only this project's", async () => {
+    t.tables.project[0].monthlyCapUsd = 5;
+    spent(10, { createdAt: new Date(Date.UTC(2020, 0, 5)) }); // an old month
+    spent(10, { kind: "revert" });
+    spent(10, { projectId: "other" });
+    expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+  it("lifting the cap lets work continue", async () => {
+    t.tables.project[0].monthlyCapUsd = 1;
+    spent(2);
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 409 });
+    t.tables.project[0].monthlyCapUsd = null;
+    expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+});

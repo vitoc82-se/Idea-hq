@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
+import { spendByProject } from "@/lib/spend";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,8 @@ export async function GET() {
     orderBy: { name: "asc" },
     include: { _count: { select: { ideas: true } } },
   });
-  return NextResponse.json(projects);
+  const spend = await spendByProject(userId);
+  return NextResponse.json(projects.map((p) => ({ ...p, spend: spend.get(p.id) ?? { monthUsd: 0, runs: 0, unpriced: 0 } })));
 }
 
 export async function POST(request: Request) {

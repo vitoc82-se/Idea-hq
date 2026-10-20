@@ -33,6 +33,8 @@ export interface Project {
   contextSourceUrl: string | null;
   contextUpdatedAt: string;
   _count?: { ideas: number };
+  monthlyCapUsd?: number | null;
+  spend?: { monthUsd: number; runs: number; unpriced: number };
 }
 
 // Lightweight reference to another idea (for dependency pickers / links).

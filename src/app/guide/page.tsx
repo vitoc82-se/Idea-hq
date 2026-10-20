@@ -205,6 +205,7 @@ export default async function GuidePage() {
           <li>The owner can give a person free access, so some people never see a payment step.</li>
         </UL>
         <UL>
+          <li><b>Spend and cap:</b> the Projects page shows what each project&apos;s AI runs cost this month (when the AI provider reports it). Type a dollar amount in <b>Monthly cap</b> to pause new runs for that project once it is reached. A run that is already working can finish a little over.</li>
           <li>Set a monthly spending limit in your Anthropic account. It is the best safety net.</li>
           <li>Each run has a time limit and a step cap, so a stuck run cannot run up a bill forever.</li>
           <li>After each run, Idea HQ shows what it cost.</li>
@@ -227,6 +228,7 @@ export default async function GuidePage() {
         <H id="stuck">If you get stuck</H>
         <Q q="It says &quot;AI build needs Pro or a runs pack&quot;">Payments are switched on and you have no plan or runs left. Open <b>Upgrade</b> in the menu, pick Pro or 50 runs, and come back. It updates by itself a few seconds after you pay.</Q>
         <Q q="It says my Pro was switched off by the owner">The owner can switch off Pro for a person, for example after a refund or a problem with the account. Your subscription is cancelled at the same time, so you are not charged again. Contact the owner if you think this is a mistake. Runs you bought in a pack still work.</Q>
+        <Q q="It says the monthly spending cap is reached">You set a cap for that project and this month&apos;s runs have used it up. Raise the cap or clear it under Projects, in the Monthly cap box, and you can continue straight away. It also starts fresh at the beginning of next month.</Q>
         <Q q="I paid but nothing changed">Wait about ten seconds and reload the Billing page. If it still shows nothing after a minute, tell the owner with the email you paid with.</Q>
         <Q q="I signed up but I only see &quot;Waiting for approval&quot;">The owner has to approve new accounts. Nothing is wrong on your side. The page continues by itself once you are approved.</Q>
         <Q q="The AI made no changes">Usually the idea was too vague, or the first model was too small for it. Make the idea more specific and try again. The next attempt automatically uses a stronger model. You can also pick one yourself before approving.</Q>

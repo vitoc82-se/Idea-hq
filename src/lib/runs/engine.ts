@@ -17,6 +17,7 @@ import { invalidateSetupCache } from "./setup-cache";
 import { buildAccess, chargeBuild, refundBuildCredit, BillingBlock, NEEDS_PLAN_MESSAGE } from "../billing";
 import { aiBuildAllowed } from "../access";
 import { notifyRunEvent } from "../notify";
+import { capState, capMessage } from "../spend";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -47,6 +48,13 @@ function billingToRunError(e: unknown): never {
     throw new RunError(e.reason === "off" ? 403 : 402, e.reason === "off" ? AI_BUILD_OFF_MESSAGE : NEEDS_PLAN_MESSAGE);
   }
   throw e;
+}
+
+// The person's own monthly cap for this project (set on the Projects page). Checked
+// before anything that spends AI money is started, approved or revised.
+export async function assertUnderCap(projectId: string, name: string): Promise<void> {
+  const s = await capState(projectId);
+  if (s.reached) throw new RunError(409, capMessage(name, s));
 }
 
 type Deps = { gh?: GitHubApi; now?: () => Date };
@@ -111,6 +119,7 @@ export async function startRun(userId: string, ideaId: string, deps?: Deps) {
   const p = idea.project;
   repoOf(p);
   if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
+  await assertUnderCap(p.id, p.name);
   const { env, base } = envBase(p);
 
   if (idea.blockedBy.length) {
@@ -199,6 +208,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   const run = await loadOwned(userId, runId);
   if (run.status !== "awaiting_approval") throw new RunError(409, `Run is ${run.status}, not waiting for approval.`);
   const p = run.project;
+  await assertUnderCap(p.id, p.name);
   const { wfVersion } = await preflight(p, run.baseBranch!, gh);
   const { tier } = resolveTier(await recommendForRun(run), override, p.aiProvider);
 
@@ -226,6 +236,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   if (run.kind !== "implement") throw new RunError(409, "Only an implementation can be revised.");
   if (run.status !== "pr_open") throw new RunError(409, "Only a run with an open PR can be revised.");
   const p = run.project;
+  await assertUnderCap(p.id, p.name);
   const { wfVersion } = await preflight(p, run.baseBranch!, gh);
   await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
@@ -273,6 +284,7 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
   if (!p) throw new RunError(404, "Project not found");
   repoOf(p);
   if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
+  await assertUnderCap(p.id, p.name);
   const { env, base } = envBase(p);
   const { wfVersion } = await preflight(p, base, gh);
   const loaded = await loadKnowledge(userId, projectId);

@@ -4,6 +4,7 @@ import { requireUser, errorResponse } from "@/lib/runs/http";
 import { startRun, reconcileRun, recommendForRun } from "@/lib/runs/engine";
 import { getProvider } from "@/lib/providers";
 import { buildAccess } from "@/lib/billing";
+import { capState, capMessage } from "@/lib/spend";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
@@ -14,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
-    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, project: { select: { aiProvider: true } } } });
+    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, project: { select: { aiProvider: true, name: true } } } });
     if (!idea) return NextResponse.json({ error: "Idea not found" }, { status: 404 });
 
     // Epic: when the idea is split into stories, show them and which one is next.
@@ -57,7 +58,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }
     const prov = getProvider(idea.project?.aiProvider);
     const access = await buildAccess(auth.userId);
+    const cap = await capState(idea.projectId);
     return NextResponse.json({
+      capReached: cap.reached ? capMessage(idea.project?.name ?? "this project", cap) : null, // a plain sentence when the monthly cap is used up
       runs, recommended, epic,
       aiBuild: access.ok || access.reason !== "off", // false: show a notice instead of the AI build buttons
       needsPlan: !access.ok && access.reason === "needs_plan", // paywall: no Pro and no credits left

@@ -7,6 +7,7 @@ function matchValue(actual: unknown, cond: unknown): boolean {
     if ("in" in c) return (c.in as unknown[]).includes(actual);
     if ("not" in c) return actual !== c.not;
     if ("gt" in c) return typeof actual === "number" && actual > (c.gt as number);
+    if ("gte" in c) return actual instanceof Date ? actual.getTime() >= (c.gte as Date).getTime() : (actual as number) >= (c.gte as number);
     if ("equals" in c) return String(actual).toLowerCase() === String(c.equals).toLowerCase();
   }
   return actual === cond;
@@ -66,6 +67,12 @@ export function makeFakeDb() {
       const rows = tables[name].filter((r) => matches(name, r, a.where));
       for (const r of rows) apply(r, a.data);
       return { count: rows.length };
+    },
+    aggregate: async (a: Row) => {
+      const rows = tables[name].filter((r) => matches(name, r, a.where));
+      const sum: Row = {};
+      for (const k of Object.keys(a._sum || {})) sum[k] = rows.length ? rows.reduce((n, r) => n + (r[k] ?? 0), 0) : null;
+      return { _sum: sum };
     },
     deleteMany: async (a: Row) => {
       const keep = tables[name].filter((r) => !matches(name, r, a.where));

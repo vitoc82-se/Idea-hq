@@ -114,6 +114,26 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
     }
   };
 
+  // Save a project's monthly cap ("" clears it). Returns an error sentence, or null when saved.
+  const saveCap = async (p: Project, text: string): Promise<string | null> => {
+    const t = text.trim().replace(",", ".").replace(/^\$/, "");
+    const value = t === "" ? null : Number(t);
+    if (value !== null && !Number.isFinite(value)) return "Type a dollar amount like 10, or leave it empty for no cap.";
+    try {
+      const res = await fetch(`/api/projects/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monthlyCapUsd: value }) });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        return d?.error || "Could not save the cap. Try again in a moment.";
+      }
+      await fetchProjects();
+      return null;
+    } catch {
+      return "Could not reach Idea HQ to save the cap. Check your connection and try again.";
+    }
+  };
+
+  const monthTotal = projects.reduce((n, p) => n + (p.spend?.monthUsd ?? 0), 0);
+
   const handleDelete = async (p: Project) => {
     const n = p._count?.ideas ?? 0;
     if (
@@ -156,6 +176,12 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
           )}
         </Button>
       </div>
+
+      {projects.length > 0 && (
+        <p className="text-sm text-gray-700 dark:text-gray-300" data-testid="month-total">
+          AI spend this month across your projects: <b>${monthTotal.toFixed(2)}</b>. It is billed to your own AI key, not by Idea HQ.
+        </p>
+      )}
 
       {showForm && (
         <Card>
@@ -299,12 +325,69 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
+              <SpendRow project={p} onSave={(text) => saveCap(p, text)} />
               {repoOpen === p.id && <ProjectRepo projectId={p.id} onChanged={() => refreshProgress(p.id)} />}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// One project's AI spend this month and its optional monthly cap.
+function SpendRow({ project, onSave }: { project: Project; onSave: (text: string) => Promise<string | null> }) {
+  const spend = project.spend ?? { monthUsd: 0, runs: 0, unpriced: 0 };
+  const cap = project.monthlyCapUsd ?? null;
+  const [text, setText] = useState(cap == null ? "" : String(cap));
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setText(cap == null ? "" : String(cap));
+  }, [cap]);
+  const reached = cap != null && spend.monthUsd >= cap;
+
+  const commit = async () => {
+    const current = cap == null ? "" : String(cap);
+    if (text.trim() === current) return;
+    setSaving(true);
+    setErr("");
+    const e = await onSave(text);
+    setSaving(false);
+    if (e) {
+      setErr(e);
+      setText(current);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-200 pt-3 text-sm text-gray-800 dark:border-gray-700 dark:text-gray-200">
+      <p>
+        This month: <b>${spend.monthUsd.toFixed(2)}</b> across {spend.runs} run{spend.runs === 1 ? "" : "s"}
+        {spend.unpriced > 0 && <span className="text-gray-600 dark:text-gray-400"> · cost not reported for {spend.unpriced}</span>}
+      </p>
+      <div className="flex items-center gap-2">
+        <label htmlFor={`cap-${project.id}`}>Monthly cap $</label>
+        <Input
+          id={`cap-${project.id}`}
+          className="h-9 w-24"
+          inputMode="decimal"
+          value={text}
+          placeholder="none"
+          disabled={saving}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          aria-describedby={`cap-note-${project.id}`}
+        />
+      </div>
+      <p id={`cap-note-${project.id}`} className="text-xs text-gray-600 dark:text-gray-400">
+        {reached ? "Cap reached: new runs are paused until next month or a higher cap." : cap != null ? `$${(cap - spend.monthUsd).toFixed(2)} left this month.` : "No cap. Runs are only limited by your own AI account."}
+      </p>
+      {err && <p role="alert" className="w-full text-red-700 dark:text-red-400">{err}</p>}
     </div>
   );
 }
