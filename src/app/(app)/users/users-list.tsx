@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 
 type U = {
   id: string; name: string | null; email: string | null; approved: boolean; features: string[]; aiBuild: boolean;
-  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; emailWarning?: "duplicate" | "padded" | null; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
+  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; emailWarning?: "duplicate" | "padded" | null; emailVerified?: boolean; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
 };
 type Patch = Partial<{ approved: boolean; features: string[]; aiBuild: boolean; aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number }>;
 
@@ -95,13 +95,18 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
     setCreditsText(String(u.aiCredits));
   }, [u.aiCredits]);
 
-  const save = async (patch: Patch) => {
+  const [confirmUnverified, setConfirmUnverified] = useState(false);
+  const save = async (patch: Patch & { allowUnverified?: boolean }) => {
     setSaving(true);
     setErr("");
     const res = await fetch(`/api/admin/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     setSaving(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
+      if (res.status === 409 && d.needsConfirmation === "unverified") {
+        setConfirmUnverified(true);
+        return;
+      }
       setErr(d.error || "Could not save.");
       setLimitText(u.aiDailyLimit === null ? "" : String(u.aiDailyLimit));
       return;
@@ -176,6 +181,11 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
         {!u.owner && !u.approved && (
           <Button className="bg-emerald-700 hover:bg-emerald-800" onClick={() => save({ approved: true })} disabled={saving}>Approve</Button>
         )}
+        {!u.owner && !u.approved && (
+          <p className={`w-full text-xs ${u.emailVerified ? "text-emerald-800 dark:text-emerald-300" : "text-amber-900 dark:text-amber-200"}`}>
+            {u.emailVerified ? "Email confirmed" : "Email not confirmed yet: the address may not be theirs."}
+          </p>
+        )}
       </div>
 
       {u.owner ? (
@@ -246,6 +256,15 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
               : "This email has spaces around it, which a normal sign-up does not produce. If you do not recognise this person, remove the account."}
           </p>
           <RemoveAccount user={u} onDone={onChanged} />
+        </div>
+      )}
+      {confirmUnverified && (
+        <div role="alert" className="mt-2 rounded-lg border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+          <p>{u.email} has not confirmed their email, so someone else may have signed up with this address. Only approve if you know this is really them.</p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800" disabled={saving} onClick={() => { setConfirmUnverified(false); save({ approved: true, allowUnverified: true }); }}>Approve anyway</Button>
+            <Button size="sm" variant="outline" onClick={() => setConfirmUnverified(false)}>Not yet</Button>
+          </div>
         </div>
       )}
       {err && <p role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">{err}</p>}

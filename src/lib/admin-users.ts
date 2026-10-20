@@ -12,11 +12,12 @@ export type UserPatch = {
   freeAccess?: boolean;
   aiCredits?: number;
   proRevoked?: boolean;
+  allowUnverified?: boolean; // not saved: lets "approved: true" go through for someone who has not confirmed their email
 };
 
 export const CREDITS_MAX = 100000;
 
-const KEYS = ["approved", "features", "aiBuild", "aiDailyLimit", "freeAccess", "aiCredits", "proRevoked"];
+const KEYS = ["approved", "features", "aiBuild", "aiDailyLimit", "freeAccess", "aiCredits", "proRevoked", "allowUnverified"];
 
 export function cleanUserPatch(body: unknown): { ok: true; patch: UserPatch } | { ok: false; error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Send a JSON object." };
@@ -40,6 +41,10 @@ export function cleanUserPatch(body: unknown): { ok: true; patch: UserPatch } | 
   if ("proRevoked" in b) {
     if (typeof b.proRevoked !== "boolean") return { ok: false, error: "proRevoked must be true or false." };
     patch.proRevoked = b.proRevoked;
+  }
+  if ("allowUnverified" in b) {
+    if (typeof b.allowUnverified !== "boolean") return { ok: false, error: "allowUnverified must be true or false." };
+    patch.allowUnverified = b.allowUnverified;
   }
   if ("aiCredits" in b) {
     const v = b.aiCredits;

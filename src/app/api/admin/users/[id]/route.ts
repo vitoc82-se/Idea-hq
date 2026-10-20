@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { isOwner, ownerUserId } from "@/lib/owner";
 import { cleanUserPatch } from "@/lib/admin-users";
 import { cancelLemonSubscription, type CancelResult } from "@/lib/billing-lemon";
+import { isVerified } from "@/lib/email-verification";
 
 // Owner-only: change one account's settings: approval, optional features
 // (Support tickets), AI build and the daily helper-AI call limit.
@@ -25,7 +26,12 @@ export async function PATCH(
   if (!target) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
-  const { proRevoked, ...rest } = checked.patch;
+  const { proRevoked, allowUnverified, ...rest } = checked.patch;
+  // Approving someone whose email address is not confirmed is the way a stranger gets in by registering
+  // a friend's address. It needs an explicit "approve anyway".
+  if (rest.approved === true && !allowUnverified && !(await isVerified(target.id))) {
+    return NextResponse.json({ error: "This person has not confirmed their email yet, so the address may not be theirs. Ask them to open the link we emailed, or approve anyway.", needsConfirmation: "unverified" }, { status: 409 });
+  }
   // Switching Pro off also asks Lemon Squeezy to stop the subscription, so the person is not charged again.
   let lsCancel: CancelResult | null = null;
   if (proRevoked === true) lsCancel = await cancelLemonSubscription(target.lsSubscriptionId);

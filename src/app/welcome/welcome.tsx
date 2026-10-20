@@ -42,6 +42,49 @@ function PhaseCard({ n, title, status, children }: { n: number; title: string; s
   );
 }
 
+// Waiting for approval: ask them to confirm their email (the owner is warned about unconfirmed addresses).
+function ConfirmEmail() {
+  const [verified, setVerified] = useState<boolean | null>(null);
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const check = () => fetch("/api/auth/verification", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => j && setVerified(!!j.verified)).catch(() => {});
+    check();
+    const t = setInterval(check, 15000);
+    return () => clearInterval(t);
+  }, []);
+  if (verified !== false) return null;
+  const send = async () => {
+    setState("sending");
+    setError("");
+    try {
+      const res = await fetch("/api/auth/verification", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(d.error || "The email could not be sent. Try again in a few minutes.");
+        setState("idle");
+        return;
+      }
+      setState("sent");
+    } catch {
+      setError("Could not reach Idea HQ. Check your connection and try again.");
+      setState("idle");
+    }
+  };
+  return (
+    <div role="status" className="rounded-lg border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+      <p className="font-semibold">Confirm your email</p>
+      <p className="mt-1">We sent you an email with a link. Open it and press the button, so the owner knows the address is really yours. Check your spam folder too.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <Button size="sm" variant="outline" onClick={send} disabled={state !== "idle"}>
+          {state === "sending" ? "Sending…" : state === "sent" ? "Sent again" : "Send the email again"}
+        </Button>
+        {error && <span role="alert" className="text-red-800 dark:text-red-300">{error}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function Welcome({ name }: { name: string }) {
   const router = useRouter();
   const [ob, setOb] = useState<Onboarding | null>(null);
@@ -160,8 +203,9 @@ export function Welcome({ name }: { name: string }) {
           <PhaseCard n={1} title="Waiting for approval" status="current">
             <p className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
               <Clock className="w-4 h-4 mt-0.5 shrink-0" />
-              Your account is created. The owner of this Idea HQ has to approve it before you can start. You don&apos;t need to do anything else. This page continues by itself the moment you are approved, so you can leave it open or come back later.
+              Your account is created. The owner of this Idea HQ has to approve it before you can start. This page continues by itself the moment you are approved, so you can leave it open or come back later.
             </p>
+            <ConfirmEmail />
           </PhaseCard>
         ) : (
           <>

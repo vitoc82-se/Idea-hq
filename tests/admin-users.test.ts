@@ -29,11 +29,44 @@ beforeEach(async () => {
   sess.user = OWNER;
   await db.user.create({ data: { id: "owner", email: OWNER.email, name: "Niklas", approved: true, createdAt: new Date("2026-01-01") } });
   await db.user.create({ data: { id: "friend", email: FRIEND.email, name: "Ann", approved: true, password: "secret-hash", createdAt: new Date("2026-02-01"), aiCallsDay: today, aiCallsToday: 4, aiDailyLimit: 10 } });
-  await db.user.create({ data: { id: "waiting", email: "new@x.se", approved: false, createdAt: new Date("2026-03-01"), aiCallsDay: "2020-01-01", aiCallsToday: 9 } });
+  await db.user.create({ data: { id: "waiting", email: "new@x.se", approved: false, emailVerified: new Date("2026-03-01"), createdAt: new Date("2026-03-01"), aiCallsDay: "2020-01-01", aiCallsToday: 9 } });
   await db.project.create({ data: { id: "p1", userId: "friend", name: "Shop", slug: "shop", context: "" } });
   await db.idea.create({ data: { userId: "friend", projectId: "p1", title: "A" } });
   await db.idea.create({ data: { userId: "friend", projectId: "p1", title: "B" } });
   await db.run.create({ data: { userId: "friend", projectId: "p1" } });
+});
+
+describe("approving someone whose email is not confirmed", () => {
+  beforeEach(async () => {
+    await db.user.create({ data: { id: "stranger", email: "friend-of-friend@x.se", approved: false, createdAt: new Date("2026-04-01") } });
+  });
+  it("asks first, because the address may not be theirs", async () => {
+    const res = await patch("stranger", { approved: true });
+    expect(res.status).toBe(409);
+    expect((await res.json()).needsConfirmation).toBe("unverified");
+    expect((await db.user.findUnique({ where: { id: "stranger" } }))?.approved).toBe(false);
+  });
+  it("lets the owner approve anyway, and does not store the override", async () => {
+    expect((await patch("stranger", { approved: true, allowUnverified: true })).status).toBe(200);
+    const u = await db.user.findUnique({ where: { id: "stranger" } });
+    expect(u?.approved).toBe(true);
+    expect(JSON.stringify(u)).not.toMatch(/allowUnverified/);
+  });
+  it("approves a confirmed person, and one who signed in with Google, without asking", async () => {
+    expect((await patch("waiting", { approved: true })).status).toBe(200);
+    await db.account.create({ data: { userId: "stranger", type: "oauth", provider: "google", providerAccountId: "g-1" } });
+    expect((await patch("stranger", { approved: true })).status).toBe(200);
+  });
+  it("does not ask when changing anything else, or when taking access away", async () => {
+    expect((await patch("stranger", { aiDailyLimit: 5 })).status).toBe(200);
+    expect((await patch("friend", { approved: false })).status).toBe(200);
+  });
+  it("the list says who is confirmed", async () => {
+    const d = await (await GET()).json();
+    const by = (id: string) => d.users.find((u: { id: string }) => u.id === id);
+    expect(by("stranger").emailVerified).toBe(false);
+    expect(by("waiting").emailVerified).toBe(true);
+  });
 });
 
 describe("GET /api/admin/users", () => {

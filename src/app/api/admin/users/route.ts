@@ -19,6 +19,7 @@ export async function GET() {
     select: {
       id: true, name: true, email: true, approved: true, features: true, aiBuild: true, aiDailyLimit: true,
       aiCallsDay: true, aiCallsToday: true, createdAt: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true, proRevokedAt: true, lsSubscriptionId: true,
+      emailVerified: true, accounts: { select: { provider: true } },
     },
   });
   const [projects, ideas, runs] = await Promise.all([
@@ -41,6 +42,7 @@ export async function GET() {
       id: u.id, name: u.name, email: u.email, approved: u.approved, features: u.features, aiBuild: u.aiBuild,
       aiDailyLimit: u.aiDailyLimit, freeAccess: u.freeAccess, aiCredits: u.aiCredits, pro: isPro(u), proRevoked: !!u.proRevokedAt, lsSubscriptionId: u.lsSubscriptionId, subStatus: u.subStatus, subEndsAt: u.subEndsAt, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
       owner: u.id === ownerId,
+      emailVerified: u.emailVerified !== null || u.accounts.some((a) => a.provider === "google"),
       emailWarning: !u.email ? null : (seen.get(u.email.trim().toLowerCase()) ?? 0) > 1 ? "duplicate" : u.email !== u.email.trim() ? "padded" : null, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
     });
   }

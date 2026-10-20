@@ -11,6 +11,7 @@ vi.mock("@/lib/session", () => ({
   getCurrentUserId: async () => sess.user?.id ?? null,
 }));
 process.env.NEXTAUTH_SECRET = "test-secret-test-secret-test-secret";
+process.env.SUPPORT_TURNSTILE_BYPASS = "1"; // the "are you a person" check is tested in auth-hardening
 
 import { db, resetDb } from "./pg";
 import { POST as register } from "@/app/api/auth/register/route";
@@ -21,7 +22,9 @@ import { GET as listUsers } from "@/app/api/admin/users/route";
 import { DELETE as removeUser } from "@/app/api/admin/users/[id]/route";
 
 const OWNER = "skanova@gmail.com";
-const signUp = (body: unknown) => register(new Request("https://x/api/auth/register", { method: "POST", body: JSON.stringify(body) }));
+let n = 0;
+// Each call comes from its own address, so the sign-up limit (tested in auth-hardening) does not get in the way.
+const signUp = (body: unknown, ip = `10.0.${Math.floor(++n / 250)}.${n % 250}`) => register(new Request("https://x/api/auth/register", { method: "POST", headers: { "x-forwarded-for": ip }, body: JSON.stringify(body) }));
 const authorize = (email: unknown, password: unknown) =>
   (authOptions.providers.find((p) => p.id === "credentials") as unknown as { options: { authorize: (c: Record<string, unknown>) => Promise<{ id: string } | null> } }).options.authorize({ email, password });
 
@@ -38,14 +41,20 @@ describe("registration", () => {
     expect(ok.status).toBe(201);
     const u = await db.user.findFirst({ where: { id: (await ok.json()).userId } });
     expect(u?.email).toBe("ann@example.se");
-    for (const again of ["ann@example.se", "ANN@EXAMPLE.SE", " ann@example.se ", "Ann@Example.se"]) {
+    for (const again of ["ann@example.se", "ANN@EXAMPLE.SE"]) {
       const res = await signUp({ email: again, password: "password123" });
       expect(res.status, again).toBe(409);
     }
     expect(await db.user.count()).toBe(2);
+    // (the same address is only tried three times an hour, so more variants use a second person)
+    await signUp({ email: "bea@example.se", password: "password123" });
+    for (const again of [" bea@example.se ", "Bea@Example.se"]) expect((await signUp({ email: again, password: "password123" })).status, again).toBe(409);
   });
   it("refuses the owner's address in any letters or padding (the hole that was live)", async () => {
-    for (const variant of ["SKANOVA@gmail.com", "Skanova@Gmail.com", " skanova@gmail.com", "skanova@gmail.com ", "skanova@gmail.com\n"]) {
+    // The sign-up limit is per address (3 an hour), so these are tried in separate hours, as real attackers would.
+    const variants = ["SKANOVA@gmail.com", "Skanova@Gmail.com", " skanova@gmail.com", "skanova@gmail.com ", "skanova@gmail.com\n"];
+    for (const [i, variant] of Array.from(variants.entries())) {
+      if (i % 3 === 0) await db.rateBucket.deleteMany({});
       const res = await signUp({ name: "x", email: variant, password: "password123" });
       expect(res.status, JSON.stringify(variant)).toBe(409);
     }
@@ -68,8 +77,12 @@ describe("registration", () => {
       [{ email: "a@b.se", password: "é".repeat(40) }, 400], // 80 bytes
       [{ email: "a@b.se", password: "password123", name: { a: 1 } }, 400],
     ];
-    for (const [body, status] of cases) expect((await signUp(body)).status, JSON.stringify(body)).toBe(status);
-    expect((await signUp({ email: "a@b.se", password: "x".repeat(72) })).status).toBe(201);
+    for (const [i, [body, status]] of Array.from(cases.entries())) {
+      // a different address each time, so the per-address limit never applies
+      const b = body && typeof body === "object" && !Array.isArray(body) && (body as { email?: unknown }).email === "a@b.se" ? { ...(body as object), email: `case${i}@b.se` } : body;
+      expect((await signUp(b)).status, JSON.stringify(body)).toBe(status);
+    }
+    expect((await signUp({ email: "ok@b.se", password: "x".repeat(72) })).status).toBe(201);
     expect(await db.user.count()).toBe(2);
   });
   it("keeps the name tidy", async () => {

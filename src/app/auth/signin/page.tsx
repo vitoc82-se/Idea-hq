@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,17 @@ import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+type Turnstile = {
+  render: (el: HTMLElement, opts: { sitekey: string; callback: (t: string) => void; "expired-callback": () => void; "error-callback": () => void }) => string;
+  reset: (id?: string) => void;
+  remove: (id?: string) => void;
+};
+declare global {
+  interface Window {
+    turnstile?: Turnstile;
+  }
+}
 
 export default function SignInPage() {
   const router = useRouter();
@@ -21,6 +32,56 @@ export default function SignInPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
 
+  // Creating an account asks Cloudflare "are you a person?" (the same check the support form uses).
+  const [siteKey, setSiteKey] = useState("");
+  const [captcha, setCaptcha] = useState("");
+  const widgetBox = useRef<HTMLDivElement>(null);
+  const widgetId = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!isRegister) return;
+    let live = true;
+    fetch("/api/auth/turnstile", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => live && j && setSiteKey(typeof j.siteKey === "string" ? j.siteKey : ""))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [isRegister]);
+
+  useEffect(() => {
+    if (!isRegister || !siteKey) return;
+    let cancelled = false;
+    const draw = () => {
+      if (cancelled || !widgetBox.current || !window.turnstile || widgetId.current !== undefined) return;
+      widgetId.current = window.turnstile.render(widgetBox.current, {
+        sitekey: siteKey,
+        callback: (t) => setCaptcha(t),
+        "expired-callback": () => setCaptcha(""),
+        "error-callback": () => setCaptcha(""),
+      });
+    };
+    if (window.turnstile) draw();
+    else {
+      let s = document.getElementById("turnstile-script") as HTMLScriptElement | null;
+      if (!s) {
+        s = document.createElement("script");
+        s.id = "turnstile-script";
+        s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+        s.async = true;
+        document.head.appendChild(s);
+      }
+      s.addEventListener("load", draw);
+    }
+    return () => {
+      cancelled = true;
+      if (widgetId.current !== undefined) window.turnstile?.remove(widgetId.current);
+      widgetId.current = undefined;
+      setCaptcha("");
+    };
+  }, [isRegister, siteKey]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -28,15 +89,23 @@ export default function SignInPage() {
 
     try {
       if (isRegister) {
+        if (siteKey && !captcha) {
+          setError("Please complete the check below first.");
+          setLoading(false);
+          return;
+        }
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, token: captcha }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          setError(data.error);
+          setError(data.error || "Could not create the account. Try again in a moment.");
+          // A check can only be used once.
+          if (widgetId.current !== undefined) window.turnstile?.reset(widgetId.current);
+          setCaptcha("");
           setLoading(false);
           return;
         }
@@ -49,7 +118,7 @@ export default function SignInPage() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError(result.error === "TOO_MANY_ATTEMPTS" ? "Too many attempts. Wait a few minutes and try again." : "Invalid email or password");
         setLoading(false);
         return;
       }
@@ -125,8 +194,10 @@ export default function SignInPage() {
               />
             </div>
 
+            {isRegister && siteKey && <div ref={widgetBox} aria-label="Security check" className="min-h-[65px]" />}
+
             {error && (
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
