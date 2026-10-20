@@ -78,6 +78,8 @@ model User {
   // Set by the owner in Admin: Pro is switched off for this person whatever Lemon Squeezy says,
   // until the owner restores it (a new purchase does not undo it).
   proRevokedAt  DateTime?
+  // Email me when a change is ready for review or a run fails (Settings page).
+  notifyEmail   Boolean   @default(true)
   lsSubscriptionId String?
   lsPortalUrl   String?   @db.Text
   createdAt     DateTime  @default(now())

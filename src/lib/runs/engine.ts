@@ -16,6 +16,7 @@ import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
 import { invalidateSetupCache } from "./setup-cache";
 import { buildAccess, chargeBuild, refundBuildCredit, BillingBlock, NEEDS_PLAN_MESSAGE } from "../billing";
 import { aiBuildAllowed } from "../access";
+import { notifyRunEvent } from "../notify";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -90,6 +91,9 @@ async function transition(run: { id: string; status: string }, to: string, data:
     data: { ...data, status: to },
   });
   if (res.count > 0 && to === "failed") await refundBuildCredit(run.id).catch((err) => console.error("credit refund failed", err));
+  // Tell the person when something needs them. A first PR carries its number; a revision does not.
+  if (res.count > 0 && to === "failed") await notifyRunEvent(run.id, "failed");
+  if (res.count > 0 && to === "pr_open") await notifyRunEvent(run.id, "prNumber" in data ? "ready" : "updated");
   return res.count > 0;
 }
 

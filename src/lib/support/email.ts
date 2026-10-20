@@ -20,7 +20,7 @@ function fromAddress(displayName: string): string | null {
 }
 
 export async function sendEmail(
-  opts: { to: string; subject: string; text: string; fromName: string },
+  opts: { to: string; subject: string; text: string; fromName: string; timeoutMs?: number },
   fetchImpl: typeof fetch = fetch
 ): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
@@ -31,7 +31,7 @@ export async function sendEmail(
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to: [headerSafe(opts.to, 254)], subject: headerSafe(opts.subject, 200), text: opts.text }),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 6000),
     });
     if (!res.ok) console.error("support email failed", res.status);
     return res.ok;

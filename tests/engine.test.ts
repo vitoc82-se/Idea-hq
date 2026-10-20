@@ -837,3 +837,50 @@ describe("paywall", () => {
     expect(t.tables.run[0].creditCharged).toBe(false);
   });
 });
+
+// ---- Email when something needs the person ------------------------------------
+describe("notifications from the run engine", () => {
+  const realFetch = globalThis.fetch;
+  let mails: { subject: string }[];
+  beforeEach(() => {
+    mails = [];
+    process.env.RESEND_API_KEY = "re_test";
+    process.env.SUPPORT_FROM_EMAIL = "support@ideahq.cloud";
+    t.tables.user.find((u) => u.id === "u1")!.email = "ann@x.se";
+    globalThis.fetch = (async (_u: string, init: RequestInit) => { mails.push(JSON.parse(String(init.body))); return new Response("{}", { status: 200 }); }) as unknown as typeof fetch;
+  });
+  afterEach(() => { globalThis.fetch = realFetch; delete process.env.RESEND_API_KEY; delete process.env.SUPPORT_FROM_EMAIL; });
+
+  it("one email when the PR opens, one when a revision finishes, one when a run fails", async () => {
+    await prOpenRun();
+    expect(mails.map((m) => m.subject)).toEqual(["Ready for review: Add dark mode (Proj)"]);
+    await reviseRun("u1", "RUN1", "Use blue", deps());
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "rev-done", deps());
+    expect(mails.map((m) => m.subject)).toEqual(["Ready for review: Add dark mode (Proj)", "Updated and ready again: Add dark mode (Proj)"]);
+  });
+  it("a duplicate webhook does not send a second email", async () => {
+    await dispatchedRun();
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "same", deps());
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "same", deps());
+    expect(mails).toHaveLength(1);
+  });
+  it("a failed run sends the failure email once", async () => {
+    await dispatchedRun();
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "bad1", deps());
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "bad2", deps());
+    expect(mails.map((m) => m.subject)).toEqual(["Did not finish: Add dark mode (Proj)"]);
+  });
+  it("is silent when the person switched notifications off, and a broken email service never breaks the run", async () => {
+    t.tables.user.find((u) => u.id === "u1")!.notifyEmail = false;
+    await prOpenRun();
+    expect(mails).toHaveLength(0);
+    t.tables.user.find((u) => u.id === "u1")!.notifyEmail = true;
+    t.tables.run.length = 0;
+    globalThis.fetch = (async () => { throw new Error("down"); }) as unknown as typeof fetch;
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    await dispatchedRun();
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "after-outage", deps());
+    quiet.mockRestore();
+    expect(t.tables.run[0].status).toBe("pr_open");
+  });
+});

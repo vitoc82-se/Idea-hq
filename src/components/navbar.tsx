@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen, LifeBuoy, CreditCard } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen, LifeBuoy, CreditCard, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import { APP_VERSION } from "@/lib/version";
 
@@ -16,6 +16,7 @@ const navLinks = [
 ];
 
 const supportLink = { href: "/support", label: "Support", icon: LifeBuoy };
+const settingsLink = { href: "/settings", label: "Settings", icon: Settings };
 const billingLink = { href: "/billing", label: "Billing", icon: CreditCard };
 
 export function Navbar() {
@@ -59,7 +60,7 @@ export function Navbar() {
   const base = support.enabled ? [visible[0], visible[1], supportLink, ...visible.slice(2)] : visible;
   const isFree = !!me && !me.owner && !me.pro && !me.freeAccess;
   const billing = { ...billingLink, label: isFree ? "Upgrade" : "Billing" };
-  const links = me ? [...base.slice(0, -1), billing, base[base.length - 1]] : base;
+  const links = me ? [...base.slice(0, -1), billing, settingsLink, base[base.length - 1]] : base;
 
   return (
     <>
