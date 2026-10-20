@@ -361,7 +361,7 @@ export async function mergeRun(userId: string, runId: string, opts: { auto?: boo
 }
 
 async function finishMerged(
-  run: { id: string; status: string; userId: string; projectId?: string; ideaId: string | null; kind: string; prNumber: number | null; project?: ProjectRow; idea?: { title: string } | null },
+  run: { id: string; status: string; userId: string; projectId?: string; ideaId: string | null; kind: string; prNumber: number | null; project?: ProjectRow; idea?: { title: string; kind?: string } | null },
   sha: string,
   gh?: GitHubApi
 ) {
@@ -382,6 +382,12 @@ async function finishMerged(
     } else if (run.kind === "revert") {
       await remember(mem, "lesson", "A shipped change was reverted. Be careful with similar changes.");
     }
+  }
+  if (ok && run.projectId && run.kind === "implement") {
+    // A draft line for the public "What's new" page; the owner words it and publishes it.
+    await db.changelogEntry
+      .create({ data: { projectId: run.projectId, runId: run.id, kind: run.idea?.kind === "bug" ? "fix" : "new", title: (run.idea?.title || "A change").slice(0, 120) } })
+      .catch(() => undefined);
   }
   if (ok && run.ideaId && run.kind === "implement") {
     await db.idea.updateMany({

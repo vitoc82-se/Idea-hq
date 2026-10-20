@@ -24,6 +24,7 @@ const TOC = [
   ["safe", "Staying in control"],
   ["cost", "What it costs"],
   ["support", "Support for your own users"],
+  ["changes", "A public What's new page"],
   ["stuck", "If you get stuck"],
 ];
 
@@ -227,6 +228,17 @@ export default async function GuidePage() {
           <li><b>Telling customers it is fixed:</b> when the bug is done, open it and press <b>Tell N customers it is done</b>. Each gets your message in their ticket and by email, and their ticket is marked resolved. You can do this once per bug.</li>
           <li>Questions about orders, payments or accounts are never answered by the AI. They always come to you.</li>
           <li>Closed tickets are deleted after the number of days you choose, and you can download or delete everything from one customer.</li>
+        </UL>
+
+        <H id="changes">A public What&apos;s new page</H>
+        <P>
+          Optional, and free. Each project can have a public page where the people who use your product see what you shipped. You decide what appears on it.
+        </P>
+        <UL>
+          <li>Open Projects and press <b>What&apos;s new page</b> on a project, then tick <b>Show a public What&apos;s new page</b>. You get an address you can link from your own site. The address stays the same if you turn the page off and on again.</li>
+          <li>Every time a change is merged, a <b>draft</b> appears there with the idea&apos;s title. Nothing is public yet. Reword it for your users, choose New, Fixed or Improved, and press <b>Publish</b>. You can unpublish or delete an entry at any time.</li>
+          <li>Changes you made outside Idea HQ can be added by hand with <b>Write an entry by hand</b>.</li>
+          <li>The page shows only the title, details and date of published entries. Nothing else from your project is visible, and it is not part of Idea HQ&apos;s own search listing.</li>
         </UL>
 
         <H id="stuck">If you get stuck</H>

@@ -2,7 +2,7 @@
 
 import { Notice } from "@/components/notice";
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy, Upload } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy, Upload, Megaphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -302,6 +302,13 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                     Support
                   </Link>
                 )}
+                <Link
+                  href={`/projects/${p.id}/changes`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
+                >
+                  <Megaphone className="w-4 h-4" />
+                  What&apos;s new page
+                </Link>
                 <Link
                   href={`/projects/${p.id}/import`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"

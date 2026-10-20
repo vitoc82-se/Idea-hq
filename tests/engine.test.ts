@@ -1015,3 +1015,27 @@ describe("bug runs", () => {
     expect(t.tables.run[0].error).toBe("The AI made no changes.");
   });
 });
+
+// ---- Draft for the public What's new page -----------------------------------------
+describe("changelog draft on merge", () => {
+  it("a merged change leaves one unpublished draft, typed new, with the idea title", async () => {
+    await prOpenRun();
+    await mergeRun("u1", "RUN1", {}, deps());
+    expect(t.tables.changelogEntry).toHaveLength(1);
+    expect(t.tables.changelogEntry[0]).toMatchObject({ projectId: "p1", runId: "RUN1", kind: "new", title: "Add dark mode" });
+    expect(t.tables.changelogEntry[0].publishedAt ?? null).toBeNull();
+  });
+  it("a merged bug fix is typed fix, and a second merge event does not add a second draft", async () => {
+    t.tables.idea[0].kind = "bug";
+    await prOpenRun();
+    await mergeRun("u1", "RUN1", {}, deps());
+    await handleWebhook("pull_request", { action: "closed", repository: { full_name: "acme/app" }, pull_request: { number: 7, merged: true, merge_commit_sha: "m2" } }, "merged-twice", deps());
+    expect(t.tables.changelogEntry).toHaveLength(1);
+    expect(t.tables.changelogEntry[0].kind).toBe("fix");
+  });
+  it("a closed (not merged) change and a learn run leave nothing", async () => {
+    await prOpenRun();
+    await cancelRun("u1", "RUN1", deps());
+    expect(t.tables.changelogEntry).toHaveLength(0);
+  });
+});

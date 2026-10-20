@@ -44,3 +44,7 @@ Plain everyday language. No internal terms (no "knowledge", "context", "run") on
 - Shows the product with plain-HTML examples (a finished change with its diff, and an ideas board) instead of icons or stock art. No icon tiles, no feature-card grid, no gradients. Steps are Write, Approve, Merge as large words with a sentence each.
 - Dark hero buttons are mint with dark text; light-section buttons use emerald-700 (white text 5.5:1). Tap targets are 44px or more. Under 420px the header drops the Guide link (it stays in the footer).
 - Every public page sets its own title (template `%s · Idea HQ`), description and canonical address. The social preview is `src/app/opengraph-image.tsx`; icons are the rocket on emerald in `public/icons` and `src/app/favicon.ico`.
+
+## What's new page (public, per project)
+- Neutral and quiet: one column, project name as the title, entries grouped by month. A type word (New, Fixed, Improved) in an outlined pill, the date, a bold title, optional plain details. No Idea HQ navigation, no accent colour, no images. The only brand mark is a small "Powered by Idea HQ" line.
+- Shared links use a dark card with the project name and the latest titles (`opengraph-image.tsx` next to the page).

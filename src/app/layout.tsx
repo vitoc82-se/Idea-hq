@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PWARegister } from "@/components/pwa-register";
+import { HelpWidget } from "@/components/help-widget";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -54,7 +54,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <PWARegister />
-        <Script src="https://ideahq.cloud/embed/ihq_-_xUVVCWx3RoG-QU.js" strategy="lazyOnload" />
+        <HelpWidget />
       </body>
     </html>
   );

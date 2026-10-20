@@ -16,7 +16,7 @@ function matchValue(actual: unknown, cond: unknown): boolean {
 
 export function makeFakeDb() {
   const tables: Record<string, Row[]> = {
-    user: [], project: [], idea: [], run: [], webhookDelivery: [], githubInstallation: [], projectMemory: [],
+    user: [], project: [], idea: [], run: [], webhookDelivery: [], githubInstallation: [], projectMemory: [], changelogEntry: [],
   };
   let seq = 0;
   const rel: Record<string, string> = { project: "project", idea: "idea", user: "user" };
@@ -50,6 +50,9 @@ export function makeFakeDb() {
     findMany: async (a: Row = {}) => tables[name].filter((r) => matches(name, r, a.where)).map((r) => attach(r, a.include)),
     count: async (a: Row = {}) => tables[name].filter((r) => matches(name, r, a.where)).length,
     create: async (a: Row) => {
+      if (name === "changelogEntry" && a.data.runId && tables[name].some((r) => r.runId === a.data.runId)) {
+        throw Object.assign(new Error("unique"), { code: "P2002" });
+      }
       if (name === "webhookDelivery" && tables[name].some((r) => r.id === a.data.id)) {
         throw Object.assign(new Error("unique"), { code: "P2002" });
       }

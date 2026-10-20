@@ -129,6 +129,9 @@ model Project {
   aiBias            String   @default("auto") // saver | auto | max: shifts the model tier
   // Spending cap for AI runs in this project, USD per UTC month. null = no cap.
   monthlyCapUsd     Float?
+  // Public "What's new" page: the address key. null = no public page.
+  changelogKey      String?  @unique
+  changelogOn       Boolean  @default(false) // the page is live (the key stays the same when switched off and on)
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   ideas Idea[]
@@ -136,6 +139,7 @@ model Project {
   memory ProjectMemory[]
   support SupportSpace?
   tickets Ticket[]
+  changelogEntries ChangelogEntry[]
 
   @@unique([userId, slug])
   @@index([userId])
@@ -349,4 +353,21 @@ model BillingEvent {
   id        String   @id
   userId    String?
   createdAt DateTime @default(now())
+}
+
+// One line on a project's public "What's new" page. A merged change creates a draft
+// (publishedAt null); the owner edits the words and publishes it. Entries can also be written by hand.
+model ChangelogEntry {
+  id          String    @id @default(cuid())
+  projectId   String
+  runId       String?   @unique // the merged run this came from; null for hand-written entries
+  kind        String    @default("new") // new | fix | improved
+  title       String
+  body        String?   @db.Text
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, publishedAt])
 }
