@@ -65,3 +65,11 @@
 **Fix options:** a separate Neon branch/database for Preview with its own DATABASE_URL, or only run db push when VERCEL_ENV is production.
 **Pros:** removes a standing risk for every future schema change. **Cons:** a Neon preview branch and Vercel env setup, or a build-script change that affects every deploy.
 **Depends on:** nothing; do it before the next destructive schema change (rename or drop of a column).
+
+## Let me test pages behind sign-in (local test mode, then staging)
+**What:** A way to test everything behind the login without using real accounts or the live database.
+**Step 1, local test mode (do first):** one command starts Idea HQ locally on an in-memory Postgres (PGlite, already a dev dependency) with seeded test accounts (owner, friend) and sample data: projects at different setup stages, ideas, bugs, runs, tickets, What's new entries. Needs a local switch in `src/lib/db.ts` (an adapter for a plain Postgres connection instead of Neon) and fakes for GitHub, Lemon Squeezy, Resend and Anthropic. Then record repeatable click-through checks (phone and desktop widths, dark mode) so a page behind sign-in that breaks is caught before shipping.
+**Step 2, staging site (when onboarding real customers):** `staging.ideahq.cloud` with its own Neon branch, its own Vercel environment variables and seeded test accounts, using sandbox modes (Lemon Squeezy test mode, a test Resend domain). This also fixes "Stop preview builds from changing the production database" below. Needs from the owner: a Neon branch, Vercel settings, the staging address.
+**Not an option:** signing in to the live site. It holds friends' real data, and passwords are never typed on anyone's behalf.
+**Pros:** catches regressions behind sign-in; no risk to live data. **Cons:** fakes cannot prove the real GitHub, payment or email services work.
+**Depends on:** nothing. About a day for step 1.
