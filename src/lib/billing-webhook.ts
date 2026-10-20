@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { db } from "./db";
-import { CREDITS_PER_PACK, isPro } from "./billing";
+import { CREDITS_PER_PACK, isPro, paywallOn } from "./billing";
 
 // Lemon Squeezy signs the raw body with HMAC-SHA256 (hex) in X-Signature.
 export function verifySignature(raw: string, header: string | null, secret: string): boolean {
@@ -23,6 +23,14 @@ const date = (v: unknown): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+// Optional pins to our own store and products (comma separated ids). When set, an event for any other
+// store or product is ignored, so a checkout link for some other product cannot be turned into credits
+// by adding our custom data to it. Unset = no check, as before.
+function pinned(envName: string, value: string | null): boolean {
+  const allowed = (process.env[envName] || "").split(",").map((x) => x.trim()).filter(Boolean);
+  return allowed.length === 0 || (value !== null && allowed.includes(value));
+}
+
 function isDuplicate(e: unknown): boolean {
   return (e as { code?: string } | null)?.code === "P2002";
 }
@@ -42,7 +50,14 @@ export async function applyBillingEvent(payload: unknown): Promise<WebhookOutcom
   const customUser = str(custom.user_id);
   if (!dataId) return { ignored: "no id" };
 
+  // Test-mode purchases use fake cards. Once payments are on they must never grant anything real.
+  // LEMONSQUEEZY_ACCEPT_TEST=1 lets the owner try the flow end to end with a test card (then turn it off).
+  const isTest = meta.test_mode === true || attrs.test_mode === true;
+  if (isTest && paywallOn() && process.env.LEMONSQUEEZY_ACCEPT_TEST !== "1") return { ignored: "test purchase" };
+  if (!pinned("LEMONSQUEEZY_STORE_ID", str(attrs.store_id))) return { ignored: "other store" };
+
   if (name.startsWith("subscription_") && !name.startsWith("subscription_payment_")) {
+    if (!pinned("LEMONSQUEEZY_PRO_VARIANT_ID", str(attrs.variant_id))) return { ignored: "other product" };
     const status = str(attrs.status);
     const updatedAt = date(attrs.updated_at);
     if (!status || !updatedAt) return { ignored: "incomplete subscription" };
@@ -70,6 +85,7 @@ export async function applyBillingEvent(payload: unknown): Promise<WebhookOutcom
 
   if ((name === "order_created" || name === "order_refunded") && str(custom.kind) === "credits") {
     if (!customUser) return { ignored: "no user on order" };
+    if (!pinned("LEMONSQUEEZY_CREDITS_VARIANT_ID", str(obj(attrs.first_order_item).variant_id))) return { ignored: "other product" };
     const user = await db.user.findUnique({ where: { id: customUser }, select: { id: true } });
     if (!user) return { ignored: "no matching user" };
 

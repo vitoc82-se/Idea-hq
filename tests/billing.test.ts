@@ -36,6 +36,7 @@ afterEach(() => {
   delete process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
   delete process.env.LEMONSQUEEZY_PRO_URL;
   delete process.env.LEMONSQUEEZY_CREDITS_URL;
+  for (const k of ["LEMONSQUEEZY_ACCEPT_TEST", "LEMONSQUEEZY_STORE_ID", "LEMONSQUEEZY_PRO_VARIANT_ID", "LEMONSQUEEZY_CREDITS_VARIANT_ID"]) delete process.env[k];
 });
 
 describe("webhook signature", () => {
@@ -143,6 +144,82 @@ describe("runs pack", () => {
     await db.user.update({ where: { id: "u1" }, data: { aiCredits: 80 } });
     await applyBillingEvent(order("u1", "o9", { event: "order_refunded" }));
     expect(await credits("u1")).toBe(30);
+  });
+});
+
+describe("test-mode purchases", () => {
+  const asTest = <T extends { meta: Record<string, unknown> }>(e: T): T => ({ ...e, meta: { ...e.meta, test_mode: true } });
+  it("grant nothing once payments are on: no Pro, no runs, no refund effect", async () => {
+    await mk("u1", { aiCredits: 20 });
+    expect(await applyBillingEvent(asTest(order("u1", "t1")))).toEqual({ ignored: "test purchase" });
+    expect(await applyBillingEvent(asTest(sub("u1", "active", "2026-05-01T10:00:00Z")))).toEqual({ ignored: "test purchase" });
+    expect(await applyBillingEvent(asTest(order("u1", "t1", { event: "order_refunded" })))).toEqual({ ignored: "test purchase" });
+    const u = (await db.user.findUnique({ where: { id: "u1" } }))!;
+    expect(u.aiCredits).toBe(20);
+    expect(u.subStatus).toBeNull();
+    expect(await db.billingEvent.count()).toBe(0);
+  });
+  it("is also caught when only the order itself says it is a test", async () => {
+    await mk("u1");
+    const e = order("u1", "t2");
+    e.data.attributes = { ...e.data.attributes, test_mode: true } as typeof e.data.attributes;
+    expect(await applyBillingEvent(e)).toEqual({ ignored: "test purchase" });
+    expect(await credits("u1")).toBe(0);
+  });
+  it("still work while payments are off, so the flow can be tried", async () => {
+    delete process.env.PAYWALL_ENABLED;
+    await mk("u1");
+    expect(await applyBillingEvent(asTest(order("u1", "t3")))).toEqual({ handled: "credits" });
+    expect(await applyBillingEvent(asTest(sub("u1", "active", "2026-05-01T10:00:00Z")))).toEqual({ handled: "subscription" });
+  });
+  it("can be allowed on purpose with LEMONSQUEEZY_ACCEPT_TEST=1", async () => {
+    process.env.LEMONSQUEEZY_ACCEPT_TEST = "1";
+    await mk("u1");
+    expect(await applyBillingEvent(asTest(order("u1", "t4")))).toEqual({ handled: "credits" });
+  });
+  it("real purchases are unaffected", async () => {
+    await mk("u1");
+    const live = { ...order("u1", "live1"), meta: { ...order("u1", "live1").meta, test_mode: false } };
+    expect(await applyBillingEvent(live)).toEqual({ handled: "credits" });
+  });
+  it("the route still answers 200 so Lemon Squeezy does not retry", async () => {
+    process.env.LEMONSQUEEZY_WEBHOOK_SECRET = "whsec";
+    await mk("u1");
+    const raw = JSON.stringify(asTest(order("u1", "t5")));
+    const sig = crypto.createHmac("sha256", "whsec").update(raw).digest("hex");
+    const res = await POST(new Request("https://x/api/billing/lemonsqueezy/webhook", { method: "POST", headers: { "x-signature": sig }, body: raw }));
+    expect(res.status).toBe(200);
+    expect(await credits("u1")).toBe(0);
+  });
+});
+
+describe("only our own store and products count (when pinned)", () => {
+  it("ignores another store, and a product that is not the runs pack or Pro", async () => {
+    await mk("u1");
+    process.env.LEMONSQUEEZY_STORE_ID = "123";
+    process.env.LEMONSQUEEZY_CREDITS_VARIANT_ID = "555";
+    process.env.LEMONSQUEEZY_PRO_VARIANT_ID = "444, 445";
+    const o = (store: unknown, variant: unknown) => {
+      const e = order("u1", `px-${String(store)}-${String(variant)}`);
+      e.data.attributes = { ...e.data.attributes, store_id: store, first_order_item: { variant_id: variant } } as typeof e.data.attributes;
+      return e;
+    };
+    expect(await applyBillingEvent(o(999, 555))).toEqual({ ignored: "other store" });
+    expect(await applyBillingEvent(o(123, 999))).toEqual({ ignored: "other product" });
+    expect(await applyBillingEvent(o(123, undefined))).toEqual({ ignored: "other product" });
+    expect(await applyBillingEvent(o(123, 555))).toEqual({ handled: "credits" });
+    const s = (variant: unknown) => {
+      const e = sub("u1", "active", "2026-05-01T10:00:00Z");
+      e.data.attributes = { ...e.data.attributes, store_id: 123, variant_id: variant } as typeof e.data.attributes;
+      return e;
+    };
+    expect(await applyBillingEvent(s(1))).toEqual({ ignored: "other product" });
+    expect(await applyBillingEvent(s(445))).toEqual({ handled: "subscription" });
+    expect(await credits("u1")).toBe(CREDITS_PER_PACK);
+  });
+  it("checks nothing when nothing is pinned", async () => {
+    await mk("u1");
+    expect(await applyBillingEvent(order("u1", "free-for-all"))).toEqual({ handled: "credits" });
   });
 });
 
