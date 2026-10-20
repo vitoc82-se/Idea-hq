@@ -113,6 +113,8 @@ export function htmlPage(opts: { nonce: string; title: string; theme: string; cs
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
 <title>${escapeHtml(opts.title)}</title>
 <style nonce="${opts.nonce}">${opts.css}</style>
 </head>

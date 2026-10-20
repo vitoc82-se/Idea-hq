@@ -5,8 +5,10 @@ import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Guide: how Idea HQ works",
-  description: "A plain-language guide to Idea HQ: what it does, how to set it up, and how to stay in control.",
+  title: "How Idea HQ works",
+  description:
+    "A plain-language guide to Idea HQ: set up a project, write ideas, let the AI build them in your own GitHub, review and merge, and what it costs.",
+  alternates: { canonical: "/guide" },
 };
 
 const TOC = [

@@ -5,6 +5,8 @@ import { canUse } from "@/lib/access";
 import { db } from "@/lib/db";
 import { SetupJourney } from "./setup-journey";
 
+export const metadata = { title: "Repo and AI setup" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage({ params }: { params: { id: string } }) {

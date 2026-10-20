@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/notice";
 import { useEffect, useState, useCallback } from "react";
 import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,8 +33,9 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
     try {
       const res = await fetch("/api/projects", { cache: "no-store" });
       if (res.ok) setProjects(await res.json());
-    } catch (err) {
-      console.error("Failed to fetch projects:", err);
+      else setError("Could not load your projects. Reload the page to try again.");
+    } catch {
+      setError("Could not reach Idea HQ to load your projects. Check your connection and reload the page.");
     } finally {
       setLoading(false);
     }
@@ -98,16 +100,15 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error || "Failed to save project");
+        setError(data?.error || "Could not save the project. Check the name and try again.");
         return;
       }
       setShowForm(false);
       setForm(BLANK);
       setEditingId(null);
       await fetchProjects();
-    } catch (err) {
-      console.error("Failed to save project:", err);
-      setError("Something went wrong. Try again.");
+    } catch {
+      setError("Could not reach Idea HQ to save the project. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -124,13 +125,18 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
     try {
       const res = await fetch(`/api/projects/${p.id}`, { method: "DELETE" });
       if (res.ok) await fetchProjects();
-    } catch (err) {
-      console.error("Failed to delete project:", err);
+      else {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error || "Could not delete the project. It is still here; try again in a moment.");
+      }
+    } catch {
+      setError("Could not reach Idea HQ to delete the project. Check your connection and try again.");
     }
   };
 
   return (
     <div className="space-y-6">
+      {!showForm && <Notice text={error ?? ""} onClose={() => setError(null)} />}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Projects</h1>
@@ -165,7 +171,7 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                     id="name"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Snapmeal"
+                    placeholder="My app"
                     required
                     autoFocus
                     className="mt-1.5"
@@ -177,7 +183,7 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                     id="slug"
                     value={form.slug}
                     onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                    placeholder="snapmeal"
+                    placeholder="my-app"
                     className="mt-1.5"
                   />
                 </div>

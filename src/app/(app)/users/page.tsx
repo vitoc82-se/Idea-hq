@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { isOwner } from "@/lib/owner";
 import { UsersList } from "./users-list";
 
+export const metadata = { title: "Admin" };
+
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {

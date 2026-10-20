@@ -1,5 +1,6 @@
 "use client";
 
+import { Notice } from "@/components/notice";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -58,6 +59,7 @@ export function IdeasBoard() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState("");
   const [form, setForm] = useState({ title: "", notes: "", priority: "none", projectId: "" });
 
   // Filter / sort / search state
@@ -77,8 +79,9 @@ export function IdeasBoard() {
     try {
       const res = await fetch("/api/ideas", { cache: "no-store" });
       if (res.ok) setIdeas(await res.json());
-    } catch (err) {
-      console.error("Failed to fetch ideas:", err);
+      else setNotice("Could not load your ideas. Reload the page to try again.");
+    } catch {
+      setNotice("Could not reach Idea HQ to load your ideas. Check your connection and reload the page.");
     } finally {
       setLoading(false);
     }
@@ -122,8 +125,9 @@ export function IdeasBoard() {
     try {
       const res = await fetch("/api/projects", { cache: "no-store" });
       if (res.ok) setProjects(await res.json());
-    } catch (err) {
-      console.error("Failed to fetch projects:", err);
+      else setNotice("Could not load your projects, so new ideas cannot be assigned yet. Reload the page to try again.");
+    } catch {
+      setNotice("Could not reach Idea HQ to load your projects. Check your connection and reload the page.");
     }
   }, []);
 
@@ -165,9 +169,12 @@ export function IdeasBoard() {
         fetch(`/api/ideas/${created.id}/estimate`, { method: "POST" }).catch(
           () => {}
         );
+      } else {
+        const d = await res.json().catch(() => null);
+        setNotice(d?.error || "Could not save the idea. Your text is still in the form, so try again in a moment.");
       }
-    } catch (err) {
-      console.error("Failed to save idea:", err);
+    } catch {
+      setNotice("Could not reach Idea HQ to save the idea. Your text is still in the form; check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -176,13 +183,15 @@ export function IdeasBoard() {
   const patchStatus = async (id: string, status: string) => {
     setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
     try {
-      await fetch(`/api/ideas/${id}`, {
+      const res = await fetch(`/api/ideas/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-    } catch (err) {
-      console.error("Failed to update idea:", err);
+      if (!res.ok) throw new Error("not saved");
+    } catch {
+      setNotice("Could not move that idea, so it was put back where it was.");
+      fetchIdeas();
     }
   };
 
@@ -191,13 +200,15 @@ export function IdeasBoard() {
     const closureNote = note.trim() || null;
     setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, closureNote } : i)));
     try {
-      await fetch(`/api/ideas/${id}`, {
+      const res = await fetch(`/api/ideas/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ closureNote }),
       });
-    } catch (err) {
-      console.error("Failed to save closure note:", err);
+      if (!res.ok) throw new Error("not saved");
+    } catch {
+      setNotice("Could not save the closing note. Open the idea and add it again.");
+      fetchIdeas();
     }
   };
 
@@ -320,6 +331,7 @@ export function IdeasBoard() {
 
   return (
     <div className="space-y-6">
+      <Notice text={notice} onClose={() => setNotice("")} />
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ideas</h1>

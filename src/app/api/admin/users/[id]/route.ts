@@ -13,7 +13,7 @@ export async function PATCH(
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await isOwner(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   const checked = cleanUserPatch(await request.json().catch(() => null));
   if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });

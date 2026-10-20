@@ -55,9 +55,8 @@ export default function SignInPage() {
       }
 
       router.push("/ideas");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setError(`Something went wrong: ${msg}`);
+    } catch {
+      setError("Could not reach Idea HQ. Check your connection and try again.");
       setLoading(false);
     }
   };

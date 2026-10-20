@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Welcome } from "./welcome";
 
+export const metadata = { title: "Welcome", robots: { index: false, follow: false } };
+
 export const dynamic = "force-dynamic";
 
 export default async function WelcomePage() {

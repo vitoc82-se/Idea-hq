@@ -11,7 +11,7 @@ export async function requireUser(): Promise<{ userId: string; email: string | n
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return { res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return { res: NextResponse.json({ error: "Please sign in again." }, { status: 401 }) };
   }
   return { userId, email: session?.user?.email ?? null };
 }
@@ -42,7 +42,7 @@ export function errorResponse(e: unknown): NextResponse {
   }
   if (e instanceof GitHubError) return NextResponse.json({ error: e.message }, { status: 502 });
   console.error("run route error", e);
-  return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
+  return NextResponse.json({ error: "Something failed on our side. Try again in a moment, and tell the owner if it keeps happening." }, { status: 500 });
 }
 
 // ---- install-flow state: ties the GitHub redirect back to the signed-in user.

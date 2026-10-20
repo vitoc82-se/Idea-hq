@@ -21,7 +21,7 @@ export async function POST(
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   const blocked = await requireAiCall(userId, session?.user?.email ?? null);
   if (blocked) return blocked;
@@ -121,7 +121,7 @@ Estimate what it would take to build this in ${idea.project.name}, and how valua
     return NextResponse.json(updated);
   } catch (error: unknown) {
     console.error("Idea estimate error:", error);
-    let messageText = "Failed to estimate idea";
+    let messageText = "The estimate could not be made. Try again in a moment.";
     if (error instanceof Anthropic.APIError) messageText = `AI error: ${error.message}`;
     else if (error instanceof SyntaxError) messageText = "AI returned invalid data. Try re-estimating.";
     return NextResponse.json({ error: messageText }, { status: 500 });

@@ -9,6 +9,6 @@ export async function GET() {
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const status = await billingStatus(auth.userId);
-  if (!status) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!status) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   return NextResponse.json(status);
 }

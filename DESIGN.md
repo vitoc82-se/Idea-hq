@@ -40,6 +40,7 @@ public support widget, stay consistent. Calibrated to the code in `src/component
 Plain everyday language. No internal terms (no "knowledge", "context", "run") on customer-facing screens.
 
 ## Start page (public landing, `/`)
-- Persuade surface: left-aligned headline, one sentence of support, one primary action (Create account) and a quiet Sign in link. Anything that sets expectations (invite-only) sits directly under the buttons in 14px, not in the footer.
-- Shows the product with a plain-HTML example (idea, plan, change) instead of icons or stock art. Sections: How it works (numbered steps), You stay in control. No icon tiles, no card grid.
-- Filled buttons use emerald-700 (white text 5.5:1); header links are 44px tall.
+- Persuade surface in two tones: a near-black hero (`#0B1310`, mint accent `#34D399`) with the headline, one sentence, Create account and Sign in, and the invite-only note directly under the buttons; then a light product section.
+- Shows the product with plain-HTML examples (a finished change with its diff, and an ideas board) instead of icons or stock art. No icon tiles, no feature-card grid, no gradients. Steps are Write, Approve, Merge as large words with a sentence each.
+- Dark hero buttons are mint with dark text; light-section buttons use emerald-700 (white text 5.5:1). Tap targets are 44px or more. Under 420px the header drops the Guide link (it stays in the footer).
+- Every public page sets its own title (template `%s · Idea HQ`), description and canonical address. The social preview is `src/app/opengraph-image.tsx`; icons are the rocket on emerald in `public/icons` and `src/app/favicon.ico`.

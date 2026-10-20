@@ -42,6 +42,7 @@ import {
   isQuickWin,
 } from "./ideas-shared";
 import { StoriesSection } from "./ideas-stories";
+import { Notice } from "@/components/notice";
 import { RunPanel } from "./run-panel";
 
 export function IdeaDetail({
@@ -65,6 +66,7 @@ export function IdeaDetail({
     notes: initial.notes || "",
   });
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
   const [estimating, setEstimating] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -105,9 +107,11 @@ export function IdeaDetail({
         if (res.ok) {
           const updated = await res.json();
           setIdea((prev) => ({ ...prev, ...updated }));
+        } else {
+          setNotice("Could not save that change. Reload the page to see the saved version.");
         }
-      } catch (err) {
-        console.error("Failed to update idea:", err);
+      } catch {
+        setNotice("Could not reach Idea HQ to save that change. Check your connection and try again.");
       }
     },
     [initial.id]
@@ -120,8 +124,12 @@ export function IdeaDetail({
         method: "POST",
       });
       if (res.ok) setIdea(await res.json());
-    } catch (err) {
-      console.error("Estimate failed:", err);
+      else {
+        const d = await res.json().catch(() => null);
+        setNotice(d?.error || "The estimate could not be made. Try again in a moment.");
+      }
+    } catch {
+      setNotice("Could not reach Idea HQ to estimate this idea. Check your connection and try again.");
     } finally {
       setEstimating(false);
     }
@@ -134,9 +142,12 @@ export function IdeaDetail({
         method: "POST",
       });
       if (res.ok) setIdea(await res.json());
-      else console.error("Plan failed:", await res.text());
-    } catch (err) {
-      console.error("Plan failed:", err);
+      else {
+        const d = await res.json().catch(() => null);
+        setNotice(d?.error || "The plan could not be made. Try again in a moment.");
+      }
+    } catch {
+      setNotice("Could not reach Idea HQ to make the plan. Check your connection and try again.");
     } finally {
       setPlanning(false);
     }
@@ -155,15 +166,20 @@ export function IdeaDetail({
     setSaving(true);
     setIdea((prev) => ({ ...prev, title, notes }));
     try {
-      await fetch(`/api/ideas/${initial.id}`, {
+      const res = await fetch(`/api/ideas/${initial.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, notes }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        setNotice(d?.error || "Could not save your edit. Your text is still here, so try again.");
+        return;
+      }
       setEditing(false);
       if (changed) runEstimate();
-    } catch (err) {
-      console.error("Failed to save idea:", err);
+    } catch {
+      setNotice("Could not reach Idea HQ to save your edit. Your text is still here; check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -173,11 +189,12 @@ export function IdeaDetail({
     if (!confirm("Delete this idea? This can't be undone.")) return;
     setDeleting(true);
     try {
-      await fetch(`/api/ideas/${initial.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/ideas/${initial.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("not deleted");
       router.push("/ideas");
       router.refresh();
-    } catch (err) {
-      console.error("Failed to delete idea:", err);
+    } catch {
+      setNotice("Could not delete this idea. It is still here; try again in a moment.");
       setDeleting(false);
     }
   };
@@ -218,6 +235,7 @@ export function IdeaDetail({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Notice text={notice} onClose={() => setNotice("")} />
       <Link
         href="/ideas"
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400"

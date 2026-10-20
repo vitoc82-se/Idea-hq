@@ -134,7 +134,7 @@ function ask(btn,errBox){
       errBox.textContent='You have asked a lot of questions. Please try again later, or send us a message.';return;
     }
     btn.disabled=false;btn.textContent='Get an answer';
-    errBox.textContent='Something went wrong. Please try again, or send a message to our team.';
+    errBox.textContent='We could not get an answer just now. Please try again, or send a message to our team.';
   }).catch(function(){
     state.busy=false;btn.disabled=false;btn.textContent='Get an answer';
     errBox.textContent='We could not check that you are a person. Reload this page and try again.';
@@ -231,7 +231,7 @@ function form(prefill,kind){
         return;
       }
       if(r.status===429){banner.appendChild(h('p',{class:'banner',role:'alert'},['Too many messages from here. Please try again later.']));return;}
-      banner.appendChild(h('p',{class:'banner',role:'alert'},['Something went wrong. Your message was not sent. Please try again.']));
+      banner.appendChild(h('p',{class:'banner',role:'alert'},['Your message was not sent. Check your connection and try again.']));
     }).catch(function(){
       state.busy=false;btn.disabled=false;btn.textContent='Send message';
       banner.appendChild(h('p',{class:'banner',role:'alert'},['We could not check that you are a person. Reload this page and try again.']));

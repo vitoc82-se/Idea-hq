@@ -6,7 +6,7 @@ import { getSession } from "@/lib/session";
 export async function POST() {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   await db.user.update({ where: { id: userId }, data: { onboardingDismissed: true } });
   return NextResponse.json({ ok: true });
 }

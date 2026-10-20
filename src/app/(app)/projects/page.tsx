@@ -4,6 +4,8 @@ import { canUse } from "@/lib/access";
 import { hasTickets } from "@/lib/support/owner";
 import { ProjectsAdmin } from "./projects-admin";
 
+export const metadata = { title: "Projects" };
+
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {

@@ -39,7 +39,7 @@ export default function ChangePasswordPage() {
       router.push("/ideas");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Could not change the password. Check your connection and try again.");
       setLoading(false);
     }
   };

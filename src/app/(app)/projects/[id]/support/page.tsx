@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { hasTickets } from "@/lib/support/owner";
 import { SupportSettings } from "./support-settings";
 
+export const metadata = { title: "Support settings" };
+
 export const dynamic = "force-dynamic";
 
 export default async function ProjectSupportPage({ params }: { params: { id: string } }) {

@@ -16,7 +16,7 @@ export async function POST(
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   const blocked = await requireAiCall(userId, session?.user?.email ?? null);
   if (blocked) return blocked;
@@ -159,7 +159,7 @@ You can look at the real code before you write. Use the tools (list_dir, find_fi
     return NextResponse.json(updated);
   } catch (error: unknown) {
     console.error("Idea plan error:", error);
-    let messageText = "Failed to generate build prompt";
+    let messageText = "The plan could not be made. Try again in a moment.";
     if (error instanceof Anthropic.APIError) messageText = `AI error: ${error.message}`;
     return NextResponse.json({ error: messageText }, { status: 500 });
   }

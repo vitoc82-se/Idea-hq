@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { IdeaDetail } from "../ideas-detail";
 import type { Idea, IdeaRef, StoryChild } from "../ideas-shared";
 
+export const metadata = { title: "Idea" };
+
 export const dynamic = "force-dynamic";
 
 export default async function IdeaDetailPage({

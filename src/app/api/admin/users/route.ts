@@ -11,7 +11,7 @@ export async function GET() {
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await isOwner(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   const users = await db.user.findMany({
     orderBy: [{ approved: "asc" }, { createdAt: "asc" }],

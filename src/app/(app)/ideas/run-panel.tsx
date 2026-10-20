@@ -114,7 +114,7 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
         body: JSON.stringify(body ?? {}),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) setError(data.error || "Something went wrong.");
+      if (!res.ok) setError(data.error || "That step did not finish. Try again in a moment.");
       else if (label === "revise") setInstruction("");
     } finally {
       setBusy(null);

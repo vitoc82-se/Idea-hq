@@ -49,7 +49,7 @@ export async function POST(
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   const blocked = await requireAiCall(userId, session?.user?.email ?? null);
   if (blocked) return blocked;
@@ -212,7 +212,7 @@ Return ONLY valid JSON, no other text:
     return NextResponse.json({ kind, summary, stories, existingChildren: idea._count.children });
   } catch (error: unknown) {
     console.error("Idea breakdown error:", error);
-    let messageText = "Failed to break down idea";
+    let messageText = "The idea could not be split into stories. Try again in a moment.";
     if (error instanceof Anthropic.APIError) messageText = `AI error: ${error.message}`;
     else if (error instanceof SyntaxError) messageText = "AI returned invalid data. Try again.";
     return NextResponse.json({ error: messageText }, { status: 500 });

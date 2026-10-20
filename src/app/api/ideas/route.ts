@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
 
   // Optional ?projectId= filter; omitted → every project (the cross-project view).
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
 
   try {
@@ -80,6 +80,6 @@ export async function POST(request: Request) {
     return NextResponse.json(idea, { status: 201 });
   } catch (error) {
     console.error("Create idea error:", error);
-    return NextResponse.json({ error: "Failed to save idea" }, { status: 500 });
+    return NextResponse.json({ error: "Could not save the idea. Try again in a moment." }, { status: 500 });
   }
 }

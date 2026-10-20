@@ -68,8 +68,8 @@ form.addEventListener('submit',function(ev){
       }
       if(r.status===429){err.textContent='Too many replies. Please try again later.';return;}
       if(r.status===409){err.textContent='This ticket is closed. Please send a new message instead.';load();return;}
-      err.textContent=(r.data&&r.data.error)||'Something went wrong. Your reply was not sent.';
-    }).catch(function(){btn.disabled=false;btn.textContent='Send reply';err.textContent='Something went wrong. Your reply was not sent.';});
+      err.textContent=(r.data&&r.data.error)||'Your reply was not sent. Check your connection and try again.';
+    }).catch(function(){btn.disabled=false;btn.textContent='Send reply';err.textContent='Your reply was not sent. Check your connection and try again.';});
 });
 })();
 `;
@@ -103,6 +103,6 @@ export function renderTicketPage(t: PublicTicket, token: string): { html: string
 <script type="application/json" id="cfg">${jsonForScript(cfg)}</script>
 <script type="application/json" id="initial">${jsonForScript({ messages: t.messages })}</script>`;
   const script = TICKET_CLIENT;
-  const html = htmlPage({ nonce, title: `Ticket #${t.number}`, theme: s.theme, css: themeCss(s) + "\n.msgs{list-style:none;padding:0}", body, script });
+  const html = htmlPage({ nonce, title: `Ticket #${t.number} · ${s.title}`, theme: s.theme, css: themeCss(s) + "\n.msgs{list-style:none;padding:0}", body, script });
   return { html, headers: securityHeaders({ nonce, frameAncestors: [], turnstile: false }) };
 }

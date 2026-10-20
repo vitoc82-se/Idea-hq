@@ -11,24 +11,37 @@ const geistSans = localFont({
   weight: "100 900",
 });
 
+const SITE_TITLE = "Idea HQ: write down ideas, review the finished changes";
+const SITE_DESCRIPTION =
+  "Write your ideas down. Idea HQ plans each one, an AI builds it inside your own GitHub project, and you approve the result before anything changes.";
+
 export const metadata: Metadata = {
-  title: "Idea HQ: turn your ideas into working changes",
-  description:
-    "One place for the ideas behind all your projects. An AI plans and builds them as changes in your own GitHub, and you approve each one.",
+  metadataBase: new URL("https://ideahq.cloud"),
+  title: { default: SITE_TITLE, template: "%s · Idea HQ" },
+  description: SITE_DESCRIPTION,
+  applicationName: "Idea HQ",
   manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Idea HQ",
+  icons: {
+    icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
+    apple: "/icons/apple-touch-icon.png",
   },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Idea HQ" },
+  openGraph: {
+    type: "website",
+    siteName: "Idea HQ",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    locale: "en_US",
+  },
+  twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION },
 };
 
+// Pinch-zoom stays on: people who need larger text rely on it.
 export const viewport: Viewport = {
-  themeColor: "#059669",
+  themeColor: "#047857",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
@@ -38,12 +51,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Idea HQ" />
-      </head>
       <body className={`${geistSans.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <PWARegister />

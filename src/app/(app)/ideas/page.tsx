@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { canUse } from "@/lib/access";
 import { IdeasBoard } from "./ideas-board";
 
+export const metadata = { title: "Ideas" };
+
 export const dynamic = "force-dynamic";
 
 export default async function IdeasPage() {

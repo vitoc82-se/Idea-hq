@@ -1,7 +1,7 @@
-const CACHE_NAME = "nutritrack-v2";
+const CACHE_NAME = "idea-hq-v1";
 
 // Cache the app shell on install
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 

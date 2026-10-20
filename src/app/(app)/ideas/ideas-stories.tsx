@@ -69,7 +69,7 @@ export function StoriesSection({
         setDrafts(data.stories.map((s: ProposedStory) => ({ ...s, include: true })));
       }
     } catch {
-      setError("Something went wrong. Try again.");
+      setError("Could not reach Idea HQ to create the stories. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export function StoriesSection({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || "Failed to create stories");
+        setError(data?.error || "Could not create the stories. Try again in a moment.");
         return;
       }
       const created: StoryChild[] = (data.children || []).map((c: StoryChild) => ({
@@ -111,7 +111,7 @@ export function StoriesSection({
       setDrafts([]);
       router.refresh(); // sync the board/epic badge + rolled-up status
     } catch {
-      setError("Something went wrong. Try again.");
+      setError("Could not reach Idea HQ to create the stories. Check your connection and try again.");
     } finally {
       setCommitting(false);
     }

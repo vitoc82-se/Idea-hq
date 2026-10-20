@@ -74,7 +74,7 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
     try {
       const res = await fetch(url, { method: init?.method || "POST", headers: { "Content-Type": "application/json" }, body: init?.body === undefined ? undefined : JSON.stringify(init.body) });
       const j = await res.json().catch(() => ({}));
-      if (!res.ok) { setMsg({ ok: false, text: j.error || "Something went wrong." }); return null; }
+      if (!res.ok) { setMsg({ ok: false, text: j.error || "That step did not finish. Try again in a moment." }); return null; }
       return j;
     } finally { setBusy(null); }
   };

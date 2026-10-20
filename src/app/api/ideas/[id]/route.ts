@@ -16,7 +16,7 @@ export async function PATCH(
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
 
   const existing = await db.idea.findFirst({ where: { id: params.id, userId } });
@@ -110,7 +110,7 @@ export async function PATCH(
     return NextResponse.json(idea);
   } catch (error) {
     console.error("Update idea error:", error);
-    return NextResponse.json({ error: "Failed to update idea" }, { status: 500 });
+    return NextResponse.json({ error: "Could not update the idea. Try again in a moment." }, { status: 500 });
   }
 }
 
@@ -121,7 +121,7 @@ export async function DELETE(
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
 
   const existing = await db.idea.findFirst({ where: { id: params.id, userId } });

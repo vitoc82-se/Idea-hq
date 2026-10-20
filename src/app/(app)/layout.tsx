@@ -6,6 +6,9 @@ import { isOwner } from "@/lib/owner";
 import { needsWelcome } from "@/lib/onboarding";
 import { Navbar } from "@/components/navbar";
 
+// Everything behind sign-in stays out of search results.
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function AppLayout({
   children,
 }: {

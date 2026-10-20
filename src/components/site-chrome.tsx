@@ -5,7 +5,7 @@ import { Rocket } from "lucide-react";
 export function SiteHeader({ signedIn, wide = false }: { signedIn: boolean; wide?: boolean }) {
   return (
     <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-20">
-      <div className={`${wide ? "max-w-5xl" : "max-w-3xl"} mx-auto px-4 h-14 flex items-center justify-between`}>
+      <div className={`${wide ? "max-w-6xl" : "max-w-3xl"} mx-auto px-4 h-14 flex items-center justify-between`}>
         <Link href="/" className="flex items-center gap-2">
           <span className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center">
             <Rocket className="w-5 h-5 text-white" />
@@ -31,7 +31,7 @@ export function SiteHeader({ signedIn, wide = false }: { signedIn: boolean; wide
 export function SiteFooter({ wide = false }: { wide?: boolean }) {
   return (
     <footer className="border-t border-gray-200 dark:border-gray-800 mt-16">
-      <div className={`${wide ? "max-w-5xl" : "max-w-3xl"} mx-auto px-4 py-6 text-sm text-gray-600 dark:text-gray-400 flex flex-wrap items-center gap-x-4 gap-y-1 justify-between`}>
+      <div className={`${wide ? "max-w-6xl" : "max-w-3xl"} mx-auto px-4 py-6 text-sm text-gray-600 dark:text-gray-400 flex flex-wrap items-center gap-x-4 gap-y-1 justify-between`}>
         <span>Idea HQ</span>
         <span className="flex gap-4">
           <Link href="/guide" className="py-3 hover:text-emerald-700 dark:hover:text-emerald-400">Guide</Link>

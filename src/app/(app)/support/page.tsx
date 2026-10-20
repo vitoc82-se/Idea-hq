@@ -4,6 +4,8 @@ import { canUse } from "@/lib/access";
 import { hasTickets } from "@/lib/support/owner";
 import { Inbox } from "./inbox";
 
+export const metadata = { title: "Support inbox" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SupportPage() {

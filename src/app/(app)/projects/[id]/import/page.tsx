@@ -5,6 +5,8 @@ import { canUse } from "@/lib/access";
 import { db } from "@/lib/db";
 import { BacklogImport } from "@/components/backlog-import";
 
+export const metadata = { title: "Import ideas" };
+
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage({ params }: { params: { id: string } }) {

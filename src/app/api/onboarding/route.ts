@@ -8,7 +8,7 @@ import { errorResponse } from "@/lib/runs/http";
 export async function GET(request: Request) {
   const session = await getSession();
   const userId = session?.user?.id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   try {
     return NextResponse.json(await getOnboarding(userId, session?.user?.email, { quick: new URL(request.url).searchParams.get("full") !== "1" }));
   } catch (e) {

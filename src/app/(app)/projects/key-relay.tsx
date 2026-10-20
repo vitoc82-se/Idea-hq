@@ -27,7 +27,7 @@ export function KeyRelay({ projectId, provider, siblings, onDone }: { projectId:
         body: JSON.stringify({ provider: provider.id, key, alsoProjectIds: siblings.filter((s) => also[s.id]).map((s) => s.id) }),
       });
       const j = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(j.error || "Something went wrong."); return; }
+      if (!res.ok) { setError(j.error || "Could not save the key. Try again in a moment."); return; }
       setResults(j.results);
       setKey(""); // never keep it on screen
       onDone?.();

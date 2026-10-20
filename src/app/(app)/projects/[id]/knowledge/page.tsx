@@ -5,6 +5,8 @@ import { canUse } from "@/lib/access";
 import { db } from "@/lib/db";
 import { KnowledgeView } from "./knowledge-view";
 
+export const metadata = { title: "Project knowledge" };
+
 export const dynamic = "force-dynamic";
 
 export default async function KnowledgePage({ params }: { params: { id: string } }) {
