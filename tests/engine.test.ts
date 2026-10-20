@@ -650,10 +650,19 @@ describe("openSetupPr", () => {
     expect(log).toContain("putFile .github/workflows/idea-hq.yml sha=wsha");
   });
 
-  it("does nothing if the workflow is already there", async () => {
+  it("does nothing if the newest workflow is already there", async () => {
     gh.state.workflow = true;
-    await expect(openSetupPr("u1", "p1", "idea-hq-app", deps())).rejects.toThrow(/already installed/);
+    await expect(openSetupPr("u1", "p1", "idea-hq-app", deps())).rejects.toThrow(/newest workflow is already installed/);
     expect(t.tables.project[0].workflowInstalled).toBe(true);
+    expect(t.tables.project[0].workflowVersionSeen).toBe(WORKFLOW_VERSION);
+  });
+
+  it("opens an update PR for an older workflow that still works (the optional update)", async () => {
+    gh.state.workflowContent = `# idea-hq-workflow-version: ${WORKFLOW_VERSION - 1}\nname: Idea HQ`;
+    const pr = await openSetupPr("u1", "p1", "idea-hq-app", deps());
+    expect(pr.number).toBeGreaterThan(0);
+    expect(log).toContain("putFile .github/workflows/idea-hq.yml sha=wsha");
+    expect(log.some((l) => l.startsWith("openPr"))).toBe(true);
   });
 
   it("is not available to another user's project", async () => {

@@ -8,7 +8,7 @@ import {
   isTerminal,
   runBranch,
 } from "./state";
-import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion } from "./workflow";
+import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion, WORKFLOW_VERSION } from "./workflow";
 import { recommendTier, resolveTier, timeoutFor, type Override, type Tier } from "./policy";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
@@ -455,9 +455,12 @@ export async function openSetupPr(
   const b = await gh.repoBranch(i, owner, repo, base);
   if (!b) throw new RunError(409, `Base branch "${base}" not found.`);
   const existingFile = await gh.getFile(i, owner, repo, WORKFLOW_PATH, base);
-  if (existingFile && workflowVersion(existingFile.content) >= requiredWorkflowVersion(p.aiProvider)) {
-    await db.project.update({ where: { id: p.id }, data: { workflowInstalled: true } });
-    throw new RunError(409, "The workflow is already installed on that branch.");
+  // Nothing to do only when the newest workflow is already there. An older one that still works is
+  // updated here too (an optional update, offered on the setup page), not just a broken or outdated one.
+  const installedVersion = existingFile ? workflowVersion(existingFile.content) : 0;
+  if (existingFile && installedVersion >= WORKFLOW_VERSION) {
+    await db.project.update({ where: { id: p.id }, data: { workflowInstalled: true, workflowVersionSeen: installedVersion } });
+    throw new RunError(409, "The newest workflow is already installed on that branch.");
   }
   // Clicking twice must not open a second PR: reuse the one still waiting.
   if (p.setupPrNumber) {
@@ -476,7 +479,9 @@ export async function openSetupPr(
     head: branch,
     base,
     title: existingFile ? "Update Idea HQ workflow" : "Add Idea HQ workflow",
-    body: "Lets Idea HQ run an AI implementation in this repo.\n\nIt uses the API key you add as an Actions secret (never a variable), and has a hard time limit. Review the file, merge it, then add the key.",
+    body: existingFile
+      ? "Updates the Idea HQ workflow in this repo to the newest version.\n\nWhat changes: a lock file that is out of sync no longer stops a run, and the AI's final message is passed back so Idea HQ can show why a run changed nothing. It only changes this one file. Review it and merge it."
+      : "Lets Idea HQ run an AI implementation in this repo.\n\nIt uses the API key you add as an Actions secret (never a variable), and has a hard time limit. Review the file, merge it, then add the key.",
   });
   await db.project.update({ where: { id: p.id }, data: { setupPrNumber: pr.number } });
   invalidateSetupCache(p.id);
