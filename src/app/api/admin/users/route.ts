@@ -18,7 +18,7 @@ export async function GET() {
     take: 500,
     select: {
       id: true, name: true, email: true, approved: true, features: true, aiBuild: true, aiDailyLimit: true,
-      aiCallsDay: true, aiCallsToday: true, createdAt: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true,
+      aiCallsDay: true, aiCallsToday: true, createdAt: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true, proRevokedAt: true, lsSubscriptionId: true,
     },
   });
   const [projects, ideas, runs] = await Promise.all([
@@ -36,7 +36,7 @@ export async function GET() {
   for (const u of users) {
     out.push({
       id: u.id, name: u.name, email: u.email, approved: u.approved, features: u.features, aiBuild: u.aiBuild,
-      aiDailyLimit: u.aiDailyLimit, freeAccess: u.freeAccess, aiCredits: u.aiCredits, pro: isPro(u), subStatus: u.subStatus, subEndsAt: u.subEndsAt, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
+      aiDailyLimit: u.aiDailyLimit, freeAccess: u.freeAccess, aiCredits: u.aiCredits, pro: isPro(u), proRevoked: !!u.proRevokedAt, lsSubscriptionId: u.lsSubscriptionId, subStatus: u.subStatus, subEndsAt: u.subEndsAt, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
       owner: ownerEmail ? u.email?.trim().toLowerCase() === ownerEmail : u.id === firstId, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
     });
   }

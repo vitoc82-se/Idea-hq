@@ -75,6 +75,9 @@ model User {
   subStatus     String?
   subEndsAt     DateTime?
   subUpdatedAt  DateTime?
+  // Set by the owner in Admin: Pro is switched off for this person whatever Lemon Squeezy says,
+  // until the owner restores it (a new purchase does not undo it).
+  proRevokedAt  DateTime?
   lsSubscriptionId String?
   lsPortalUrl   String?   @db.Text
   createdAt     DateTime  @default(now())

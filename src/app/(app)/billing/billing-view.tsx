@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Status = {
-  paywall: boolean; owner: boolean; freeAccess: boolean; pro: boolean; subStatus: string | null; subEndsAt: string | null;
+  paywall: boolean; owner: boolean; freeAccess: boolean; pro: boolean; proRevoked: boolean; subStatus: string | null; subEndsAt: string | null;
   credits: number; packSize: number; proPrice: string; proUrl: string | null; creditsUrl: string | null; portalUrl: string | null;
 };
 
@@ -59,6 +59,8 @@ export function BillingView() {
                 ? "AI build is open to everyone for now. Nothing to pay."
                 : s.freeAccess
                 ? "You have free access. Nothing to pay."
+                : s.proRevoked
+                ? "Pro has been switched off for your account by the owner. Contact the owner if you think this is a mistake."
                 : s.pro
                 ? s.subStatus === "cancelled" && ends ? `Pro, ending ${ends}. You keep it until then.` : "Pro: AI runs without a limit."
                 : "Free. You can use the helper AI (estimates and plans) every day. AI build needs Pro or a runs pack."}
@@ -84,6 +86,7 @@ export function BillingView() {
                 <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">Every tool, and AI runs without a limit. Cancel any time.</p>
                 <p className="mt-3">
                   {s.pro ? <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">You have Pro</span>
+                    : s.proRevoked ? <span className="text-sm text-gray-700 dark:text-gray-300">Switched off by the owner.</span>
                     : s.proUrl ? <a className={btn} href={s.proUrl}>Get Pro</a>
                     : <span className="text-sm text-gray-700 dark:text-gray-300">Not available yet.</span>}
                 </p>

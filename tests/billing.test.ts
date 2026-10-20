@@ -242,3 +242,38 @@ describe("admin patch", () => {
     expect(cleanUserPatch({ freeAccess: "yes" })).toMatchObject({ ok: false });
   });
 });
+
+describe("the owner switches Pro off", () => {
+  it("a revoked person is not Pro even with an active subscription, and a new subscription does not undo it", async () => {
+    await mk("u1");
+    await applyBillingEvent(sub("u1", "active", "2026-10-20T10:00:00Z"));
+    expect(await buildAccess("u1")).toMatchObject({ ok: true, via: "pro" });
+    await db.user.update({ where: { id: "u1" }, data: { proRevokedAt: new Date() } });
+    expect(await buildAccess("u1")).toEqual({ ok: false, reason: "needs_plan" });
+    // Lemon Squeezy keeps sending "active" updates, and they even buy again: still switched off.
+    await applyBillingEvent(sub("u1", "active", "2026-10-25T10:00:00Z"));
+    await applyBillingEvent(sub("u1", "active", "2026-10-26T10:00:00Z", { id: "subNew", event: "subscription_created" }));
+    expect(await buildAccess("u1")).toEqual({ ok: false, reason: "needs_plan" });
+    expect(await db.user.findUnique({ where: { id: "u1" } })).toMatchObject({ subStatus: "active", lsSubscriptionId: "subNew" });
+  });
+  it("runs from a pack still work for someone whose Pro was switched off", async () => {
+    await mk("u1", { subStatus: "active", proRevokedAt: new Date(), aiCredits: 2 });
+    expect(await buildAccess("u1")).toMatchObject({ ok: true, via: "credits" });
+  });
+  it("restoring brings Pro back when the subscription is still running", async () => {
+    await mk("u1", { subStatus: "active", proRevokedAt: new Date() });
+    expect(await buildAccess("u1")).toMatchObject({ ok: false });
+    await db.user.update({ where: { id: "u1" }, data: { proRevokedAt: null } });
+    expect(await buildAccess("u1")).toMatchObject({ ok: true, via: "pro" });
+  });
+  it("loses the higher helper AI limit too", async () => {
+    const day = new Date("2026-10-20T10:00:00Z");
+    await mk("u1", { subStatus: "active", proRevokedAt: new Date(), aiCallsDay: "2026-10-20", aiCallsToday: 25 });
+    expect(await consumeAiCallDetailed("u1", "u1@x.se", day)).toBe("limit");
+  });
+  it("the Billing status shows it and hides the Get Pro link", async () => {
+    process.env.LEMONSQUEEZY_PRO_URL = "https://shop.lemonsqueezy.com/buy/abc";
+    await mk("u1", { subStatus: "active", proRevokedAt: new Date() });
+    expect(await billingStatus("u1")).toMatchObject({ pro: false, proRevoked: true, proUrl: null });
+  });
+});

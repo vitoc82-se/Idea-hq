@@ -225,6 +225,7 @@ export default async function GuidePage() {
 
         <H id="stuck">If you get stuck</H>
         <Q q="It says &quot;AI build needs Pro or a runs pack&quot;">Payments are switched on and you have no plan or runs left. Open <b>Upgrade</b> in the menu, pick Pro or 50 runs, and come back. It updates by itself a few seconds after you pay.</Q>
+        <Q q="It says my Pro was switched off by the owner">The owner can switch off Pro for a person, for example after a refund or a problem with the account. Your subscription is cancelled at the same time, so you are not charged again. Contact the owner if you think this is a mistake. Runs you bought in a pack still work.</Q>
         <Q q="I paid but nothing changed">Wait about ten seconds and reload the Billing page. If it still shows nothing after a minute, tell the owner with the email you paid with.</Q>
         <Q q="I signed up but I only see &quot;Waiting for approval&quot;">The owner has to approve new accounts. Nothing is wrong on your side. The page continues by itself once you are approved.</Q>
         <Q q="The AI made no changes">Usually the idea was too vague, or the first model was too small for it. Make the idea more specific and try again. The next attempt automatically uses a stronger model. You can also pick one yourself before approving.</Q>

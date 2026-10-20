@@ -44,7 +44,7 @@ export async function consumeAiCallDetailed(
 ): Promise<AiCallResult> {
   if (await isOwner(userId, email)) return "ok";
 
-  const user = await db.user.findUnique({ where: { id: userId }, select: { aiDailyLimit: true, subStatus: true, subEndsAt: true } });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { aiDailyLimit: true, subStatus: true, subEndsAt: true, proRevokedAt: true } });
   if (!user) return "limit";
   // Pro lifts the default (not an explicit per-person limit set in Admin).
   const limit = user.aiDailyLimit ?? (isPro(user, now) ? PRO_HELPER_LIMIT : dailyAiLimit());

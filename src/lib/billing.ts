@@ -18,12 +18,13 @@ export function paywallOn(): boolean {
   return process.env.PAYWALL_ENABLED === "1";
 }
 
-type SubFields = { subStatus: string | null; subEndsAt: Date | null };
+type SubFields = { subStatus: string | null; subEndsAt: Date | null; proRevokedAt?: Date | null };
 
 // Lemon Squeezy statuses: on_trial, active, paused, past_due, unpaid, cancelled,
 // expired. past_due still counts (Lemon Squeezy retries the card for a while).
 // cancelled keeps access until the period the person already paid for ends.
 export function isPro(u: SubFields, now: Date = new Date()): boolean {
+  if (u.proRevokedAt) return false; // the owner switched Pro off for this person
   switch (u.subStatus) {
     case "active":
     case "on_trial":
@@ -40,7 +41,7 @@ export type BuildAccess =
   | { ok: true; via: "owner" | "open" | "free" | "pro" | "credits" }
   | { ok: false; reason: "off" | "needs_plan" };
 
-const SELECT = { email: true, aiBuild: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true } as const;
+const SELECT = { email: true, aiBuild: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true, proRevokedAt: true } as const;
 
 // May this person START AI build work? The admin switch beats everything; with
 // the paywall on they then need Pro, a credit, or free access.
@@ -120,7 +121,7 @@ export function checkoutUrl(kind: CheckoutKind, user: { id: string; email: strin
 export async function billingStatus(userId: string, now: Date = new Date()) {
   const u = await db.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true, lsPortalUrl: true },
+    select: { id: true, email: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true, proRevokedAt: true, lsPortalUrl: true },
   });
   if (!u) return null;
   const owner = await isOwner(userId, u.email);
@@ -129,12 +130,13 @@ export async function billingStatus(userId: string, now: Date = new Date()) {
     owner,
     freeAccess: u.freeAccess,
     pro: isPro(u, now),
+    proRevoked: !!u.proRevokedAt,
     subStatus: u.subStatus,
     subEndsAt: u.subEndsAt ? u.subEndsAt.toISOString() : null,
     credits: u.aiCredits,
     packSize: CREDITS_PER_PACK,
     proPrice: PRO_PRICE_LABEL,
-    proUrl: checkoutUrl("pro", u),
+    proUrl: u.proRevokedAt ? null : checkoutUrl("pro", u),
     creditsUrl: checkoutUrl("credits", u),
     portalUrl: u.lsPortalUrl && /^https:\/\//.test(u.lsPortalUrl) ? u.lsPortalUrl : null,
   };

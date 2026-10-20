@@ -11,11 +11,12 @@ export type UserPatch = {
   aiDailyLimit?: number | null;
   freeAccess?: boolean;
   aiCredits?: number;
+  proRevoked?: boolean;
 };
 
 export const CREDITS_MAX = 100000;
 
-const KEYS = ["approved", "features", "aiBuild", "aiDailyLimit", "freeAccess", "aiCredits"];
+const KEYS = ["approved", "features", "aiBuild", "aiDailyLimit", "freeAccess", "aiCredits", "proRevoked"];
 
 export function cleanUserPatch(body: unknown): { ok: true; patch: UserPatch } | { ok: false; error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Send a JSON object." };
@@ -35,6 +36,10 @@ export function cleanUserPatch(body: unknown): { ok: true; patch: UserPatch } | 
   if ("freeAccess" in b) {
     if (typeof b.freeAccess !== "boolean") return { ok: false, error: "freeAccess must be true or false." };
     patch.freeAccess = b.freeAccess;
+  }
+  if ("proRevoked" in b) {
+    if (typeof b.proRevoked !== "boolean") return { ok: false, error: "proRevoked must be true or false." };
+    patch.proRevoked = b.proRevoked;
   }
   if ("aiCredits" in b) {
     const v = b.aiCredits;

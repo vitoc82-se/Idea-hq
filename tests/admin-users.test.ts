@@ -117,3 +117,85 @@ describe("cleanUserPatch", () => {
     expect(cleanUserPatch({ approved: true, aiBuild: false, aiDailyLimit: 3 })).toEqual({ ok: true, patch: { approved: true, aiBuild: false, aiDailyLimit: 3 } });
   });
 });
+
+describe("switching a person's Pro off", () => {
+  const realFetch = globalThis.fetch;
+  const calls: { url: string; init: RequestInit }[] = [];
+  beforeEach(async () => {
+    calls.length = 0;
+    delete process.env.LEMONSQUEEZY_API_KEY;
+    await db.user.update({ where: { id: "friend" }, data: { subStatus: "active", lsSubscriptionId: "123456", proRevokedAt: null } });
+  });
+  const afterAll_ = () => { globalThis.fetch = realFetch; delete process.env.LEMONSQUEEZY_API_KEY; };
+  const mockFetch = (ok: boolean, throws = false) => {
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      if (throws) throw new Error("network down");
+      return new Response("{}", { status: ok ? 200 : 500 });
+    }) as typeof fetch;
+  };
+
+  it("validates the new setting", () => {
+    expect(cleanUserPatch({ proRevoked: true })).toEqual({ ok: true, patch: { proRevoked: true } });
+    expect(cleanUserPatch({ proRevoked: "yes" })).toMatchObject({ ok: false });
+  });
+  it("switches Pro off right away and says the subscription still runs when no Lemon Squeezy key is set", async () => {
+    mockFetch(true);
+    const res = await patch("friend", { proRevoked: true });
+    expect(res.status).toBe(200);
+    expect((await res.json()).lsCancel).toBe("skipped");
+    expect(calls).toHaveLength(0);
+    const u = await db.user.findUnique({ where: { id: "friend" } });
+    expect(u?.proRevokedAt).toBeInstanceOf(Date);
+    const list = await (await GET()).json();
+    expect(list.users.find((x: { id: string }) => x.id === "friend")).toMatchObject({ pro: false, proRevoked: true, lsSubscriptionId: "123456" });
+    afterAll_();
+  });
+  it("also cancels the subscription at Lemon Squeezy when a key is set", async () => {
+    process.env.LEMONSQUEEZY_API_KEY = "lsq_test_key";
+    mockFetch(true);
+    const res = await patch("friend", { proRevoked: true });
+    expect((await res.json()).lsCancel).toBe("cancelled");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://api.lemonsqueezy.com/v1/subscriptions/123456");
+    expect(calls[0].init.method).toBe("DELETE");
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Bearer lsq_test_key");
+    afterAll_();
+  });
+  it("still switches Pro off when Lemon Squeezy fails, and says so", async () => {
+    process.env.LEMONSQUEEZY_API_KEY = "lsq_test_key";
+    mockFetch(false);
+    expect((await (await patch("friend", { proRevoked: true })).json()).lsCancel).toBe("failed");
+    expect((await db.user.findUnique({ where: { id: "friend" } }))?.proRevokedAt).toBeInstanceOf(Date);
+    await db.user.update({ where: { id: "friend" }, data: { proRevokedAt: null } });
+    mockFetch(true, true);
+    expect((await (await patch("friend", { proRevoked: true })).json()).lsCancel).toBe("failed");
+    expect((await db.user.findUnique({ where: { id: "friend" } }))?.proRevokedAt).toBeInstanceOf(Date);
+    afterAll_();
+  });
+  it("never sends a strange subscription id to Lemon Squeezy", async () => {
+    process.env.LEMONSQUEEZY_API_KEY = "lsq_test_key";
+    mockFetch(true);
+    await db.user.update({ where: { id: "friend" }, data: { lsSubscriptionId: "../../orders/1" } });
+    expect((await (await patch("friend", { proRevoked: true })).json()).lsCancel).toBe("skipped");
+    expect(calls).toHaveLength(0);
+    afterAll_();
+  });
+  it("restoring clears it and does not call Lemon Squeezy", async () => {
+    process.env.LEMONSQUEEZY_API_KEY = "lsq_test_key";
+    mockFetch(true);
+    await patch("friend", { proRevoked: true });
+    calls.length = 0;
+    const res = await patch("friend", { proRevoked: false });
+    expect((await res.json()).lsCancel).toBeNull();
+    expect(calls).toHaveLength(0);
+    expect((await db.user.findUnique({ where: { id: "friend" } }))?.proRevokedAt).toBeNull();
+    afterAll_();
+  });
+  it("only the owner can do it", async () => {
+    sess.user = FRIEND;
+    const res = await patch("friend", { proRevoked: true });
+    expect(res.status).toBe(401);
+    expect((await db.user.findUnique({ where: { id: "friend" } }))?.proRevokedAt).toBeNull();
+  });
+});

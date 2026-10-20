@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 
 type U = {
   id: string; name: string | null; email: string | null; approved: boolean; features: string[]; aiBuild: boolean;
-  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
+  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
 };
 type Patch = Partial<{ approved: boolean; features: string[]; aiBuild: boolean; aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number }>;
 
@@ -135,8 +135,26 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
     save({ aiCredits: n });
   };
 
+  const [confirming, setConfirming] = useState(false);
+  const [note, setNote] = useState("");
+  const setPro = async (revoked: boolean) => {
+    setSaving(true);
+    setErr("");
+    setNote("");
+    const res = await fetch(`/api/admin/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proRevoked: revoked }) });
+    setSaving(false);
+    setConfirming(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return setErr(d.error || "Could not change Pro. Try again in a moment.");
+    if (!revoked) setNote("Pro restored. If their subscription is still running, they have Pro again.");
+    else if (d.lsCancel === "cancelled") setNote("Pro is off and the subscription was cancelled at Lemon Squeezy, so they will not be charged again.");
+    else if (d.lsCancel === "failed") setNote("Pro is off, but Lemon Squeezy would not cancel the subscription. Cancel it in the Lemon Squeezy dashboard so they are not charged.");
+    else setNote("Pro is off. The subscription is still running at Lemon Squeezy: cancel it there too, or they will keep being charged.");
+    onChanged();
+  };
+
   const limit = u.aiDailyLimit ?? defaultLimit;
-  const plan = u.pro ? `Pro${u.subStatus === "cancelled" && u.subEndsAt ? ` until ${new Date(u.subEndsAt).toLocaleDateString()}` : ""}` : "Free";
+  const plan = u.proRevoked ? "Free (Pro switched off by you)" : u.pro ? `Pro${u.subStatus === "cancelled" && u.subEndsAt ? ` until ${new Date(u.subEndsAt).toLocaleDateString()}` : ""}` : "Free";
   const hasTickets = u.features.includes("tickets");
   const toggle = "h-5 w-5 shrink-0";
   const label = "flex min-h-[44px] items-center gap-2 text-sm text-gray-900 dark:text-white";
@@ -197,6 +215,28 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
           </div>
         </div>
       )}
+      {!u.owner && (u.pro || u.proRevoked) && (
+        <div className="mt-2 flex min-h-[44px] flex-wrap items-center gap-2 text-sm text-gray-900 dark:text-white">
+          {u.proRevoked ? (
+            <>
+              <span>Pro is switched off for this person, even if they pay.</span>
+              <Button variant="outline" size="sm" disabled={saving} onClick={() => setPro(false)}>Restore Pro</Button>
+            </>
+          ) : confirming ? (
+            <>
+              <span>Switch off Pro for {u.name || u.email}? They lose it now and the subscription is cancelled.</span>
+              <Button size="sm" className="bg-red-700 hover:bg-red-800" disabled={saving} onClick={() => setPro(true)}>Yes, switch it off</Button>
+              <Button variant="outline" size="sm" disabled={saving} onClick={() => setConfirming(false)}>Keep Pro</Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" disabled={saving} onClick={() => setConfirming(true)}>Switch off Pro</Button>
+          )}
+          {u.lsSubscriptionId && (
+            <a className="text-xs underline" href={`https://app.lemonsqueezy.com/subscriptions/${encodeURIComponent(u.lsSubscriptionId)}`} target="_blank" rel="noopener noreferrer">Open in Lemon Squeezy</a>
+          )}
+        </div>
+      )}
+      {note && <p role="status" className="mt-1 text-sm text-gray-800 dark:text-gray-200">{note}</p>}
       {err && <p role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">{err}</p>}
     </div>
   );

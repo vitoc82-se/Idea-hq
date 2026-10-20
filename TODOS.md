@@ -57,7 +57,7 @@
 ## Paywall: switching it on (built 2026-10-20, off until PAYWALL_ENABLED=1)
 **What:** Lemon Squeezy billing is built and dormant. Pro (99 kr/month) and a 50-run pack; Admin has Free access and Run credits per person.
 **To switch on:** set LEMONSQUEEZY_WEBHOOK_SECRET, LEMONSQUEEZY_PRO_URL, LEMONSQUEEZY_CREDITS_URL in Vercel, add the webhook in Lemon Squeezy (https://ideahq.cloud/api/billing/lemonsqueezy/webhook, events: subscription_*, order_created, order_refunded), test in test mode, give friends and family "Free access" in Admin, then set PAYWALL_ENABLED=1.
-**Later:** a one-off pack bought in test mode shares the live webhook (test events are accepted); Support tickets are still a manual Admin toggle (not part of Pro); the wording "Ask the owner" still shows for people the owner switched off; failed-payment emails come from Lemon Squeezy only.
+**Later:** refunds are not automated (switching off Pro does not refund; refund in Lemon Squeezy, and the webhook takes a refunded pack back); a one-off pack bought in test mode shares the live webhook (test events are accepted); Support tickets are still a manual Admin toggle (not part of Pro); the wording "Ask the owner" still shows for people the owner switched off; failed-payment emails come from Lemon Squeezy only.
 
 ## Stop preview builds from changing the production database
 **What:** Preview builds must not run `prisma db push --accept-data-loss` against the production database.
