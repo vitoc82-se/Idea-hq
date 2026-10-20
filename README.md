@@ -21,7 +21,7 @@ Next.js 14 (App Router) · Prisma 7 → Neon Postgres · NextAuth (credentials +
 
 ## Deploy
 Set the same env vars in Vercel, then `git push origin main`. The build runs
-`prisma db push` (additive schema changes only).
+`prisma db push` (additive schema changes only). The build (`scripts/build.mjs`) runs it only on a production deploy, without `--accept-data-loss`: a change that would drop data fails the build and the live site stays as it was. To drop something on purpose, set `ALLOW_DATA_LOSS=1` for that one deploy and remove it afterwards. Preview and local builds never change the schema.
 
 ## Layout
 - `src/app/(app)/ideas` — the board (list + kanban), detail page, shared helpers

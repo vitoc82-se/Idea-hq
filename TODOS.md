@@ -59,12 +59,9 @@
 **To switch on:** set LEMONSQUEEZY_WEBHOOK_SECRET, LEMONSQUEEZY_PRO_URL, LEMONSQUEEZY_CREDITS_URL in Vercel, add the webhook in Lemon Squeezy (https://ideahq.cloud/api/billing/lemonsqueezy/webhook, events: subscription_*, order_created, order_refunded), test in test mode, give friends and family "Free access" in Admin, then set PAYWALL_ENABLED=1. Before that: clear Pro/credits that test purchases gave your own test account (Admin), swap in the live checkout links, live-mode webhook and secret, and (recommended) set LEMONSQUEEZY_STORE_ID and the two variant ids. Test-mode events are ignored once the paywall is on unless LEMONSQUEEZY_ACCEPT_TEST=1.
 **Later:** refunds are not automated (switching off Pro does not refund; refund in Lemon Squeezy, and the webhook takes a refunded pack back); a one-off pack bought in test mode shares the live webhook (test events are accepted); Support tickets are still a manual Admin toggle (not part of Pro); the wording "Ask the owner" still shows for people the owner switched off; failed-payment emails come from Lemon Squeezy only.
 
-## Stop preview builds from changing the production database
-**What:** Preview builds must not run `prisma db push --accept-data-loss` against the production database.
-**Why:** The build script runs db push on every build, and DATABASE_URL is set for both Production and Preview in Vercel, so a preview branch can alter or drop live columns before its code ships (found in the admin-panel eng review, 2026-10-18).
-**Fix options:** a separate Neon branch/database for Preview with its own DATABASE_URL, or only run db push when VERCEL_ENV is production.
-**Pros:** removes a standing risk for every future schema change. **Cons:** a Neon preview branch and Vercel env setup, or a build-script change that affects every deploy.
-**Depends on:** nothing; do it before the next destructive schema change (rename or drop of a column).
+## Give Preview deploys their own database
+**Done (2026-10-20):** the build (`scripts/build.mjs`) only changes the schema on a production deploy, and never accepts data loss unless `ALLOW_DATA_LOSS=1` is set for that deploy. Preview and local builds leave the schema alone.
+**Still open:** Preview deploys still *run* against the production database (DATABASE_URL is set for Preview too), so a preview of a branch that changes the schema can misbehave on live data. Fix: a Neon branch for Preview with its own DATABASE_URL (Vercel, Settings, Environment Variables, Preview only), and the staging site below.
 
 ## Let me test pages behind sign-in (local test mode, then staging)
 **What:** A way to test everything behind the login without using real accounts or the live database.
