@@ -63,17 +63,21 @@ export function BillingView() {
                 ? s.subStatus === "cancelled" && ends ? `Pro, ending ${ends}. You keep it until then.` : "Pro: AI runs without a limit."
                 : "Free. You can use the helper AI (estimates and plans) every day. AI build needs Pro or a runs pack."}
             </p>
-            {!s.owner && s.paywall && !s.freeAccess && (
+            {!s.freeAccess && (
               <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
                 Prepaid AI runs left: <b>{s.credits}</b>{s.pro ? " (not used while Pro is active)" : ""}
+                {s.owner && s.pro ? " · Subscription: Pro" : ""}
               </p>
+            )}
+            {!s.paywall && (
+              <p className="mt-1 text-xs text-gray-700 dark:text-gray-300">Payments are not switched on for everyone yet; buying here works, but nothing is required.</p>
             )}
             {s.portalUrl && s.pro && (
               <p className="mt-3"><a className={btnOutline} href={s.portalUrl} target="_blank" rel="noopener noreferrer">Manage or cancel your subscription</a></p>
             )}
           </section>
 
-          {s.paywall && !s.owner && !s.freeAccess && (
+          {!s.freeAccess && (
             <div className="grid gap-4 sm:grid-cols-2">
               <section className="rounded-xl border border-gray-300 bg-white p-4 dark:border-gray-600 dark:bg-gray-800" aria-labelledby="pro-h">
                 <h2 id="pro-h" className="font-semibold text-gray-900 dark:text-white">Pro · {s.proPrice}</h2>
@@ -94,7 +98,7 @@ export function BillingView() {
               </section>
             </div>
           )}
-          {s.paywall && !s.owner && (
+          {(s.paywall || s.owner) && (
             <p className="text-xs text-gray-600 dark:text-gray-400 ">
               Payments go through Lemon Squeezy. It can take a few seconds before your plan updates after paying; this page checks again by itself.
             </p>
