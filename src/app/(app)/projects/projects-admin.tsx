@@ -2,7 +2,7 @@
 
 import { Notice } from "@/components/notice";
 import { useEffect, useState, useCallback } from "react";
-import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Clock, Github, BookOpen, LifeBuoy, Upload, Megaphone } from "lucide-react";
+import { FolderKanban, Plus, X, Loader2, Pencil, Trash2, Github, BookOpen, LifeBuoy, Upload, Megaphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -258,33 +258,36 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
           {projects.map((p) => (
             <Card key={p.id}>
               <CardContent className="p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: p.color || "#94a3b8" }}
-                />
-                <div className="min-w-[200px] flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{p.name}</h3>
-                    <span className="text-xs text-gray-400">/{p.slug}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {p._count?.ideas ?? 0} idea{(p._count?.ideas ?? 0) === 1 ? "" : "s"}
-                    </span>
+              <div className="flex items-start gap-3">
+                <span className="mt-1.5 h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: p.color || "#94a3b8" }} aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white [overflow-wrap:anywhere]">{p.name}</h3>
+                    {progress[p.id] && (
+                      <Link
+                        href={`/projects/${p.id}/setup`}
+                        className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${progress[p.id].done >= progress[p.id].total - 1 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"}`}
+                      >
+                        {progress[p.id].done >= progress[p.id].total ? "AI ready" : `Setup ${progress[p.id].done}/${progress[p.id].total}`}
+                      </Link>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    context updated {formatDistanceToNow(new Date(p.contextUpdatedAt), { addSuffix: true })}
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                    /{p.slug} · {p._count?.ideas ?? 0} idea{(p._count?.ideas ?? 0) === 1 ? "" : "s"} · context updated {formatDistanceToNow(new Date(p.contextUpdatedAt), { addSuffix: true })}
                     {!p.context && " · no context yet"}
                   </p>
                 </div>
-                {progress[p.id] && (
-                  <Link
-                    href={`/projects/${p.id}/setup`}
-                    className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${progress[p.id].done >= progress[p.id].total - 1 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}
-                  >
-                    {progress[p.id].done >= progress[p.id].total ? "AI ready" : `Setup ${progress[p.id].done}/${progress[p.id].total}`}
-                  </Link>
-                )}
+                <div className="flex shrink-0 items-center">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(p)} aria-label={`Edit ${p.name}`}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(p)} aria-label={`Delete ${p.name}`} className="text-red-600 hover:text-red-700">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 pl-6">
                 <Link
                   href={`/projects/${p.id}/knowledge`}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap shadow-sm ${KNOWLEDGE_TONE_CLASSES[knowledgeTone(knowPct(p))].button}`}
@@ -293,44 +296,24 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                   <BookOpen className="w-4 h-4" />
                   Project knowledge {knowPct(p)}%
                 </Link>
-                {supportEnabled && (
-                  <Link
-                    href={`/projects/${p.id}/support`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
-                  >
-                    <LifeBuoy className="w-4 h-4" />
-                    Support
+                {[
+                  ...(supportEnabled ? [{ href: `/projects/${p.id}/support`, label: "Support", icon: LifeBuoy }] : []),
+                  { href: `/projects/${p.id}/changes`, label: "What\u2019s new page", icon: Megaphone },
+                  { href: `/projects/${p.id}/import`, label: "Import ideas", icon: Upload },
+                ].map((l) => (
+                  <Link key={l.href} href={l.href} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800">
+                    <l.icon className="w-4 h-4" aria-hidden="true" />
+                    {l.label}
                   </Link>
-                )}
-                <Link
-                  href={`/projects/${p.id}/changes`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)}
+                  aria-expanded={repoOpen === p.id}
+                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
                 >
-                  <Megaphone className="w-4 h-4" />
-                  What&apos;s new page
-                </Link>
-                <Link
-                  href={`/projects/${p.id}/import`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap border border-gray-400 text-gray-800 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-800"
-                >
-                  <Upload className="w-4 h-4" />
-                  Import ideas
-                </Link>
-                <Button variant="ghost" size="sm" onClick={() => setRepoOpen(repoOpen === p.id ? null : p.id)} aria-label="GitHub repo and AI setup">
-                  <Github className="w-4 h-4 mr-1" /> Repo &amp; AI setup
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(p)} aria-label="Edit">
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(p)}
-                  aria-label="Delete"
-                  className="text-red-500 hover:text-red-600"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                  <Github className="w-4 h-4" aria-hidden="true" /> Repo &amp; AI setup
+                </button>
               </div>
               <SpendRow project={p} onSave={(text) => saveCap(p, text)} />
               {repoOpen === p.id && <ProjectRepo projectId={p.id} onChanged={() => refreshProgress(p.id)} />}
@@ -369,7 +352,7 @@ function SpendRow({ project, onSave }: { project: Project; onSave: (text: string
   };
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-200 pt-3 text-sm text-gray-800 dark:border-gray-700 dark:text-gray-200">
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 pl-6 text-sm text-gray-700 dark:text-gray-300">
       <p>
         This month: <b>${spend.monthUsd.toFixed(2)}</b> across {spend.runs} run{spend.runs === 1 ? "" : "s"}
         {spend.unpriced > 0 && <span className="text-gray-600 dark:text-gray-400"> · cost not reported for {spend.unpriced}</span>}
@@ -391,9 +374,10 @@ function SpendRow({ project, onSave }: { project: Project; onSave: (text: string
           aria-describedby={`cap-note-${project.id}`}
         />
       </div>
-      <p id={`cap-note-${project.id}`} className="text-xs text-gray-600 dark:text-gray-400">
-        {reached ? "Cap reached: new runs are paused until next month or a higher cap." : cap != null ? `$${(cap - spend.monthUsd).toFixed(2)} left this month.` : "No cap. Runs are only limited by your own AI account."}
+      <p id={`cap-note-${project.id}`} className={reached ? "text-xs font-semibold text-red-700 dark:text-red-400" : "sr-only"}>
+        {reached ? "Cap reached: new runs are paused until next month or a higher cap." : cap != null ? `$${(cap - spend.monthUsd).toFixed(2)} left this month.` : "No cap."}
       </p>
+      {!reached && cap != null && <p className="text-xs text-gray-600 dark:text-gray-400" aria-hidden="true">${(cap - spend.monthUsd).toFixed(2)} left</p>}
       {err && <p role="alert" className="w-full text-red-700 dark:text-red-400">{err}</p>}
     </div>
   );
