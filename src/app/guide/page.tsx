@@ -163,6 +163,7 @@ export default async function GuidePage() {
           <li><b>Not quite right?</b> Use Request changes on the pull request and say what to adjust, in plain words. The AI updates the same proposal.</li>
           <li><b>Changed your mind after merging?</b> Use Revert this change. It creates a new proposal that undoes it, which you approve like any other.</li>
           <li><b>AI model:</b> chosen automatically from the size of the idea. Small ideas use a cheap, fast model, big ones a stronger one. You can change it before each run, and set a project to lean cheaper or stronger.</li>
+          <li><b>Imported many ideas?</b> Press <b>Estimate them all</b> at the top of the board. Each idea gets its size one by one, and you can still estimate a single idea with its own button.</li>
           <li><b>Many ideas at once:</b> one run per project at a time, so changes do not collide. Queue the rest.</li>
         </UL>
 
@@ -191,13 +192,20 @@ export default async function GuidePage() {
 
         <H id="cost">What it costs</H>
         <P>
-          Idea HQ does not charge you. The AI work is billed by Anthropic to the API key you add to your repo. Small changes typically cost cents. A medium change is usually a few tens of cents. Bigger ones cost more, and stronger models cost more per step.
+          Two things cost money, and they are separate. The AI work itself is billed by Anthropic to the API key you add to your repo: small changes cost cents, a medium change a few tens of cents, bigger ones more, and stronger models cost more per step. Separately, Idea HQ may ask you to pay for <b>AI build</b> (the Implement and Learn deeply buttons), once the owner switches payments on.
         </P>
+        <UL>
+          <li><b>Free:</b> you can always add projects and ideas, and use the quick helper steps (estimates, plans, project description), up to a daily limit.</li>
+          <li><b>Pro, 99 kr a month:</b> AI build without a limit on runs, and a higher daily limit on the helper steps. Cancel any time from the Billing page; you keep Pro until the month you paid for ends.</li>
+          <li><b>50 AI runs, one payment:</b> no subscription. One run is used each time you approve an AI run. A run that fails gives its run back. Revising, merging and undoing never use a run.</li>
+          <li><b>Where to upgrade:</b> the <b>Upgrade</b> item in the menu (it says <b>Billing</b> once you have a plan). Payments go through Lemon Squeezy, and your plan updates a few seconds after you pay.</li>
+          <li>The owner can give a person free access, so some people never see a payment step.</li>
+        </UL>
         <UL>
           <li>Set a monthly spending limit in your Anthropic account. It is the best safety net.</li>
           <li>Each run has a time limit and a step cap, so a stuck run cannot run up a bill forever.</li>
           <li>After each run, Idea HQ shows what it cost.</li>
-          <li>The quick helper steps (estimates, plans, project description) are paid by the Idea HQ owner and limited per person each day.</li>
+          <li>The quick helper steps are paid by the Idea HQ owner and limited per person each day.</li>
         </UL>
 
         <H id="support">Support for your own users</H>
@@ -214,6 +222,8 @@ export default async function GuidePage() {
         </UL>
 
         <H id="stuck">If you get stuck</H>
+        <Q q="It says &quot;AI build needs Pro or a runs pack&quot;">Payments are switched on and you have no plan or runs left. Open <b>Upgrade</b> in the menu, pick Pro or 50 runs, and come back. It updates by itself a few seconds after you pay.</Q>
+        <Q q="I paid but nothing changed">Wait about ten seconds and reload the Billing page. If it still shows nothing after a minute, tell the owner with the email you paid with.</Q>
         <Q q="I signed up but I only see &quot;Waiting for approval&quot;">The owner has to approve new accounts. Nothing is wrong on your side. The page continues by itself once you are approved.</Q>
         <Q q="The AI made no changes">Usually the idea was too vague, or the first model was too small for it. Make the idea more specific and try again. The next attempt automatically uses a stronger model. You can also pick one yourself before approving.</Q>
         <Q q="The checks failed (red)">The AI&apos;s change did not pass your tests. Use Request changes and paste or describe the problem, or close it and rewrite the idea more simply.</Q>

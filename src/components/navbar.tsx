@@ -24,8 +24,8 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   // The Support item only exists for accounts that have the tickets feature.
   const [support, setSupport] = useState<{ enabled: boolean; unread: number }>({ enabled: false, unread: 0 });
-  // The Billing item only shows once payments are switched on, and not for the owner.
-  const [showBilling, setShowBilling] = useState(false);
+  // Who this is, for the menu: Admin is for the owner only; the plan item reads "Upgrade" for a free account.
+  const [me, setMe] = useState<{ owner: boolean; pro: boolean; freeAccess: boolean } | null>(null);
   const signedIn = !!session;
 
   useEffect(() => {
@@ -50,13 +50,16 @@ export function Navbar() {
     if (!signedIn) return;
     fetch("/api/billing")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setShowBilling(!!d && !!d.paywall && !d.owner))
+      .then((d) => setMe(d ? { owner: !!d.owner, pro: !!d.pro, freeAccess: !!d.freeAccess } : null))
       .catch(() => {});
   }, [signedIn]);
 
   if (!session) return null;
-  const base = support.enabled ? [navLinks[0], navLinks[1], supportLink, ...navLinks.slice(2)] : navLinks;
-  const links = showBilling ? [...base.slice(0, -1), billingLink, base[base.length - 1]] : base;
+  const visible = navLinks.filter((l) => l.href !== "/users" || me?.owner);
+  const base = support.enabled ? [visible[0], visible[1], supportLink, ...visible.slice(2)] : visible;
+  const isFree = !!me && !me.owner && !me.pro && !me.freeAccess;
+  const billing = { ...billingLink, label: isFree ? "Upgrade" : "Billing" };
+  const links = me ? [...base.slice(0, -1), billing, base[base.length - 1]] : base;
 
   return (
     <>
