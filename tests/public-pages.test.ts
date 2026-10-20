@@ -13,21 +13,30 @@ import GuidePage from "@/app/guide/page";
 beforeEach(() => { sess.user = null; redirect.mockClear(); });
 
 describe("start page", () => {
-  it("puts Create account front and centre, with only small print below", async () => {
+  it("says what the product does and puts Create account and Sign in up front", async () => {
     const html = renderToStaticMarkup(await HomePage());
     expect(html).toContain("Idea HQ");
-    expect(html).toMatch(/An AI builds them into your project/);
-    // the big primary button is the sign-up link
+    expect(html).toMatch(/Write down an idea\. Review the finished change\./);
+    expect(html).toMatch(/Nothing changes until you say yes/);
     expect(html).toMatch(/<a[^>]*href="\/auth\/signin\?mode=register"[^>]*>Create account<\/a>/);
     expect(html).toContain('href="/auth/signin"');
-    expect(html).toMatch(/approved by the owner/);
     expect(html).toContain('href="/guide"');
   });
 
-  it("stays short: no marketing sections yet", async () => {
+  it("sets the invite-only expectation next to the button, not in the footer", async () => {
     const html = renderToStaticMarkup(await HomePage());
-    expect(html).not.toMatch(/How it works<\/h2>|What you need|You stay in control/);
-    expect(html.replace(/<[^>]+>/g, " ").split(/\s+/).filter(Boolean).length).toBeLessThan(80);
+    const hero = html.slice(0, html.indexOf('How it works'));
+    expect(hero).toMatch(/approves new accounts before you can start/);
+  });
+
+  it("shows how it works and what stays in the person's control, with one h1 and no skipped headings", async () => {
+    const html = renderToStaticMarkup(await HomePage());
+    expect(html).toMatch(/How it works<\/h2>/);
+    expect(html).toMatch(/You stay in control<\/h2>/);
+    expect(html.match(/<h1/g)).toHaveLength(1);
+    expect(html).not.toMatch(/<h4/);
+    // never promises something the product does not do
+    expect(html).not.toMatch(/free forever|instant|guarantee/i);
   });
 
   it("sends a signed-in user straight to their ideas", async () => {
