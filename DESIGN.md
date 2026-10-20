@@ -38,3 +38,8 @@ public support widget, stay consistent. Calibrated to the code in `src/component
 
 ## Copy
 Plain everyday language. No internal terms (no "knowledge", "context", "run") on customer-facing screens.
+
+## Start page (public landing, `/`)
+- Persuade surface: left-aligned headline, one sentence of support, one primary action (Create account) and a quiet Sign in link. Anything that sets expectations (invite-only) sits directly under the buttons in 14px, not in the footer.
+- Shows the product with a plain-HTML example (idea, plan, change) instead of icons or stock art. Sections: How it works (numbered steps), You stay in control. No icon tiles, no card grid.
+- Filled buttons use emerald-700 (white text 5.5:1); header links are 44px tall.
