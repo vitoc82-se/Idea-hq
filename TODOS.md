@@ -54,12 +54,10 @@
 - Assignment, canned replies, SLA timers, analytics, multi-language widget: not built.
 - Re-run `npm run support:eval` (live model, costs a few cents) after changing src/lib/support/ai.ts or the model.
 
-## Paywall switch-over for AI build (later)
-**What:** The steps for the day AI build becomes a paid feature. Today only the per-person switch exists (User.aiBuild, default on).
-**Why:** The admin-panel eng review (2026-10-18, R2) chose "on by default" and built controls only; no paywall yet.
-**Steps:** choose what is free and what is paid; add a payment provider; flip the default for new accounts to off (existing accounts keep it unless switched off); decide who is grandfathered; replace "Ask the owner" with a request-access path; consider plans and quotas only when pricing is known.
-**Pros:** nothing to rediscover. **Cons:** needs pricing and provider decisions that do not exist yet.
-**Depends on:** the admin panel and AI build switch shipped, and a decision to charge.
+## Paywall: switching it on (built 2026-10-20, off until PAYWALL_ENABLED=1)
+**What:** Lemon Squeezy billing is built and dormant. Pro (99 kr/month) and a 50-run pack; Admin has Free access and Run credits per person.
+**To switch on:** set LEMONSQUEEZY_WEBHOOK_SECRET, LEMONSQUEEZY_PRO_URL, LEMONSQUEEZY_CREDITS_URL in Vercel, add the webhook in Lemon Squeezy (https://ideahq.cloud/api/billing/lemonsqueezy/webhook, events: subscription_*, order_created, order_refunded), test in test mode, give friends and family "Free access" in Admin, then set PAYWALL_ENABLED=1.
+**Later:** a one-off pack bought in test mode shares the live webhook (test events are accepted); Support tickets are still a manual Admin toggle (not part of Pro); the wording "Ask the owner" still shows for people the owner switched off; failed-payment emails come from Lemon Squeezy only.
 
 ## Stop preview builds from changing the production database
 **What:** Preview builds must not run `prisma db push --accept-data-loss` against the production database.

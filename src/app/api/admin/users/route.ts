@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isOwner } from "@/lib/owner";
 import { dailyAiLimit } from "@/lib/access";
+import { isPro, paywallOn } from "@/lib/billing";
 
 // Owner-only: every account with its settings and usage, people waiting for
 // approval first.
@@ -17,7 +18,7 @@ export async function GET() {
     take: 500,
     select: {
       id: true, name: true, email: true, approved: true, features: true, aiBuild: true, aiDailyLimit: true,
-      aiCallsDay: true, aiCallsToday: true, createdAt: true,
+      aiCallsDay: true, aiCallsToday: true, createdAt: true, freeAccess: true, aiCredits: true, subStatus: true, subEndsAt: true,
     },
   });
   const [projects, ideas, runs] = await Promise.all([
@@ -35,9 +36,9 @@ export async function GET() {
   for (const u of users) {
     out.push({
       id: u.id, name: u.name, email: u.email, approved: u.approved, features: u.features, aiBuild: u.aiBuild,
-      aiDailyLimit: u.aiDailyLimit, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
+      aiDailyLimit: u.aiDailyLimit, freeAccess: u.freeAccess, aiCredits: u.aiCredits, pro: isPro(u), subStatus: u.subStatus, subEndsAt: u.subEndsAt, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
       owner: ownerEmail ? u.email?.trim().toLowerCase() === ownerEmail : u.id === firstId, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
     });
   }
-  return NextResponse.json({ users: out, defaultDailyLimit: dailyAiLimit(), usageDay: today });
+  return NextResponse.json({ users: out, defaultDailyLimit: dailyAiLimit(), usageDay: today, paywall: paywallOn() });
 }

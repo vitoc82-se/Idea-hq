@@ -31,7 +31,7 @@ vi.mock("@/lib/runs/engine", async () => {
   const real = await vi.importActual<typeof import("@/lib/runs/engine")>("@/lib/runs/engine");
   return {
     ...real,
-    assertAiBuild: async () => { if (!st.aiBuild) throw new real.RunError(403, "AI build is switched off for your account. Ask the owner."); },
+    assertCanStartBuild: async () => { if (!st.aiBuild) throw new real.RunError(403, "AI build is switched off for your account. Ask the owner."); },
     startRun: async (_u: string, ideaId: string) => { st.started.push(ideaId); const r = { id: "run1", ideaId, status: st.startStatus }; st.runs.push(r); return r; },
     approveRun: async (_u: string, runId: string) => { if (st.approveError) throw st.approveError; st.approved.push(runId); },
   };

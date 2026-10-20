@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input";
 
 type U = {
   id: string; name: string | null; email: string | null; approved: boolean; features: string[]; aiBuild: boolean;
-  aiDailyLimit: number | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
+  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
 };
-type Patch = Partial<{ approved: boolean; features: string[]; aiBuild: boolean; aiDailyLimit: number | null }>;
+type Patch = Partial<{ approved: boolean; features: string[]; aiBuild: boolean; aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number }>;
 
 export function UsersList() {
   const [users, setUsers] = useState<U[] | null>(null);
   const [defaultLimit, setDefaultLimit] = useState(20);
+  const [paywall, setPaywall] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
 
@@ -24,6 +25,7 @@ export function UsersList() {
     const d = await res.json();
     setUsers(d.users);
     setDefaultLimit(d.defaultDailyLimit ?? 20);
+    setPaywall(!!d.paywall);
     setError("");
   }, []);
   useEffect(() => {
@@ -65,7 +67,7 @@ export function UsersList() {
       {users && waiting.length > 0 && (
         <section aria-labelledby="waiting-h" className="space-y-3">
           <h2 id="waiting-h" className="text-lg font-semibold text-gray-900 dark:text-white">Waiting for approval ({waiting.length})</h2>
-          {waiting.map((u) => <Row key={u.id} u={u} defaultLimit={defaultLimit} onChanged={load} />)}
+          {waiting.map((u) => <Row key={u.id} u={u} defaultLimit={defaultLimit} paywall={paywall} onChanged={load} />)}
         </section>
       )}
 
@@ -73,7 +75,7 @@ export function UsersList() {
         <section aria-labelledby="all-h" className="space-y-3">
           <h2 id="all-h" className="text-lg font-semibold text-gray-900 dark:text-white">People ({rest.length})</h2>
           {rest.length === 0 && <p className="text-sm text-gray-700 dark:text-gray-300">{query ? "Nobody matches that search." : "No one yet."}</p>}
-          {rest.map((u) => <Row key={u.id} u={u} defaultLimit={defaultLimit} onChanged={load} />)}
+          {rest.map((u) => <Row key={u.id} u={u} defaultLimit={defaultLimit} paywall={paywall} onChanged={load} />)}
         </section>
       )}
       <p className="text-xs text-gray-600 dark:text-gray-400">Usage is counted per UTC day. A limit of 0 switches off helper AI (estimates, plans, drafts) and AI answers in that person&apos;s Support widgets. AI build is the Implement and Learn deeply buttons.</p>
@@ -81,13 +83,17 @@ export function UsersList() {
   );
 }
 
-function Row({ u, defaultLimit, onChanged }: { u: U; defaultLimit: number; onChanged: () => void }) {
+function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: number; paywall: boolean; onChanged: () => void }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [limitText, setLimitText] = useState(u.aiDailyLimit === null ? "" : String(u.aiDailyLimit));
+  const [creditsText, setCreditsText] = useState(String(u.aiCredits));
   useEffect(() => {
     setLimitText(u.aiDailyLimit === null ? "" : String(u.aiDailyLimit));
   }, [u.aiDailyLimit]);
+  useEffect(() => {
+    setCreditsText(String(u.aiCredits));
+  }, [u.aiCredits]);
 
   const save = async (patch: Patch) => {
     setSaving(true);
@@ -117,7 +123,20 @@ function Row({ u, defaultLimit, onChanged }: { u: U; defaultLimit: number; onCha
     save({ aiDailyLimit: n });
   };
 
+  const saveCredits = () => {
+    const t = creditsText.trim();
+    if (t === String(u.aiCredits)) return;
+    const n = Number(t);
+    if (t === "" || !Number.isInteger(n) || n < 0 || n > 100000) {
+      setErr("Run credits must be a whole number, 0 or more.");
+      setCreditsText(String(u.aiCredits));
+      return;
+    }
+    save({ aiCredits: n });
+  };
+
   const limit = u.aiDailyLimit ?? defaultLimit;
+  const plan = u.pro ? `Pro${u.subStatus === "cancelled" && u.subEndsAt ? ` until ${new Date(u.subEndsAt).toLocaleDateString()}` : ""}` : "Free";
   const hasTickets = u.features.includes("tickets");
   const toggle = "h-5 w-5 shrink-0";
   const label = "flex min-h-[44px] items-center gap-2 text-sm text-gray-900 dark:text-white";
@@ -158,6 +177,16 @@ function Row({ u, defaultLimit, onChanged }: { u: U; defaultLimit: number; onCha
             <input type="checkbox" className={toggle} checked={u.aiBuild} disabled={saving} onChange={(e) => save({ aiBuild: e.target.checked })} />
             AI build (Implement, Learn deeply)
           </label>
+          <label className={label}>
+            <input type="checkbox" className={toggle} checked={u.freeAccess} disabled={saving} onChange={(e) => save({ freeAccess: e.target.checked })} />
+            Free access (skips payment)
+          </label>
+          <div className="flex min-h-[44px] flex-wrap items-center gap-2 text-sm text-gray-900 dark:text-white">
+            <label htmlFor={`cred-${u.id}`}>Run credits</label>
+            <Input id={`cred-${u.id}`} className="h-9 w-24" inputMode="numeric" value={creditsText} disabled={saving}
+              onChange={(e) => setCreditsText(e.target.value)} onBlur={saveCredits} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} aria-describedby={`cred-note-${u.id}`} />
+            <span id={`cred-note-${u.id}`} className="text-xs text-gray-700 dark:text-gray-300">Plan: {plan}{paywall ? "" : " (payments are not switched on yet)"}</span>
+          </div>
           <div className="flex min-h-[44px] flex-wrap items-center gap-2 text-sm text-gray-900 dark:text-white">
             <label htmlFor={`lim-${u.id}`}>Helper AI calls per day</label>
             <Input id={`lim-${u.id}`} className="h-9 w-24" inputMode="numeric" value={limitText} placeholder={`${defaultLimit}`} disabled={saving}

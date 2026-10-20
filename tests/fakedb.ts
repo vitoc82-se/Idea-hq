@@ -6,6 +6,7 @@ function matchValue(actual: unknown, cond: unknown): boolean {
     const c = cond as Record<string, unknown>;
     if ("in" in c) return (c.in as unknown[]).includes(actual);
     if ("not" in c) return actual !== c.not;
+    if ("gt" in c) return typeof actual === "number" && actual > (c.gt as number);
     if ("equals" in c) return String(actual).toLowerCase() === String(c.equals).toLowerCase();
   }
   return actual === cond;
@@ -58,12 +59,12 @@ export function makeFakeDb() {
     update: async (a: Row) => {
       const row = tables[name].find((r) => matches(name, r, a.where));
       if (!row) throw new Error("not found");
-      Object.assign(row, stripUndefined(a.data), { updatedAt: new Date() });
+      apply(row, a.data);
       return { ...row };
     },
     updateMany: async (a: Row) => {
       const rows = tables[name].filter((r) => matches(name, r, a.where));
-      for (const r of rows) Object.assign(r, stripUndefined(a.data), { updatedAt: new Date() });
+      for (const r of rows) apply(r, a.data);
       return { count: rows.length };
     },
     deleteMany: async (a: Row) => {
@@ -90,4 +91,15 @@ export function makeFakeDb() {
 
 function stripUndefined(o: Row) {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+}
+
+// Plain values, plus Prisma's { increment } / { decrement } on numbers.
+function apply(row: Row, data: Row) {
+  for (const [k, v] of Object.entries(stripUndefined(data))) {
+    if (v && typeof v === "object" && !(v instanceof Date) && ("increment" in v || "decrement" in v)) {
+      const d = v as { increment?: number; decrement?: number };
+      row[k] = (row[k] ?? 0) + (d.increment ?? 0) - (d.decrement ?? 0);
+    } else row[k] = v;
+  }
+  row.updatedAt = new Date();
 }

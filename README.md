@@ -76,3 +76,9 @@ New accounts are locked out until the owner approves them under **Users**. The o
 - Per person, the Admin page sets `aiDailyLimit`: empty = the site default, a number = that many a day, `0` = off (this also turns off AI answers in that person's Support widgets). The owner is never limited.
 - `aiBuild` (per person, default on) allows the Implement and Learn deeply buttons and the Support "Add it for me" install. Merge, revert and cancel stay available when it is off, and runs already in flight finish.
 - Rolling back the two User columns (`aiBuild`, `aiDailyLimit`) would drop their data (`prisma db push --accept-data-loss`).
+
+## Billing (Lemon Squeezy) — off until `PAYWALL_ENABLED=1`
+- Two products: **Pro** (subscription, AI build without a run limit, helper AI limit lifted to 500 a day) and a **runs pack** (one payment, 50 AI runs). Checkout links live in `LEMONSQUEEZY_PRO_URL` and `LEMONSQUEEZY_CREDITS_URL`; Idea HQ tags each link with the person's id and what is bought, so payments land on the right account (matching is by that id, never by email).
+- Webhook: `POST /api/billing/lemonsqueezy/webhook`, signed with `LEMONSQUEEZY_WEBHOOK_SECRET` (HMAC-SHA256 of the raw body). Subscriptions only move forward in time (late events are ignored); a pack is recorded in `BillingEvent` so retries never grant it twice; a refund takes the pack back once.
+- With the paywall on, starting AI build needs the owner, Free access (set per person in Admin), Pro, or a credit. A credit is spent when a run is approved and returned if the run fails. Revise, merge, revert and cancel never need a credit. The Admin "AI build" switch still beats everything.
+- Rollback: unset `PAYWALL_ENABLED`; everything behaves as before. The new columns are additive.

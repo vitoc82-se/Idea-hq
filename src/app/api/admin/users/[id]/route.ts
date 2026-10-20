@@ -27,7 +27,7 @@ export async function PATCH(
   const user = await db.user.update({
     where: { id: params.id },
     data: checked.patch,
-    select: { id: true, email: true, approved: true, features: true, aiBuild: true, aiDailyLimit: true },
+    select: { id: true, email: true, approved: true, features: true, aiBuild: true, aiDailyLimit: true, freeAccess: true, aiCredits: true },
   });
   return NextResponse.json({ user });
 }

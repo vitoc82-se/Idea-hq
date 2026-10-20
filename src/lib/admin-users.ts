@@ -9,9 +9,13 @@ export type UserPatch = {
   features?: string[];
   aiBuild?: boolean;
   aiDailyLimit?: number | null;
+  freeAccess?: boolean;
+  aiCredits?: number;
 };
 
-const KEYS = ["approved", "features", "aiBuild", "aiDailyLimit"];
+export const CREDITS_MAX = 100000;
+
+const KEYS = ["approved", "features", "aiBuild", "aiDailyLimit", "freeAccess", "aiCredits"];
 
 export function cleanUserPatch(body: unknown): { ok: true; patch: UserPatch } | { ok: false; error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Send a JSON object." };
@@ -27,6 +31,17 @@ export function cleanUserPatch(body: unknown): { ok: true; patch: UserPatch } | 
   if ("aiBuild" in b) {
     if (typeof b.aiBuild !== "boolean") return { ok: false, error: "aiBuild must be true or false." };
     patch.aiBuild = b.aiBuild;
+  }
+  if ("freeAccess" in b) {
+    if (typeof b.freeAccess !== "boolean") return { ok: false, error: "freeAccess must be true or false." };
+    patch.freeAccess = b.freeAccess;
+  }
+  if ("aiCredits" in b) {
+    const v = b.aiCredits;
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > CREDITS_MAX) {
+      return { ok: false, error: `Run credits must be a whole number from 0 to ${CREDITS_MAX}.` };
+    }
+    patch.aiCredits = v;
   }
   if ("features" in b) {
     const f = b.features;

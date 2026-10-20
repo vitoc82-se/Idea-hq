@@ -21,7 +21,7 @@ const ROOT = path.resolve(__dirname, "../src/app/api");
 // Routes that authenticate some other way (credentials flow, GitHub signature).
 // The public support routes (customers, no login) and the cron route (bearer
 // secret) are covered by tests/support-isolation.test.ts and support-routes.test.ts.
-const NOT_SESSION_GATED = [/\/api\/auth\//, /\/api\/github\/webhook\//, /\/api\/onboarding\//, /\/api\/support\//, /\/api\/cron\//];
+const NOT_SESSION_GATED = [/\/api\/auth\//, /\/api\/github\/webhook\//, /\/api\/onboarding\//, /\/api\/support\//, /\/api\/cron\//, /\/api\/billing\/lemonsqueezy\//];
 // Routes only the owner may use.
 const OWNER_ONLY = [/\/api\/admin\//];
 

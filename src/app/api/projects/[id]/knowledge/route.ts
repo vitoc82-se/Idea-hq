@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { reconcileRun } from "@/lib/runs/engine";
-import { aiBuildAllowed } from "@/lib/access";
+import { buildAccess } from "@/lib/billing";
 import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
 import { SECTION_DEFS, completeness, confirmAll, isSectionId, setSection, type SectionId } from "@/lib/knowledge";
 
@@ -38,9 +38,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       await reconcileRun(learn.id).catch(() => undefined); // repairs missed webhooks (30s cooldown)
       learn = (await db.run.findFirst({ where: { id: learn.id, userId: auth.userId } })) ?? learn;
     }
+    const access = await buildAccess(auth.userId);
     return NextResponse.json({
       projectName: p.name,
-      aiBuild: await aiBuildAllowed(auth.userId),
+      aiBuild: access.ok || access.reason !== "off",
+      needsPlan: !access.ok && access.reason === "needs_plan",
       repo: hasRepo ? { owner: p.repoOwner, name: p.repoName } : null,
       workflowInstalled: p.workflowInstalled,
       sections: SECTION_DEFS.map((d) => ({ id: d.id, title: d.title, hint: d.hint, core: d.core, ...(k.sections[d.id] ?? { text: "", source: null, status: null, updatedAt: null }) })),

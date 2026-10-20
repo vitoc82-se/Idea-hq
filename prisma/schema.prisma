@@ -65,6 +65,18 @@ model User {
   // Per-person daily cap on server-paid helper AI calls. null = the site default
   // (AI_DAILY_LIMIT, 20); 0 = off (also turns off AI answers in their Support widgets).
   aiDailyLimit  Int?
+  // Billing (Lemon Squeezy). Only enforced when PAYWALL_ENABLED=1.
+  // freeAccess: the owner waves this person through the paywall (friends and family).
+  freeAccess    Boolean   @default(false)
+  // Prepaid AI runs from the runs pack; one is used each time a run is approved.
+  aiCredits     Int       @default(0)
+  // Pro subscription mirror: Lemon Squeezy status, when access ends, and the
+  // newest event time applied (older events that arrive late are ignored).
+  subStatus     String?
+  subEndsAt     DateTime?
+  subUpdatedAt  DateTime?
+  lsSubscriptionId String?
+  lsPortalUrl   String?   @db.Text
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -184,6 +196,7 @@ model Run {
   effort       String?
   maxTurns     Int?
   checksState  String?   // pending | green | red
+  creditCharged Boolean  @default(false) // a runs-pack credit paid for this run (refunded if it fails)
   error        String?   @db.Text
   parentRunId  String?   // revise/revert point at the run they follow
   startedAt    DateTime?
@@ -310,4 +323,12 @@ model RateBucket {
   key         String   @id
   windowStart DateTime
   count       Int      @default(0)
+}
+
+// One row per payment event already applied (Lemon Squeezy retries webhooks),
+// so a credit pack is never granted twice. id = "order:<id>" or "refund:<id>".
+model BillingEvent {
+  id        String   @id
+  userId    String?
+  createdAt DateTime @default(now())
 }

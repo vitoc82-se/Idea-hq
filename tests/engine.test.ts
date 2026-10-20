@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { makeFakeDb } from "./fakedb";
 import type { GitHubApi } from "@/lib/github/client";
 import { WORKFLOW_VERSION } from "@/lib/runs/workflow";
@@ -737,5 +737,103 @@ describe("AI build switch", () => {
     await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 403 });
     t.tables.user.find((u) => u.id === "u1")!.aiBuild = true;
     expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+});
+
+// ---- Paywall: Pro, runs pack credits, free access ------------------------------
+describe("paywall", () => {
+  const u1 = () => t.tables.user.find((u) => u.id === "u1")!;
+  beforeEach(() => {
+    process.env.OWNER_EMAIL = "boss@x.se";
+    process.env.PAYWALL_ENABLED = "1";
+    u1().email = "friend@x.se";
+    t.tables.user.find((u) => u.id === "u2")!.email = "other@x.se";
+  });
+  afterEach(() => { delete process.env.PAYWALL_ENABLED; });
+
+  it("stops a free person from starting, with a plain 402 and no run created", async () => {
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 402, message: expect.stringMatching(/Pro or a runs pack/) });
+    await expect(startLearnRun("u1", "p1", deps())).rejects.toMatchObject({ status: 402 });
+    expect(t.tables.run).toHaveLength(0);
+  });
+
+  it("a credit is spent when the run is approved, not when it is only started", async () => {
+    u1().aiCredits = 2;
+    await startedRun();
+    expect(u1().aiCredits).toBe(2);
+    await approveRun("u1", "RUN1", deps());
+    expect(u1().aiCredits).toBe(1);
+    expect(t.tables.run[0].creditCharged).toBe(true);
+  });
+
+  it("with no credit left, approving a waiting run is a 402 and nothing is dispatched", async () => {
+    u1().aiCredits = 1;
+    await startedRun();
+    u1().aiCredits = 0;
+    await expect(approveRun("u1", "RUN1", deps())).rejects.toMatchObject({ status: 402 });
+    expect(t.tables.run[0].status).toBe("awaiting_approval");
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(false);
+  });
+
+  it("Pro runs cost nothing, and a cancelled Pro that is still paid for keeps working", async () => {
+    u1().subStatus = "active";
+    await dispatchedRun();
+    expect(u1().aiCredits ?? 0).toBe(0);
+    expect(t.tables.run[0].creditCharged).toBe(false);
+    t.tables.run.length = 0; log.length = 0;
+    u1().subStatus = "cancelled";
+    u1().subEndsAt = new Date(Date.now() + 86400000);
+    expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+    u1().subEndsAt = new Date(Date.now() - 1000);
+    t.tables.run.length = 0;
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 402 });
+  });
+
+  it("free access and the owner skip the paywall", async () => {
+    u1().freeAccess = true;
+    await dispatchedRun();
+    expect(t.tables.run[0].creditCharged).toBe(false);
+    t.tables.run.length = 0; u1().freeAccess = false;
+    process.env.OWNER_EMAIL = "friend@x.se";
+    expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+
+  it("the admin switch still beats a subscription", async () => {
+    u1().subStatus = "active";
+    u1().aiBuild = false;
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("a run that fails gives its credit back once; a failed dispatch does too", async () => {
+    u1().aiCredits = 1;
+    await dispatchedRun();
+    expect(u1().aiCredits).toBe(0);
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "boom", deps());
+    expect(t.tables.run[0].status).toBe("failed");
+    expect(u1().aiCredits).toBe(1);
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "boom2", deps());
+    expect(u1().aiCredits).toBe(1);
+
+    t.tables.run.length = 0;
+    await startedRun();
+    gh.state.dispatchError = new Error("nope");
+    await expect(approveRun("u1", "RUN1", deps())).rejects.toMatchObject({ status: 502 });
+    expect(u1().aiCredits).toBe(1);
+  });
+
+  it("revise, merge and cancel stay open for someone with no credits left", async () => {
+    u1().aiCredits = 1;
+    await prOpenRun();
+    u1().aiCredits = 0;
+    log.length = 0;
+    await reviseRun("u1", "RUN1", "Use blue", deps());
+    expect(log.some((l) => l.startsWith("dispatch"))).toBe(true);
+    expect(u1().aiCredits).toBe(0);
+  });
+
+  it("does nothing at all while the paywall is off", async () => {
+    delete process.env.PAYWALL_ENABLED;
+    await dispatchedRun();
+    expect(t.tables.run[0].creditCharged).toBe(false);
   });
 });

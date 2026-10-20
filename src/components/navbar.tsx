@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen, LifeBuoy } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen, LifeBuoy, CreditCard } from "lucide-react";
 import { Button } from "./ui/button";
 import { APP_VERSION } from "@/lib/version";
 
@@ -16,6 +16,7 @@ const navLinks = [
 ];
 
 const supportLink = { href: "/support", label: "Support", icon: LifeBuoy };
+const billingLink = { href: "/billing", label: "Billing", icon: CreditCard };
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -23,6 +24,8 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   // The Support item only exists for accounts that have the tickets feature.
   const [support, setSupport] = useState<{ enabled: boolean; unread: number }>({ enabled: false, unread: 0 });
+  // The Billing item only shows once payments are switched on, and not for the owner.
+  const [showBilling, setShowBilling] = useState(false);
   const signedIn = !!session;
 
   useEffect(() => {
@@ -43,8 +46,17 @@ export function Navbar() {
     };
   }, [signedIn]);
 
+  useEffect(() => {
+    if (!signedIn) return;
+    fetch("/api/billing")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setShowBilling(!!d && !!d.paywall && !d.owner))
+      .catch(() => {});
+  }, [signedIn]);
+
   if (!session) return null;
-  const links = support.enabled ? [navLinks[0], navLinks[1], supportLink, ...navLinks.slice(2)] : navLinks;
+  const base = support.enabled ? [navLinks[0], navLinks[1], supportLink, ...navLinks.slice(2)] : navLinks;
+  const links = showBilling ? [...base.slice(0, -1), billingLink, base[base.length - 1]] : base;
 
   return (
     <>

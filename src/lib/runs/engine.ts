@@ -14,6 +14,7 @@ import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
 import { invalidateSetupCache } from "./setup-cache";
+import { buildAccess, chargeBuild, refundBuildCredit, BillingBlock, NEEDS_PLAN_MESSAGE } from "../billing";
 import { aiBuildAllowed } from "../access";
 
 export class RunError extends Error {
@@ -29,6 +30,22 @@ export const AI_BUILD_OFF_MESSAGE = "AI build is switched off for your account. 
 // revert, cancel and webhooks stay open so nobody is stranded with an open PR.
 export async function assertAiBuild(userId: string): Promise<void> {
   if (!(await aiBuildAllowed(userId))) throw new RunError(403, AI_BUILD_OFF_MESSAGE);
+}
+
+// Starting work (a new run, learn, the Support install) also needs a plan or a
+// credit once the paywall is on. Nothing is spent here; the credit is taken
+// when the run is actually approved or started (chargeBuild).
+export async function assertCanStartBuild(userId: string): Promise<void> {
+  const a = await buildAccess(userId);
+  if (a.ok) return;
+  throw new RunError(a.reason === "off" ? 403 : 402, a.reason === "off" ? AI_BUILD_OFF_MESSAGE : NEEDS_PLAN_MESSAGE);
+}
+
+function billingToRunError(e: unknown): never {
+  if (e instanceof BillingBlock) {
+    throw new RunError(e.reason === "off" ? 403 : 402, e.reason === "off" ? AI_BUILD_OFF_MESSAGE : NEEDS_PLAN_MESSAGE);
+  }
+  throw e;
 }
 
 type Deps = { gh?: GitHubApi; now?: () => Date };
@@ -72,13 +89,14 @@ async function transition(run: { id: string; status: string }, to: string, data:
     where: { id: run.id, status: { in: froms } },
     data: { ...data, status: to },
   });
+  if (res.count > 0 && to === "failed") await refundBuildCredit(run.id).catch((err) => console.error("credit refund failed", err));
   return res.count > 0;
 }
 
 // ---- start / approve -------------------------------------------------------
 
 export async function startRun(userId: string, ideaId: string, deps?: Deps) {
-  await assertAiBuild(userId); // before the "reuse the waiting run" return below
+  await assertCanStartBuild(userId); // before the "reuse the waiting run" return below
   const idea = await db.idea.findFirst({ where: { id: ideaId, userId }, include: { project: true } });
   if (!idea) throw new RunError(404, "Idea not found");
   if (!idea.plan) throw new RunError(409, "Create the plan first (Promote to plan), then implement.");
@@ -157,6 +175,7 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, 
       where: { id: run.id, status: "dispatched" },
       data: { status: "failed", error: `Could not start the workflow: ${(e as Error).message}`, finishedAt: new Date() },
     });
+    await refundBuildCredit(run.id).catch((err) => console.error("credit refund failed", err));
     throw new RunError(502, `Could not start the workflow: ${(e as Error).message}`);
   }
 }
@@ -182,9 +201,10 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   const branch = runBranch(run.id);
   await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
+    const charged = await chargeBuild(tx as unknown as typeof db, userId).catch(billingToRunError);
     const ok = await tx.run.updateMany({
       where: { id: run.id, status: "awaiting_approval" },
-      data: { status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), provider: getProvider(p.aiProvider).id, model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns },
+      data: { creditCharged: charged, status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), provider: getProvider(p.aiProvider).id, model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns },
     });
     if (ok.count === 0) throw new RunError(409, "Run was already started.");
   });
@@ -243,7 +263,7 @@ function areasOf(files: string[]): string {
 // ---- learn the project (runs in the owner's GitHub, like an implementation) --
 
 export async function startLearnRun(userId: string, projectId: string, deps?: Deps) {
-  await assertAiBuild(userId);
+  await assertCanStartBuild(userId);
   const gh = g(deps);
   const p = await db.project.findFirst({ where: { id: projectId, userId } });
   if (!p) throw new RunError(404, "Project not found");
@@ -256,9 +276,10 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
 
   const runId = await db.$transaction(async (tx) => {
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
+    const charged = await chargeBuild(tx as unknown as typeof db, userId).catch(billingToRunError);
     const row = await tx.run.create({
       data: {
-        userId, projectId: p.id, ideaId: null, kind: "learn", status: "dispatched", env, baseBranch: base,
+        userId, projectId: p.id, ideaId: null, kind: "learn", status: "dispatched", creditCharged: charged, env, baseBranch: base,
         startedAt: deps?.now?.() ?? new Date(), provider: getProvider(p.aiProvider).id, model: learnTier.model, effort: learnTier.effort, maxTurns: learnTier.maxTurns,
       },
     });

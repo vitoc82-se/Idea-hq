@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { startRun, reconcileRun, recommendForRun } from "@/lib/runs/engine";
 import { getProvider } from "@/lib/providers";
-import { aiBuildAllowed } from "@/lib/access";
+import { buildAccess } from "@/lib/billing";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
@@ -56,9 +56,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       if (full) recommended = await recommendForRun(full);
     }
     const prov = getProvider(idea.project?.aiProvider);
+    const access = await buildAccess(auth.userId);
     return NextResponse.json({
       runs, recommended, epic,
-      aiBuild: await aiBuildAllowed(auth.userId), // false: show a notice instead of the AI build buttons
+      aiBuild: access.ok || access.reason !== "off", // false: show a notice instead of the AI build buttons
+      needsPlan: !access.ok && access.reason === "needs_plan", // paywall: no Pro and no credits left
       models: prov.models,
       efforts: prov.efforts,
       provider: { id: prov.id, label: prov.label, reportsCost: prov.reportsCost, supportsTurnCap: prov.supportsTurnCap },

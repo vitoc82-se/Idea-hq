@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { approveRun, assertAiBuild, startRun, RunError } from "@/lib/runs/engine";
+import { approveRun, assertCanStartBuild, startRun, RunError } from "@/lib/runs/engine";
 
 // "Add it for me": turns the embed snippet into an ordinary Idea HQ change. An
 // idea with a ready-made plan is created, a run is started in the user's own
@@ -40,7 +40,7 @@ export type InstallResult = { ideaId: string; runId: string };
 // Creates (or reuses) the idea and starts the run. Throws RunError with a plain
 // message when the project is not ready yet.
 export async function installSupport(userId: string, projectId: string, snippet: string, key: string, origin: string): Promise<InstallResult> {
-  await assertAiBuild(userId); // before anything is created, so a switched-off account leaves no stray idea
+  await assertCanStartBuild(userId); // before anything is created, so a switched-off account leaves no stray idea
   const project = await db.project.findFirst({ where: { id: projectId, userId } });
   if (!project) throw new RunError(404, "Project not found");
   if (!project.repoOwner || !project.repoName || !project.workflowInstalled || !project.secretConfirmed) {

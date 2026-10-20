@@ -20,5 +20,5 @@ const ready = pg.exec(schemaSql());
 // Empty every table between tests.
 export async function resetDb(): Promise<void> {
   await ready;
-  await pg.exec(`TRUNCATE "User", "RateBucket" CASCADE`);
+  await pg.exec(`TRUNCATE "User", "RateBucket", "BillingEvent" CASCADE`);
 }

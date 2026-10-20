@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { isOwner } from "./owner";
+import { PRO_HELPER_LIMIT, isPro } from "./billing";
 
 // Invite-only access (eng review D5). The owner is always allowed; anyone else
 // needs `User.approved`. Accounts that still owe a forced password change get
@@ -43,9 +44,10 @@ export async function consumeAiCallDetailed(
 ): Promise<AiCallResult> {
   if (await isOwner(userId, email)) return "ok";
 
-  const user = await db.user.findUnique({ where: { id: userId }, select: { aiDailyLimit: true } });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { aiDailyLimit: true, subStatus: true, subEndsAt: true } });
   if (!user) return "limit";
-  const limit = user.aiDailyLimit ?? dailyAiLimit();
+  // Pro lifts the default (not an explicit per-person limit set in Admin).
+  const limit = user.aiDailyLimit ?? (isPro(user, now) ? PRO_HELPER_LIMIT : dailyAiLimit());
   if (limit <= 0) return "off";
 
   const today = now.toISOString().slice(0, 10);
