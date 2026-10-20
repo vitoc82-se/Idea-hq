@@ -134,6 +134,7 @@ describe("what the AI's shell can reach", () => {
     const install = implement.steps.find((s) => s.name === "Install the shell sandbox tools")!;
     expect(install.run).toMatch(/bubblewrap/);
     expect(install.run).toMatch(/socat/);
+    expect(install.run).toContain("kernel.apparmor_restrict_unprivileged_userns=0");
   });
   it("the shell allow-list has no bare npm, npx or node, no network tools and no git writes", () => {
     const tools = ALLOWED_TOOLS.split(",");

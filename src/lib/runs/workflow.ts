@@ -176,10 +176,13 @@ ${CHECKOUT_STEPS}
 
 ${INSTALL_STEP}
 
-      # Claude Code can only separate its API key from the commands it runs with these two installed.
+      # Claude Code can only separate its API key from the commands it runs with these installed (and user namespaces allowed).
       - name: Install the shell sandbox tools
         if: \${{ inputs.provider == 'claude' || inputs.provider == '' }}
-        run: sudo apt-get install -y --no-install-recommends bubblewrap socat
+        run: |
+          sudo apt-get install -y --no-install-recommends bubblewrap socat
+          # Ubuntu 24.04 runners block the user namespaces the sandbox needs ("setting up uid map: Permission denied").
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
 
 ${agentSteps}
 
