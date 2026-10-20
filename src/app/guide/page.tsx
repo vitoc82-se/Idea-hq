@@ -166,6 +166,7 @@ export default async function GuidePage() {
           <li><b>Changed your mind after merging?</b> Use Revert this change. It creates a new proposal that undoes it, which you approve like any other.</li>
           <li><b>AI model:</b> chosen automatically from the size of the idea. Small ideas use a cheap, fast model, big ones a stronger one. You can change it before each run, and set a project to lean cheaper or stronger.</li>
           <li><b>Imported many ideas?</b> Press <b>Estimate them all</b> at the top of the board. Each idea gets its size one by one, and you can still estimate a single idea with its own button.</li>
+          <li><b>See it running:</b> if your hosting builds a preview of every pull request (Vercel, Netlify and Cloudflare Pages do), a <b>See it running</b> button appears next to the PR a minute or two after it opens. Open it to try the change before you merge. If it says &quot;No preview link yet&quot;, your host has not posted one (yet).</li>
           <li><b>Email:</b> you get an email when a change is ready for review, when a revision is ready again, or when the AI could not finish. Turn it off under <b>Settings</b> in the menu.</li>
           <li><b>Many ideas at once:</b> one run per project at a time, so changes do not collide. Queue the rest.</li>
         </UL>

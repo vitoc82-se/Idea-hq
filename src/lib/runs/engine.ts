@@ -18,6 +18,7 @@ import { buildAccess, chargeBuild, refundBuildCredit, BillingBlock, NEEDS_PLAN_M
 import { aiBuildAllowed } from "../access";
 import { notifyRunEvent } from "../notify";
 import { capState, capMessage } from "../spend";
+import { previewUrlFrom, PREVIEW_RECHECK_MS } from "../preview";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -619,9 +620,24 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   return "pr_opened";
 }
 
-async function recomputeChecks(run: { id: string; status: string; kind: string; prNumber: number | null; headSha: string | null; project: ProjectRow; userId: string }, gh: GitHubApi) {
+// Looks for the host's preview link on the PR (see preview.ts). Never fails a run: a miss
+// just means no link yet. Once found it is kept; until then it is re-checked every so often.
+async function refreshPreview(run: { id: string; prNumber: number | null; previewUrl?: string | null; previewCheckedAt?: Date | null; project: ProjectRow }, gh: GitHubApi, now: Date = new Date()) {
+  if (!run.prNumber || run.previewUrl) return;
+  if (run.previewCheckedAt && now.getTime() - run.previewCheckedAt.getTime() < PREVIEW_RECHECK_MS) return;
+  try {
+    const { i, owner, repo } = repoOf(run.project);
+    const url = previewUrlFrom(await gh.listPrComments(i, owner, repo, run.prNumber));
+    await db.run.updateMany({ where: { id: run.id, previewUrl: null }, data: { previewUrl: url, previewCheckedAt: now } });
+  } catch {
+    /* no preview this time */
+  }
+}
+
+async function recomputeChecks(run: { id: string; status: string; kind: string; prNumber: number | null; headSha: string | null; project: ProjectRow; userId: string; previewUrl?: string | null; previewCheckedAt?: Date | null }, gh: GitHubApi) {
   if (run.status !== "pr_open" || !run.prNumber || !run.headSha) return;
   const { i, owner, repo } = repoOf(run.project);
+  if (run.kind === "implement") await refreshPreview(run, gh);
   const sums = await gh.checkSummary(i, owner, repo, run.headSha, run.kind !== "revert");
   await db.run.updateMany({ where: { id: run.id, status: "pr_open" }, data: { checksState: sums.state } });
   if (sums.state === "green" && run.project.autoMerge && run.kind === "implement") {

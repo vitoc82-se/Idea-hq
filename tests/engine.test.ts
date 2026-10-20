@@ -46,6 +46,7 @@ function fakeGh(): typeof gh {
     listTree: async () => ({ paths: [], truncated: false }),
     commitsAhead: async () => 0,
     listPrFiles: async () => [],
+    listPrComments: async () => state.comments ?? [],
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
   };
@@ -939,5 +940,44 @@ describe("monthly spending cap", () => {
     await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 409 });
     t.tables.project[0].monthlyCapUsd = null;
     expect((await startRun("u1", "i1", deps())).status).toBe("awaiting_approval");
+  });
+});
+
+// ---- Preview link ---------------------------------------------------------------
+describe("preview link", () => {
+  const vercel = { author: "vercel[bot]", bot: true, body: "Preview: [Visit Preview](https://proj-git-idea-hq-run1.vercel.app)" };
+  const stranger = { author: "someone", bot: false, body: "Preview: https://evil.vercel.app" };
+
+  it("is found from the host's comment when the PR is opened and checked, and kept", async () => {
+    gh.state.comments = [stranger, vercel];
+    await prOpenRun();
+    await reconcileRun("RUN1", { gh, now: () => new Date(Date.now() + 5 * 60 * 1000) }); // the person looks at the idea a few minutes later
+    expect(t.tables.run[0].previewUrl).toBe("https://proj-git-idea-hq-run1.vercel.app");
+    gh.state.comments = [{ author: "vercel[bot]", bot: true, body: "Preview: https://other.vercel.app" }];
+    await reconcileRun("RUN1", { gh, now: () => new Date(Date.now() + 10 * 60 * 1000) });
+    expect(t.tables.run[0].previewUrl).toBe("https://proj-git-idea-hq-run1.vercel.app");
+  });
+  it("is not polled on every look: re-checked only after the wait, and picked up once the host comments", async () => {
+    gh.state.comments = [];
+    let calls = 0;
+    gh.listPrComments = async () => { calls++; return gh.state.comments; };
+    await prOpenRun();
+    await reconcileRun("RUN1", { gh, now: () => new Date(Date.now() + 5 * 60 * 1000) });
+    expect(t.tables.run[0].previewUrl ?? null).toBeNull();
+    const first = calls;
+    expect(first).toBe(1);
+    await reconcileRun("RUN1", { gh, now: () => new Date(Date.now() + 5 * 60 * 1000 + 10 * 1000) }); // too soon: no second look
+    expect(calls).toBe(first);
+    gh.state.comments = [vercel];
+    t.tables.run[0].previewCheckedAt = new Date(0);
+    await reconcileRun("RUN1", { gh, now: () => new Date(Date.now() + 60 * 60 * 1000) });
+    expect(t.tables.run[0].previewUrl).toBe("https://proj-git-idea-hq-run1.vercel.app");
+  });
+  it("a GitHub error while looking never breaks the run", async () => {
+    gh.listPrComments = async () => { throw new Error("rate limited"); };
+    await prOpenRun();
+    await reconcileRun("RUN1", { gh, now: () => new Date(Date.now() + 5 * 60 * 1000) });
+    expect(t.tables.run[0].status).toBe("pr_open");
+    expect(t.tables.run[0].previewUrl ?? null).toBeNull();
   });
 });

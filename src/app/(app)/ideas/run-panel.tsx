@@ -18,6 +18,7 @@ type Run = {
   branch: string | null;
   prNumber: number | null;
   checksState: string | null;
+  previewUrl?: string | null;
   costUsd: number | null;
   turns: number | null;
   provider?: string | null;
@@ -202,6 +203,16 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                 <a href={prUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline inline-flex items-center gap-1">
                   <GitPullRequest className="w-4 h-4" /> PR #{run.prNumber} <ExternalLink className="w-3 h-3" />
                 </a>
+              )}
+              {run.previewUrl && run.status === "pr_open" && (
+                <a href={run.previewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[32px] items-center gap-1 rounded-lg border border-emerald-700 px-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-950/40">
+                  See it running <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                </a>
+              )}
+              {!run.previewUrl && run.status === "pr_open" && run.kind === "implement" && (
+                <span className="text-xs text-gray-600 dark:text-gray-400" title="Hosts like Vercel, Netlify and Cloudflare Pages post the preview address on the pull request a minute or two after it opens.">
+                  No preview link yet
+                </span>
               )}
               {run.costUsd == null && prov && !prov.reportsCost && run.status !== "awaiting_approval" && (
                 <span className="text-xs text-gray-500">cost not reported by {prov.label.split(" ")[0]}</span>

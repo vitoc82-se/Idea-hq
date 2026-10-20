@@ -204,6 +204,8 @@ model Run {
   maxTurns     Int?
   checksState  String?   // pending | green | red
   creditCharged Boolean  @default(false) // a runs-pack credit paid for this run (refunded if it fails)
+  previewUrl    String?  // the change running on the host's preview deployment, found from its PR comment
+  previewCheckedAt DateTime? // last time we looked for it (so a PR without previews is not polled constantly)
   error        String?   @db.Text
   parentRunId  String?   // revise/revert point at the run they follow
   startedAt    DateTime?

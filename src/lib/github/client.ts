@@ -31,6 +31,10 @@ export type CheckSummary = {
   failing: string[];
 };
 
+// A comment on a pull request. `bot` is true for GitHub Apps (Vercel, Netlify, ...), whose
+// comments are the only ones trusted for preview links.
+export type PrComment = { author: string; bot: boolean; body: string };
+
 export interface GitHubApi {
   repoBranch(i: number, owner: string, repo: string, branch: string): Promise<{ sha: string; protected: boolean } | null>;
   secretExists(i: number, owner: string, repo: string, name: string): Promise<boolean>;
@@ -46,6 +50,7 @@ export interface GitHubApi {
   listTree(i: number, owner: string, repo: string, ref: string): Promise<{ paths: string[]; truncated: boolean }>;
   commitsAhead(i: number, owner: string, repo: string, fromSha: string, toRef: string): Promise<number | null>;
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
+  listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
   getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
   putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
   listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
@@ -247,6 +252,16 @@ export const github: GitHubApi = {
   async listPrFiles(i, owner, repo, n) {
     const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
     return (j || []).map((f) => f.filename);
+  },
+  async listPrComments(i, owner, repo, n) {
+    try {
+      const j = await call<{ user: { login: string; type: string } | null; body: string | null }[]>(i, "GET", `/repos/${owner}/${repo}/issues/${n}/comments?per_page=100`, undefined, [404]);
+      return (j || []).map((c) => ({ author: c.user?.login ?? "", bot: c.user?.type === "Bot", body: c.body ?? "" }));
+    } catch (e) {
+      // Without the permission (or when rate limited) there is simply no preview link.
+      if (e instanceof GitHubError && !(e instanceof GitHubRateLimitError) && e.status === 403) return [];
+      throw e;
+    }
   },
   async getSecretsPublicKey(i, owner, repo) {
     const j = await call<{ key_id: string; key: string }>(i, "GET", `/repos/${owner}/${repo}/actions/secrets/public-key`);

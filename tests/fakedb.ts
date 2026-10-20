@@ -2,6 +2,7 @@
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 function matchValue(actual: unknown, cond: unknown): boolean {
+  if (cond === null) return actual == null; // a column that was never set reads as null, like Postgres
   if (cond && typeof cond === "object" && !(cond instanceof Date)) {
     const c = cond as Record<string, unknown>;
     if ("in" in c) return (c.in as unknown[]).includes(actual);
