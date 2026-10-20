@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
+import { cleanKind, cleanSeverity } from "@/lib/issues";
+import { cleanText } from "@/lib/support/sanitize";
 
 const STATUSES = ["new", "considering", "building", "done", "parked"];
 const PRIORITIES = ["none", "low", "medium", "high"];
@@ -37,6 +39,9 @@ export async function PATCH(
       blockedBy?: string[];
       closureNote?: string | null;
       closedAt?: Date | null;
+      kind?: string;
+      severity?: string | null;
+      repro?: string | null;
     } = {};
     if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
     if (body?.notes !== undefined) data.notes = body.notes ? String(body.notes) : null;
@@ -44,6 +49,17 @@ export async function PATCH(
     if (PRIORITIES.includes(body?.priority)) data.priority = body.priority;
     if (IMPACTS.includes(body?.impact)) data.impact = body.impact;
     if (COMPLEXITIES.includes(body?.complexity)) data.complexity = body.complexity;
+    const kind = cleanKind(body?.kind);
+    if (kind) {
+      data.kind = kind;
+      if (kind === "idea") { data.severity = null; data.repro = null; }
+    }
+    if ((data.kind ?? existing.kind) === "bug") {
+      const sev = cleanSeverity(body?.severity);
+      if (sev) data.severity = sev;
+      else if (data.kind === "bug" && !existing.severity) data.severity = "medium";
+      if (body?.repro !== undefined) data.repro = cleanText(body.repro, 4000) || null;
+    }
 
     // Free-text closure note; empty/whitespace stores null.
     if (body?.closureNote !== undefined) {

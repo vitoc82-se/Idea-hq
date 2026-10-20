@@ -1,3 +1,4 @@
+import { intro as planIntro, ideaBlock, structure as planStructure } from "@/lib/runs/plan-prompt";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
@@ -74,38 +75,15 @@ export async function POST(
     // produces a ready-to-paste BUILD PROMPT addressed to that agent, grounded in
     // the project's own context. Reasoning task run on demand, so it uses Claude
     // Opus 5 with room for adaptive thinking.
-    const promptText = `You write build prompts for an AI coding agent (Claude Code) that has full read/write access to the "${idea.project.name}" repo. No human writes code — the agent implements the whole feature and ships it. Your job: turn the backlog idea below into ONE self-contained prompt the owner can paste straight into the agent with no edits.
+    const promptText = `${planIntro(idea.kind, idea.project.name)}
 
 ${projectPromptContext(idea.project)}
 
 Follow the stack conventions, access-control, schema/migration rules and deploy flow described in the project context above — they differ per project, so do not assume any specific framework or deploy command that the context does not state. Prefer a feature branch, verify a build/typecheck before shipping, and keep data-model changes safe for that project's deploy process.
 
-The idea to build:
-Title: ${idea.title}
-Notes: ${idea.notes || "(none)"}
-AI scope estimate: ${idea.scope || "(not estimated)"}
-Effort: ${idea.complexity || "?"} · Value: ${idea.impact || "?"}
-${blockedByTitles.length ? `Depends on (build these first): ${blockedByTitles.join(", ")}` : ""}${epicNote}
+${ideaBlock(idea, blockedByTitles.length ? `Depends on (build these first): ${blockedByTitles.join(", ")}` : "", epicNote)}
 
-Write the prompt in Markdown, addressed directly to the agent in the imperative ("Add…", "Create…", "Update…"). Structure it as:
-
-# <short feature name>
-**Goal:** one or two sentences on the user-facing outcome.
-
-## Verify first
-Tell the agent to confirm the assumptions below against the actual code before writing anything, and to adapt if reality differs from the architecture doc (the doc can lag). Name the specific files/routes/models it should open to check (e.g. the relevant API route, the Prisma model, the page/component it will touch).
-
-## Context
-The few repo specifics that matter for THIS feature — which existing files/models/routes it builds on. Prefer extending what already exists over adding parallel systems; if a route or helper for this already exists, say so and reuse it.
-
-## Implementation
-A numbered, ordered list of concrete steps naming the exact files, Prisma models, API routes and components to add or change. Be specific to this codebase — no generic filler.
-
-## Data & deploy notes
-Any schema change and why it's db-push-safe (or flag the risk). Note the prisma generate + build + branch/merge/push steps to follow.
-
-## Acceptance criteria
-A checkbox list ("- [ ] …") of what "done" looks like, including that tsc and the build pass.
+${planStructure(idea.kind)}
 
 Rules: be concrete and specific to ${idea.project.name} and grounded in the project context above; do not invent files or endpoints that aren't in it, and never propose building something it says already exists. Prefer the smallest change that fully delivers the idea; if something is genuinely ambiguous, state a sensible default and proceed rather than asking. Output ONLY the prompt Markdown, no preamble or sign-off.`;
 

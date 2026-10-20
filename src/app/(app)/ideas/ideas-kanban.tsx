@@ -1,5 +1,6 @@
 "use client";
 
+import { KindBadge, ReportsChip } from "./kind-badge";
 import { useState } from "react";
 import Link from "next/link";
 import { Star, Link2, StickyNote } from "lucide-react";
@@ -109,6 +110,8 @@ export function KanbanBoard({
                     </Link>
                   </div>
                   <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                    <KindBadge idea={idea} />
+                    <ReportsChip count={idea._count?.tickets} />
                     {idea.priority !== "none" && (
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded-full ${PRIORITY_STYLES[idea.priority]}`}

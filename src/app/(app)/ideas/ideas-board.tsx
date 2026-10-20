@@ -1,6 +1,7 @@
 "use client";
 
 import { Notice } from "@/components/notice";
+import { KindBadge, ReportsChip } from "./kind-badge";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -44,13 +45,14 @@ import {
   tagStyle,
 } from "./ideas-shared";
 
-type SortKey = "newest" | "priority" | "effort" | "quickwins";
+type SortKey = "newest" | "priority" | "effort" | "quickwins" | "reports";
 
 const SORTS: { value: SortKey; label: string }[] = [
   { value: "newest", label: "Newest" },
   { value: "priority", label: "Priority" },
   { value: "effort", label: "Least effort" },
   { value: "quickwins", label: "Quick wins first" },
+  { value: "reports", label: "Most reported" },
 ];
 
 export function IdeasBoard() {
@@ -60,7 +62,7 @@ export function IdeasBoard() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
-  const [form, setForm] = useState({ title: "", notes: "", priority: "none", projectId: "" });
+  const [form, setForm] = useState({ title: "", notes: "", priority: "none", projectId: "", kind: "idea", severity: "medium", repro: "" });
 
   // Filter / sort / search state
   const [search, setSearch] = useState("");
@@ -68,6 +70,7 @@ export function IdeasBoard() {
   const [fStatus, setFStatus] = useState("all");
   const [fPriority, setFPriority] = useState("all");
   const [fComplexity, setFComplexity] = useState("all");
+  const [fKind, setFKind] = useState("all");
   const [fTag, setFTag] = useState("all");
   const [quickOnly, setQuickOnly] = useState(false);
   const [openOnly, setOpenOnly] = useState(false);
@@ -140,7 +143,7 @@ export function IdeasBoard() {
   // first project — so the common case needs zero clicks.
   const openForm = () => {
     const def = fProject !== "all" ? fProject : projects[0]?.id || "";
-    setForm({ title: "", notes: "", priority: "none", projectId: def });
+    setForm({ title: "", notes: "", priority: "none", projectId: def, kind: "idea", severity: "medium", repro: "" });
     setShowForm(true);
   };
 
@@ -157,11 +160,13 @@ export function IdeasBoard() {
           notes: form.notes || undefined,
           priority: form.priority,
           projectId: form.projectId,
+          kind: form.kind,
+          ...(form.kind === "bug" ? { severity: form.severity, repro: form.repro || undefined } : {}),
         }),
       });
       if (res.ok) {
         const created: Idea = await res.json();
-        setForm({ title: "", notes: "", priority: "none", projectId: "" });
+        setForm({ title: "", notes: "", priority: "none", projectId: "", kind: "idea", severity: "medium", repro: "" });
         setShowForm(false);
         setIdeas((prev) => [created, ...prev]);
         // Kick off the AI estimate in the background; it fills in on next load
@@ -264,6 +269,11 @@ export function IdeasBoard() {
               valueEffortScore(b) - valueEffortScore(a) ||
               +new Date(b.createdAt) - +new Date(a.createdAt)
             );
+          case "reports":
+            return (
+              (b._count?.tickets ?? 0) - (a._count?.tickets ?? 0) ||
+              +new Date(b.createdAt) - +new Date(a.createdAt)
+            );
           default:
             return +new Date(b.createdAt) - +new Date(a.createdAt);
         }
@@ -279,6 +289,7 @@ export function IdeasBoard() {
       if (fProject !== "all" && i.projectId !== fProject) return false;
       if (fPriority !== "all" && i.priority !== fPriority) return false;
       if (fComplexity !== "all" && i.complexity !== fComplexity) return false;
+      if (fKind !== "all" && (i.kind || "idea") !== fKind) return false;
       if (fTag !== "all" && !i.tags.includes(fTag)) return false;
       if (quickOnly && !isQuickWin(i)) return false;
       if (openOnly && (i.status === "done" || i.status === "parked")) return false;
@@ -288,7 +299,7 @@ export function IdeasBoard() {
       }
       return true;
     });
-  }, [ideas, search, fProject, fPriority, fComplexity, fTag, quickOnly, openOnly]);
+  }, [ideas, search, fProject, fPriority, fComplexity, fKind, fTag, quickOnly, openOnly]);
 
   // List view also honors the status filter and the sort order.
   const visible = useMemo(() => {
@@ -307,6 +318,7 @@ export function IdeasBoard() {
     fStatus !== "all" ||
     fPriority !== "all" ||
     fComplexity !== "all" ||
+    fKind !== "all" ||
     fTag !== "all" ||
     quickOnly ||
     openOnly;
@@ -317,6 +329,7 @@ export function IdeasBoard() {
     setFStatus("all");
     setFPriority("all");
     setFComplexity("all");
+    setFKind("all");
     setFTag("all");
     setQuickOnly(false);
     setOpenOnly(false);
@@ -402,8 +415,19 @@ export function IdeasBoard() {
                   ))}
                 </Select>
               </div>
+              <fieldset>
+                <legend className="text-sm font-medium text-gray-900 dark:text-white">What is it?</legend>
+                <div className="mt-1.5 flex flex-wrap gap-4">
+                  {[["idea", "An idea"], ["bug", "A bug"]].map(([v, l]) => (
+                    <label key={v} className="flex min-h-[44px] items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <input type="radio" name="kind" className="h-5 w-5" checked={form.kind === v} onChange={() => setForm({ ...form, kind: v })} />
+                      {l}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div>
-                <Label htmlFor="title">Idea</Label>
+                <Label htmlFor="title">{form.kind === "bug" ? "What is wrong?" : "Idea"}</Label>
                 <Input
                   id="title"
                   value={form.title}
@@ -424,6 +448,22 @@ export function IdeasBoard() {
                   className="mt-1.5"
                 />
               </div>
+              {form.kind === "bug" && (
+                <>
+                  <div>
+                    <Label htmlFor="repro">Steps to reproduce (the more exact, the better the fix)</Label>
+                    <Textarea id="repro" value={form.repro} onChange={(e) => setForm({ ...form, repro: e.target.value })} placeholder={"1. Open the login page\n2. Press Sign in\n3. Nothing happens"} className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label htmlFor="severity">How bad is it?</Label>
+                    <Select id="severity" value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })} className="mt-1.5 w-full sm:w-48">
+                      <option value="low">Minor</option>
+                      <option value="medium">Normal</option>
+                      <option value="high">Serious</option>
+                    </Select>
+                  </div>
+                </>
+              )}
               <div>
                 <Label htmlFor="priority">Priority</Label>
                 <Select
@@ -440,7 +480,7 @@ export function IdeasBoard() {
                 </Select>
               </div>
               <Button type="submit" disabled={submitting || !form.projectId} className="w-full">
-                {submitting ? "Saving..." : "Save idea"}
+                {submitting ? "Saving..." : form.kind === "bug" ? "Save bug" : "Save idea"}
               </Button>
               <p className="text-xs text-gray-400 dark:text-gray-500">
                 After you save, the AI estimates complexity, value and
@@ -607,6 +647,16 @@ export function IdeasBoard() {
                   {p.label}
                 </option>
               ))}
+            </Select>
+            <Select
+              value={fKind}
+              onChange={(e) => setFKind(e.target.value)}
+              className="w-auto text-sm"
+              aria-label="Filter by type"
+            >
+              <option value="all">Ideas and bugs</option>
+              <option value="idea">Ideas only</option>
+              <option value="bug">Bugs only</option>
             </Select>
             <Select
               value={fComplexity}
@@ -808,6 +858,8 @@ function IdeaRow({
             <h3 className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
               {idea.title}
             </h3>
+            <KindBadge idea={idea} />
+            <ReportsChip count={idea._count?.tickets} />
             {idea.priority !== "none" && (
               <span
                 className={`text-xs px-2 py-0.5 rounded-full ${PRIORITY_STYLES[idea.priority]}`}

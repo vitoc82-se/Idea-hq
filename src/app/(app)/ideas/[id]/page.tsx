@@ -75,6 +75,9 @@ export default async function IdeaDetailPage({
     plannedAt: record.plannedAt ? record.plannedAt.toISOString() : null,
     closureNote: record.closureNote,
     closedAt: record.closedAt ? record.closedAt.toISOString() : null,
+    kind: record.kind,
+    severity: record.severity,
+    repro: record.repro,
     createdAt: record.createdAt.toISOString(),
   };
 

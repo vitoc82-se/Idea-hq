@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
+import { cleanKind, cleanSeverity } from "@/lib/issues";
+import { cleanText } from "@/lib/support/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,7 @@ const PRIORITIES = ["none", "low", "medium", "high"];
 const withProject = {
   include: {
     project: { select: { name: true, color: true } },
-    _count: { select: { children: true } },
+    _count: { select: { children: true, tickets: true } },
   },
 } as const;
 
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A title is required" }, { status: 400 });
     }
 
+    const kind = cleanKind(body?.kind) ?? "idea";
     const projectId = String(body?.projectId ?? "").trim();
     if (!projectId) {
       return NextResponse.json(
@@ -74,6 +77,7 @@ export async function POST(request: Request) {
         notes: body?.notes ? String(body.notes) : null,
         status: STATUSES.includes(body?.status) ? body.status : "new",
         priority: PRIORITIES.includes(body?.priority) ? body.priority : "none",
+        ...(kind === "bug" ? { kind: "bug", severity: cleanSeverity(body?.severity) ?? "medium", repro: cleanText(body?.repro, 4000) || null } : {}),
       },
       ...withProject,
     });

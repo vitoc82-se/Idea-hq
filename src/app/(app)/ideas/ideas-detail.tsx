@@ -43,6 +43,8 @@ import {
 } from "./ideas-shared";
 import { StoriesSection } from "./ideas-stories";
 import { Notice } from "@/components/notice";
+import { KindBadge } from "./kind-badge";
+import { ReportsPanel } from "./reports-panel";
 import { RunPanel } from "./run-panel";
 
 export function IdeaDetail({
@@ -64,6 +66,9 @@ export function IdeaDetail({
   const [editForm, setEditForm] = useState({
     title: initial.title,
     notes: initial.notes || "",
+    kind: initial.kind || "idea",
+    severity: initial.severity || "medium",
+    repro: initial.repro || "",
   });
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -154,7 +159,7 @@ export function IdeaDetail({
   }, [initial.id]);
 
   const startEdit = () => {
-    setEditForm({ title: idea.title, notes: idea.notes || "" });
+    setEditForm({ title: idea.title, notes: idea.notes || "", kind: idea.kind || "idea", severity: idea.severity || "medium", repro: idea.repro || "" });
     setEditing(true);
   };
 
@@ -162,14 +167,16 @@ export function IdeaDetail({
     const title = editForm.title.trim();
     if (!title) return;
     const notes = editForm.notes.trim() || null;
+    const repro = editForm.kind === "bug" ? editForm.repro.trim() || null : null;
+    const severity = editForm.kind === "bug" ? editForm.severity : null;
     const changed = title !== idea.title || notes !== (idea.notes || null);
     setSaving(true);
-    setIdea((prev) => ({ ...prev, title, notes }));
+    setIdea((prev) => ({ ...prev, title, notes, kind: editForm.kind, severity, repro }));
     try {
       const res = await fetch(`/api/ideas/${initial.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, notes }),
+        body: JSON.stringify({ title, notes, kind: editForm.kind, ...(editForm.kind === "bug" ? { severity, repro: repro ?? "" } : {}) }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
@@ -278,6 +285,17 @@ export function IdeaDetail({
                   className="mt-1.5"
                 />
               </div>
+              <fieldset>
+                <legend className="text-sm font-medium text-gray-900 dark:text-white">What is it?</legend>
+                <div className="mt-1.5 flex flex-wrap gap-4">
+                  {[["idea", "An idea"], ["bug", "A bug"]].map(([v, l]) => (
+                    <label key={v} className="flex min-h-[44px] items-center gap-2 text-sm text-gray-900 dark:text-white">
+                      <input type="radio" name="edit-kind" className="h-5 w-5" checked={editForm.kind === v} onChange={() => setEditForm({ ...editForm, kind: v })} />
+                      {l}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div>
                 <Label htmlFor="edit-notes">Notes</Label>
                 <Textarea
@@ -290,6 +308,22 @@ export function IdeaDetail({
                   className="mt-1.5 min-h-[120px]"
                 />
               </div>
+              {editForm.kind === "bug" && (
+                <>
+                  <div>
+                    <Label htmlFor="edit-repro">Steps to reproduce</Label>
+                    <Textarea id="edit-repro" value={editForm.repro} onChange={(e) => setEditForm({ ...editForm, repro: e.target.value })} className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-severity">How bad is it?</Label>
+                    <Select id="edit-severity" value={editForm.severity} onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })} className="mt-1.5 w-full sm:w-48">
+                      <option value="low">Minor</option>
+                      <option value="medium">Normal</option>
+                      <option value="high">Serious</option>
+                    </Select>
+                  </div>
+                </>
+              )}
               <div className="flex gap-2">
                 <Button type="submit" size="sm" disabled={saving}>
                   <Check className="w-4 h-4 mr-1" />
@@ -321,6 +355,7 @@ export function IdeaDetail({
                         <Star className="w-3 h-3" /> Quick win
                       </span>
                     )}
+                    <KindBadge idea={idea} />
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${
                         STATUS_STYLES[idea.status] || STATUS_STYLES.new
@@ -391,6 +426,19 @@ export function IdeaDetail({
                     </p>
                   ))}
               </div>
+
+              {idea.kind === "bug" && (
+                <div>
+                  <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Steps to reproduce</h2>
+                  {idea.repro ? (
+                    <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap mt-1">{idea.repro}</p>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400 italic mt-1">No steps yet. Add them with Edit: the AI fixes bugs it can reproduce much more reliably.</p>
+                  )}
+                </div>
+              )}
+
+              <ReportsPanel ideaId={idea.id} status={idea.status} />
 
               {/* Tags */}
               <div>

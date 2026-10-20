@@ -981,3 +981,37 @@ describe("preview link", () => {
     expect(t.tables.run[0].previewUrl ?? null).toBeNull();
   });
 });
+
+// ---- Bugs ----------------------------------------------------------------------
+describe("bug runs", () => {
+  it("the AI is told it is a bug fix: failing test first, change nothing if it cannot reproduce", async () => {
+    t.tables.idea[0].kind = "bug";
+    await dispatchedRun();
+    expect(gh.state.lastInputs.prompt).toMatch(/fixing a bug/);
+    expect(gh.state.lastInputs.prompt).toMatch(/BUG FIX/);
+  });
+  it("an ordinary idea is not told that", async () => {
+    await dispatchedRun();
+    expect(gh.state.lastInputs.prompt).not.toMatch(/BUG FIX/);
+  });
+  it("when it changes nothing, a bug says it could not reproduce it, and the credit comes back", async () => {
+    process.env.OWNER_EMAIL = "boss@x.se";
+    process.env.PAYWALL_ENABLED = "1";
+    t.tables.user.find((u) => u.id === "u1")!.email = "friend@x.se";
+    t.tables.user.find((u) => u.id === "u1")!.aiCredits = 1;
+    t.tables.idea[0].kind = "bug";
+    await dispatchedRun();
+    gh.state.branches["idea-hq/RUN1"].sha = "base1"; // same as main: nothing was changed
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "nochange", deps());
+    delete process.env.PAYWALL_ENABLED;
+    expect(t.tables.run[0].status).toBe("failed");
+    expect(t.tables.run[0].error).toMatch(/could not reproduce the bug/);
+    expect(t.tables.user.find((u) => u.id === "u1")!.aiCredits).toBe(1);
+  });
+  it("an idea that changes nothing keeps the old message", async () => {
+    await dispatchedRun();
+    gh.state.branches["idea-hq/RUN1"].sha = "base1";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "nochange2", deps());
+    expect(t.tables.run[0].error).toBe("The AI made no changes.");
+  });
+});

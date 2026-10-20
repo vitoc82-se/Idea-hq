@@ -14,6 +14,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     select: {
       id: true, number: true, status: true, subject: true, customerEmail: true, customerName: true, fields: true, aiAnswered: true,
       unread: true, createdAt: true, lastActivityAt: true, projectId: true, project: { select: { name: true } },
+      ideaId: true, idea: { select: { id: true, title: true, kind: true, status: true } },
       messages: { orderBy: { createdAt: "asc" }, select: { id: true, author: true, body: true, createdAt: true, emailedAt: true } },
     },
   });

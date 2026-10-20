@@ -225,7 +225,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   });
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
   if (run.ideaId) await db.idea.updateMany({ where: { id: run.ideaId, userId }, data: { status: "building" } });
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", testCommand: p.testCommand }), tier, gh, wfVersion);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", kind: run.idea?.kind, plan: run.plan || "", testCommand: p.testCommand }), tier, gh, wfVersion);
   return fresh;
 }
 
@@ -252,7 +252,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   // A revision keeps the tier the run started with.
   const rec = await recommendForRun(run);
   const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns }, run.provider ?? p.aiProvider);
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh, wfVersion);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", kind: run.idea?.kind, plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh, wfVersion);
   return fresh;
 }
 
@@ -572,7 +572,7 @@ async function processEvent(event: string, payload: Payload, gh: GitHubApi): Pro
   return "ignored";
 }
 
-async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { title: string } | null }, wr: Payload, gh: GitHubApi) {
+async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { title: string; kind?: string } | null }, wr: Payload, gh: GitHubApi) {
   if (isTerminal(run.status)) return "ignored";
   const ok = wr.conclusion === "success";
   const { i, owner, repo } = repoOf(run.project);
@@ -602,7 +602,7 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   }
   const base0 = await gh.repoBranch(i, owner, repo, base);
   if (base0 && base0.sha === head) {
-    await transition(run, "failed", { error: isLearn ? "The AI did not write the knowledge file." : "The AI made no changes.", finishedAt: new Date() });
+    await transition(run, "failed", { error: isLearn ? "The AI did not write the knowledge file." : run.idea?.kind === "bug" ? "The AI could not reproduce the bug, so it changed nothing. Add clearer steps to reproduce and try again." : "The AI made no changes.", finishedAt: new Date() });
     if (!isLearn) await remember(run, "gotcha", `An attempt at "${run.idea?.title || "a change"}" made no changes. The idea may need to be more specific.`);
     return "failed";
   }

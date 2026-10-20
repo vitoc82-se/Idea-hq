@@ -5,7 +5,7 @@ export interface Idea {
   projectId: string;
   parentId: string | null;
   project?: { name: string; color: string | null } | null;
-  _count?: { children: number }; // number of child stories (an idea with >0 is an "epic")
+  _count?: { children: number; tickets?: number }; // child stories (an idea with >0 is an "epic"), and linked support tickets
   title: string;
   notes: string | null;
   status: string;
@@ -20,6 +20,9 @@ export interface Idea {
   plannedAt: string | null;
   closureNote: string | null;
   closedAt: string | null;
+  kind: string; // idea | bug
+  severity: string | null; // bugs only
+  repro: string | null; // bugs only: steps to reproduce
   createdAt: string;
 }
 

@@ -166,12 +166,18 @@ model Idea {
   // idea moves to done. Preserved if it later moves off done; closedAt is cleared.
   closureNote   String?   @db.Text
   closedAt      DateTime?
+  // Bugs reuse the idea board: same plan and build flow, a different start and a different job for the AI.
+  kind          String    @default("idea") // idea | bug
+  severity      String?   // bugs only: low | medium | high
+  repro         String?   @db.Text // bugs only: steps to reproduce
+  customersNotifiedAt DateTime? // when the owner told the customers who reported it that it shipped
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   runs     Run[]
+  tickets  Ticket[]
   parent   Idea?   @relation("IdeaChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children Idea[]  @relation("IdeaChildren")
 
@@ -302,15 +308,18 @@ model Ticket {
   tokenHash      String    @unique         // sha256 of the customer's private link token
   lastActivityAt DateTime  @default(now())
   closedAt       DateTime?     // set when resolved or closed; retention counts from here
+  ideaId         String?       // the bug or idea this ticket was turned into (many tickets can share one)
   createdAt      DateTime  @default(now())
 
   project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  idea     Idea?           @relation(fields: [ideaId], references: [id], onDelete: SetNull)
   messages TicketMessage[]
 
   @@unique([projectId, number])
   @@index([projectId, status])
   @@index([projectId, customerEmail])
   @@index([projectId, closedAt])
+  @@index([ideaId])
 }
 
 model TicketMessage {

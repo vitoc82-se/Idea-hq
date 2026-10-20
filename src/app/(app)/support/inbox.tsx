@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { IssuePanel } from "./issue-panel";
 import { OWNER_STATUS_LABEL, STATUSES, type TicketStatus } from "@/lib/support/constants";
 
 type Item = {
@@ -19,6 +20,7 @@ type Msg = { id: string; author: "customer" | "owner" | "ai"; body: string; crea
 type Detail = {
   id: string; number: number; status: TicketStatus; subject: string; customerEmail: string; customerName: string | null;
   fields: { id: string; label: string; value: string }[]; aiAnswered: boolean; projectName: string; messages: Msg[];
+  idea: { id: string; title: string; kind: string; status: string } | null;
 };
 
 const FILTERS = [
@@ -83,6 +85,12 @@ export function Inbox() {
     setDetail((await res.json()).ticket);
     setItems((prev) => prev && prev.map((i) => (i.id === id ? { ...i, unread: false } : i)));
   }, []);
+
+  // Reload just the ticket (keeps a half-written reply and the banner as they are).
+  const refreshDetail = async (id: string) => {
+    const res = await fetch(`/api/tickets/${id}`, { cache: "no-store" });
+    if (res.ok) setDetail((await res.json()).ticket);
+  };
 
   const send = async () => {
     if (!detail || !reply.trim() || sending) return;
@@ -264,6 +272,8 @@ export function Inbox() {
                   {banner.text} {banner.retry && <button className="font-semibold underline" onClick={resend}>Try sending the email again</button>}
                 </p>
               )}
+
+              <IssuePanel ticketId={detail.id} linked={detail.idea} onChanged={() => refreshDetail(detail.id)} />
 
               <div className="mt-4">
                 <Label htmlFor="reply">Your reply</Label>
