@@ -68,7 +68,7 @@ describe("getSetupStatus", () => {
   });
 
   describe("an optional workflow update", () => {
-    const older = `# idea-hq-workflow-version: ${WORKFLOW_VERSION - 1}\nname: Idea HQ`;
+    const older = `# idea-hq-workflow-version: 5\nname: Idea HQ`; // (6 was published broken and counts as no workflow)
     const withPr = (pr: { number: number; state: string } | null) => ({ ...gh, getPr: async () => { if (!pr) throw new Error("gone"); return pr; } });
     beforeEach(() => {
       t.tables.githubInstallation.push({ userId: "u1", id: 5 });
@@ -81,7 +81,7 @@ describe("getSetupStatus", () => {
       const s = await getSetupStatus("u1", "p1", { gh: withPr(null), fresh: true });
       expect(s.workflowUpdateAvailable).toBe(true);
       expect(ids(s).workflow).toBe("done");
-      expect(t.tables.project[0].workflowVersionSeen).toBe(WORKFLOW_VERSION - 1);
+      expect(t.tables.project[0].workflowVersionSeen).toBe(5);
     });
     it("links the pull request when the update is already waiting on GitHub", async () => {
       const s = await getSetupStatus("u1", "p1", { gh: withPr({ number: 9, state: "open" }), fresh: true });

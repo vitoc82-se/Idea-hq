@@ -1,4 +1,4 @@
-# idea-hq-workflow-version: 6
+# idea-hq-workflow-version: 7
 name: Idea HQ
 run-name: ${{ format('idea-hq {0}', inputs.run_id) }}
 
@@ -139,12 +139,10 @@ jobs:
           # prefix on every line, so nothing in it can act as a workflow command; Idea HQ reads it back from the log.
           NOTE=""
           if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
-            NOTE=$(jq -r '([.[] | select(.type=="result")] | last | .result // empty) // ([.[] | select(.type=="assistant")] | last | [.message.content[]? | select(.type=="text") | .text] | join("
-"))' "$EXEC_FILE" 2>/dev/null || true)
+            NOTE=$(jq -r '([.[] | select(.type=="result")] | last | .result // empty) // ([.[] | select(.type=="assistant")] | last | [.message.content[]? | select(.type=="text") | .text] | join("\n"))' "$EXEC_FILE" 2>/dev/null || true)
           fi
           [ -n "$NOTE" ] || NOTE="$CODEX_NOTE"
-          if [ -n "$NOTE" ]; then printf '%s
-' "$NOTE" | head -c 4000 | sed 's/^/IDEAHQ-NOTE| /'; fi
+          if [ -n "$NOTE" ]; then printf '%s\n' "$NOTE" | head -c 4000 | sed 's/^/IDEAHQ-NOTE| /'; fi
           STATE=success
           [ "$AGENT_OK" = "true" ] || STATE=failure
           [ -z "$FAILED" ] || STATE=failure

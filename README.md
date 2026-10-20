@@ -100,3 +100,6 @@ New accounts are locked out until the owner approves them under **Users**. The o
 - Sign-in and sign-up have brakes (`src/lib/auth-limits.ts`, counters in the shared `RateBucket` table): 8 wrong passwords per address+email per 15 minutes, 40 per address, 100 per email per hour; 5 sign-ups per address and 3 tries per email per hour. A "too many attempts" answer comes before any password is hashed. Unknown emails still spend a bcrypt check, so timing does not reveal who has an account. Passwords are 8 to 72 bytes.
 - Sign-up needs the Cloudflare Turnstile check (`TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`; fails closed in production). `REGISTER_CAPTCHA=off` is the emergency switch if Turnstile is down.
 - Sign-up emails a signed link (`src/lib/email-verification.ts`, 3 days, tied to the exact address, confirmed with a button/POST). The owner is asked before approving someone who has not confirmed (Google sign-in counts as confirmed).
+
+## Workflow versions
+`src/lib/runs/workflow.ts` writes the GitHub Actions file into each project (`WORKFLOW_VERSION`). `tests/workflow-yaml.test.ts` parses every generated variant, because version 6 shipped with invalid YAML and GitHub mailed a failure on every push. A version known to be broken goes in `BROKEN_WORKFLOW_VERSIONS`: such a project counts as having no usable workflow and is asked to update.
