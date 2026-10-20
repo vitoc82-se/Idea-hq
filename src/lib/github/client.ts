@@ -51,6 +51,7 @@ export interface GitHubApi {
   commitsAhead(i: number, owner: string, repo: string, fromSha: string, toRef: string): Promise<number | null>;
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
   listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
+  failedStep(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
   getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
   putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
   listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
@@ -252,6 +253,14 @@ export const github: GitHubApi = {
   async listPrFiles(i, owner, repo, n) {
     const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
     return (j || []).map((f) => f.filename);
+  },
+  async failedStep(i, owner, repo, ghRunId) {
+    const j = await call<{ jobs: { steps?: { name: string; conclusion: string | null }[] }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=10`, undefined, [404]);
+    for (const job of j?.jobs ?? []) {
+      const bad = (job.steps ?? []).find((s) => s.conclusion === "failure");
+      if (bad) return bad.name;
+    }
+    return null;
   },
   async listPrComments(i, owner, repo, n) {
     try {

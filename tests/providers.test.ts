@@ -76,8 +76,8 @@ describe("registry", () => {
 describe("workflow v4", () => {
   const wf = buildWorkflow({ appSlug: "idea-hq-niklas" });
   it("is version 4 with a provider input defaulting to Claude, and a per-run time limit", () => {
-    expect(WORKFLOW_VERSION).toBe(4);
-    expect(wf).toContain("# idea-hq-workflow-version: 4");
+    expect(WORKFLOW_VERSION).toBe(5);
+    expect(wf).toContain(`# idea-hq-workflow-version: ${WORKFLOW_VERSION}`);
     expect(wf).toMatch(/provider:\n\s+description:[^\n]*\n\s+required: false\n\s+default: "claude"/);
     expect(wf).toContain("timeout_minutes:");
     expect(wf).toContain("timeout-minutes: ${{ fromJSON(inputs.timeout_minutes ||");

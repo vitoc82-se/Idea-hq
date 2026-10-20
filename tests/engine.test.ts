@@ -47,6 +47,7 @@ function fakeGh(): typeof gh {
     commitsAhead: async () => 0,
     listPrFiles: async () => [],
     listPrComments: async () => state.comments ?? [],
+    failedStep: async () => state.failedStep ?? null,
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
   };
@@ -418,7 +419,7 @@ describe("webhooks", () => {
     await dispatchedRun();
     await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "d8", deps());
     expect(t.tables.run[0].status).toBe("failed");
-    expect(t.tables.run[0].error).toMatch(/failure/);
+    expect(t.tables.run[0].error).toMatch(/The workflow failed/);
   });
 
   it("fails the run when no branch was pushed or nothing changed", async () => {
@@ -1037,5 +1038,37 @@ describe("changelog draft on merge", () => {
     await prOpenRun();
     await cancelRun("u1", "RUN1", deps());
     expect(t.tables.changelogEntry).toHaveLength(0);
+  });
+});
+
+// ---- Why a workflow failed ----------------------------------------------------------
+describe("workflow failure message", () => {
+  it("names the step and tells the person what to do when dependencies would not install", async () => {
+    await dispatchedRun();
+    gh.state.failedStep = "Install dependencies";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure", html_url: "https://github.com/acme/app/actions/runs/9" }), "f1", deps());
+    const err = String(t.tables.run[0].error);
+    expect(err).toMatch(/The workflow failed at the step "Install dependencies"/);
+    expect(err).toMatch(/package-lock\.json/);
+    expect(err).toContain("https://github.com/acme/app/actions/runs/9");
+  });
+  it("points at the API key when the AI step fails", async () => {
+    await dispatchedRun();
+    gh.state.failedStep = "Run Claude Code";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "f2", deps());
+    expect(String(t.tables.run[0].error)).toMatch(/ANTHROPIC_API_KEY/);
+  });
+  it("still gives a sensible sentence when GitHub cannot say which step, or the run was cancelled", async () => {
+    await dispatchedRun();
+    gh.state.failedStep = null;
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "cancelled" }), "f3", deps());
+    expect(String(t.tables.run[0].error)).toMatch(/^The workflow was cancelled\. Details: /);
+  });
+  it("a lookup that errors never hides the failure", async () => {
+    await dispatchedRun();
+    gh.failedStep = async () => { throw new Error("rate limited"); };
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "f4", deps());
+    expect(t.tables.run[0].status).toBe("failed");
+    expect(String(t.tables.run[0].error)).toMatch(/^The workflow failed\. Details: /);
   });
 });

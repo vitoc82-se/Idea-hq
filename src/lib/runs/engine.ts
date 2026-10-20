@@ -19,6 +19,7 @@ import { aiBuildAllowed } from "../access";
 import { notifyRunEvent } from "../notify";
 import { capState, capMessage } from "../spend";
 import { previewUrlFrom, PREVIEW_RECHECK_MS } from "../preview";
+import { workflowFailureMessage } from "./failure";
 
 export class RunError extends Error {
   constructor(public status: number, message: string) {
@@ -584,9 +585,11 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   const { i, owner, repo } = repoOf(run.project);
 
   if (!ok) {
+    // Name the step that broke, so the person is told what to fix instead of "it failed".
+    const step = await gh.failedStep(i, owner, repo, String(wr.id)).catch(() => null);
     await transition(run, "failed", {
       ghRunId: String(wr.id),
-      error: `The workflow ${wr.conclusion || "did not finish"}. See ${wr.html_url || "the Actions tab"}.`,
+      error: workflowFailureMessage(wr.conclusion, step, wr.html_url),
       finishedAt: new Date(),
     });
     return "failed";

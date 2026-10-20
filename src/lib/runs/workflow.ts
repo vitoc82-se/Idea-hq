@@ -15,13 +15,15 @@ import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from
 
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
-export const WORKFLOW_VERSION = 4;
+export const WORKFLOW_VERSION = 5; // 5: a lock file that is out of sync no longer kills the run
 // Claude runs only need the v3 inputs; the provider and timeout inputs arrived
 // with v4. So a repo still on v3 keeps working for Claude and is only asked to
 // update when its project switches to another provider.
 export const MIN_WORKFLOW_VERSION = 3;
+// Other providers need the v4 inputs. Later versions are improvements, offered but never forced.
+export const PROVIDER_MIN_WORKFLOW_VERSION = 4;
 export function requiredWorkflowVersion(providerId: string | null | undefined): number {
-  return providerId && providerId !== "claude" ? WORKFLOW_VERSION : MIN_WORKFLOW_VERSION;
+  return providerId && providerId !== "claude" ? PROVIDER_MIN_WORKFLOW_VERSION : MIN_WORKFLOW_VERSION;
 }
 export const VERSION_MARKER = "# idea-hq-workflow-version:";
 
@@ -139,9 +141,14 @@ jobs:
         with:
           node-version: 20
 
+      # Best effort: a lock file that is out of sync with package.json (a common repo problem)
+      # must not stop the AI from making a change. The Verify step below reports what broke.
       - name: Install dependencies
         if: \${{ hashFiles('package-lock.json') != '' }}
-        run: npm ci
+        continue-on-error: true
+        run: |
+          npm ci || npm install --no-audit --no-fund
+          git checkout -- package-lock.json 2>/dev/null || true
 
 ${agentSteps}
       - name: Verify (build and tests)

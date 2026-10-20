@@ -141,3 +141,13 @@ describe("appJwt", () => {
     expect(crypto.createVerify("RSA-SHA256").update(`${h}.${p}`).verify(publicKey, Buffer.from(s, "base64url"))).toBe(true);
   });
 });
+
+describe("workflow template: dependency install", () => {
+  const wf = buildWorkflow({ buildCommand: "npm run build", testCommand: "npm test" } as never);
+  it("falls back to npm install, restores the lock file, and cannot stop the run", () => {
+    const step = wf.slice(wf.indexOf("- name: Install dependencies"), wf.indexOf("- name: Run Claude Code"));
+    expect(step).toMatch(/continue-on-error: true/);
+    expect(step).toMatch(/npm ci \|\| npm install --no-audit --no-fund/);
+    expect(step).toMatch(/git checkout -- package-lock\.json/);
+  });
+});
