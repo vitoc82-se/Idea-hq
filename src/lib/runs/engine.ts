@@ -324,6 +324,7 @@ async function ingestLearn(run: { userId: string; projectId: string; branch: str
     let k = mergeAiSections(loaded.knowledge, parsed, "learn-run");
     k = { ...k, learnedSha: baseHead?.sha ?? k.learnedSha, learnedAt: new Date().toISOString() };
     await saveKnowledge(run.userId, run.projectId, k);
+    await db.project.update({ where: { id: run.projectId }, data: { knowledgeBehind: 0, freshnessCheckedAt: new Date() } }).catch(() => undefined);
   } catch (e) {
     console.error("learn ingest failed", e);
   }
@@ -583,6 +584,8 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   if (isTerminal(run.status)) return "ignored";
   const ok = wr.conclusion === "success";
   const { i, owner, repo } = repoOf(run.project);
+  // What the AI said at the end, when the workflow passed it back (workflow v6). Never blocks the run.
+  const note = await gh.runNote(i, owner, repo, String(wr.id)).catch(() => null);
 
   if (!ok) {
     // Name the step that broke, so the person is told what to fix instead of "it failed".
@@ -590,6 +593,7 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
     await transition(run, "failed", {
       ghRunId: String(wr.id),
       error: workflowFailureMessage(wr.conclusion, step, wr.html_url),
+      agentNote: note,
       finishedAt: new Date(),
     });
     return "failed";
@@ -598,7 +602,7 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   if (run.prNumber) {
     // Revision: same PR, new commit.
     const pr = await gh.getPr(i, owner, repo, run.prNumber);
-    await transition(run, "pr_open", { headSha: pr.headSha, checksState: "pending", ghRunId: String(wr.id) });
+    await transition(run, "pr_open", { headSha: pr.headSha, checksState: "pending", ghRunId: String(wr.id), agentNote: note });
     await recomputeChecks({ ...run, status: "pr_open", prNumber: run.prNumber, headSha: pr.headSha }, gh);
     return "revised";
   }
@@ -606,12 +610,12 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   const branch = await gh.repoBranch(i, owner, repo, run.branch!);
   const head = branch?.sha;
   if (!head) {
-    await transition(run, "failed", { error: "The workflow finished but pushed no branch.", finishedAt: new Date() });
+    await transition(run, "failed", { error: "The workflow finished but pushed no branch.", agentNote: note, finishedAt: new Date() });
     return "failed";
   }
   const base0 = await gh.repoBranch(i, owner, repo, base);
   if (base0 && base0.sha === head) {
-    await transition(run, "failed", { error: isLearn ? "The AI did not write the knowledge file." : run.idea?.kind === "bug" ? "The AI could not reproduce the bug, so it changed nothing. Add clearer steps to reproduce and try again." : "The AI made no changes.", finishedAt: new Date() });
+    await transition(run, "failed", { error: isLearn ? "The AI did not write the knowledge file." : run.idea?.kind === "bug" ? "The AI could not reproduce the bug, so it changed nothing. Add clearer steps to reproduce and try again." : "The AI made no changes.", agentNote: note, finishedAt: new Date() });
     if (!isLearn) await remember(run, "gotcha", `An attempt at "${run.idea?.title || "a change"}" made no changes. The idea may need to be more specific.`);
     return "failed";
   }
@@ -622,9 +626,9 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
     title: isLearn ? "Add project knowledge (Idea HQ)" : run.idea?.title || "Idea HQ change",
     body: isLearn
       ? `Idea HQ explored this repository and wrote down what it learned in ${KNOWLEDGE_FILE}, so people and AI tools starting work here begin with the same understanding. Review it, fix anything wrong, then merge.`
-      : `Implemented by Idea HQ (run ${run.id}).\n\nPlan:\n\n${run.plan || ""}`.slice(0, 60000),
+      : `Implemented by Idea HQ (run ${run.id}).${note ? `\n\nWhat the AI said:\n\n${note.split("\n").map((l) => `> ${l}`).join("\n")}` : ""}\n\nPlan:\n\n${run.plan || ""}`.slice(0, 60000),
   });
-  await transition(run, "pr_open", { prNumber: pr.number, headSha: head, checksState: "pending", ghRunId: String(wr.id) });
+  await transition(run, "pr_open", { prNumber: pr.number, headSha: head, checksState: "pending", ghRunId: String(wr.id), agentNote: note });
   if (isLearn) await ingestLearn(run, gh);
   return "pr_opened";
 }

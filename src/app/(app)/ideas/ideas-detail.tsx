@@ -53,12 +53,14 @@ export function IdeaDetail({
   blocks,
   childStories,
   parent,
+  staleKnowledge = null,
 }: {
   initial: Idea;
   allIdeas: IdeaRef[];
   blocks: IdeaRef[];
   childStories: StoryChild[];
   parent: IdeaRef | null;
+  staleKnowledge?: { behind: number; projectId: string } | null;
 }) {
   const router = useRouter();
   const [idea, setIdea] = useState<Idea>(initial);
@@ -767,6 +769,12 @@ export function IdeaDetail({
               </Button>
             </div>
           </div>
+          {staleKnowledge && !planning && (
+            <p role="status" className="rounded-lg border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+              The repo has {staleKnowledge.behind} new commits since the AI last learned this project, so a plan may miss recent changes.{" "}
+              <Link href={`/projects/${staleKnowledge.projectId}/knowledge`} className="font-semibold underline">Scan the project again first</Link>.
+            </p>
+          )}
           {isOpen("plan") &&
             (planning ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">

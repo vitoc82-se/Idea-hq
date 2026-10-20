@@ -131,6 +131,11 @@ model Project {
   monthlyCapUsd     Float?
   // Public "What's new" page: the address key. null = no public page.
   changelogKey      String?  @unique
+  // What the last freshness check saw (see src/lib/freshness.ts): how many commits the repo is ahead of what
+  // the AI learned, and which workflow version is installed. Lets the Projects page show it without asking GitHub.
+  knowledgeBehind    Int?
+  workflowVersionSeen Int?
+  freshnessCheckedAt DateTime?
   changelogOn       Boolean  @default(false) // the page is live (the key stays the same when switched off and on)
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -214,6 +219,7 @@ model Run {
   maxTurns     Int?
   checksState  String?   // pending | green | red
   creditCharged Boolean  @default(false) // a runs-pack credit paid for this run (refunded if it fails)
+  agentNote     String?  @db.Text // what the AI said at the end of the run (why it changed nothing, or what it did)
   previewUrl    String?  // the change running on the host's preview deployment, found from its PR comment
   previewCheckedAt DateTime? // last time we looked for it (so a PR without previews is not polled constantly)
   error        String?   @db.Text

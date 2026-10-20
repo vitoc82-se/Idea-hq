@@ -16,6 +16,7 @@ type Status = {
   otherRepos: string[];
   provider: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string };
   siblings: { id: string; name: string; repo: string; provider: string }[];
+  workflowUpdateAvailable?: boolean;
 };
 
 const WHY: Record<string, string> = {
@@ -162,6 +163,16 @@ export function SetupJourney({
           <div className="h-full bg-emerald-600 transition-all" style={{ width: `${(st.done / st.total) * 100}%` }} />
         </div>
       </div>}
+
+      {st.workflowUpdateAvailable && (
+        <div role="status" className="rounded-xl border border-amber-600 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-semibold">A newer workflow is available</p>
+          <p className="mt-1">The one in your repo still works. The newer one also keeps going when your lock file is out of sync, and passes the AI&apos;s final message back, so you can see why a run changed nothing. Updating opens a pull request that you merge.</p>
+          <Button size="sm" className="mt-3 bg-emerald-700 hover:bg-emerald-800" onClick={openPr} disabled={busy !== null}>
+            {busy === "pr" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Update the workflow
+          </Button>
+        </div>
+      )}
 
       {st.steps.filter((x) => !(embedded && x.id === "practice")).map((s, i) => {
         const current = st.currentId === s.id;

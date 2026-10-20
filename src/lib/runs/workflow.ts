@@ -15,7 +15,7 @@ import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from
 
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
-export const WORKFLOW_VERSION = 5; // 5: a lock file that is out of sync no longer kills the run
+export const WORKFLOW_VERSION = 6; // 5: a lock file that is out of sync no longer kills the run. 6: the AI's final message is passed back
 // Claude runs only need the v3 inputs; the provider and timeout inputs arrived
 // with v4. So a repo still on v3 keeps working for Claude and is only asked to
 // update when its project switches to another provider.
@@ -177,6 +177,7 @@ ${checks.length ? checks.join("\n") : '          echo "No build or test command 
           EXEC_FILE: \${{ steps.claude.outputs.execution_file }}
           SHA: \${{ steps.push.outputs.sha }}
           FAILED: \${{ steps.verify.outputs.failed }}
+          CODEX_NOTE: \${{ steps.codex.outputs.final-message }}
           AGENT_OK: \${{ ${claude.successExpr} || ${openai.successExpr} }}
         run: |
           COST=""; TURNS=""
@@ -184,6 +185,14 @@ ${checks.length ? checks.join("\n") : '          echo "No build or test command 
             COST=$(jq -r '[.[] | select(.type=="result")] | last | .total_cost_usd // empty' "$EXEC_FILE" 2>/dev/null || true)
             TURNS=$(jq -r '[.[] | select(.type=="result")] | last | .num_turns // empty' "$EXEC_FILE" 2>/dev/null || true)
           fi
+          # What the AI said at the end (why it changed nothing, or what it did). Printed with a
+          # prefix on every line, so nothing in it can act as a workflow command; Idea HQ reads it back from the log.
+          NOTE=""
+          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
+            NOTE=$(jq -r '([.[] | select(.type=="result")] | last | .result // empty) // ([.[] | select(.type=="assistant")] | last | [.message.content[]? | select(.type=="text") | .text] | join("\n"))' "$EXEC_FILE" 2>/dev/null || true)
+          fi
+          [ -n "$NOTE" ] || NOTE="$CODEX_NOTE"
+          if [ -n "$NOTE" ]; then printf '%s\n' "$NOTE" | head -c 4000 | sed 's/^/IDEAHQ-NOTE| /'; fi
           STATE=success
           [ "$AGENT_OK" = "true" ] || STATE=failure
           [ -z "$FAILED" ] || STATE=failure

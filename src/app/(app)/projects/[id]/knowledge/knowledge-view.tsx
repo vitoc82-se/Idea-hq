@@ -22,7 +22,7 @@ type Data = {
   workflowInstalled: boolean;
   sections: Section[];
   completeness: { filled: number; confirmed: number; total: number; percent: number };
-  freshness: { learnedAt: string | null; behind: number | null };
+  freshness: { learnedAt: string | null; behind: number | null; stale?: boolean };
   memory: Mem[];
   learnRun: LearnRun;
   exportPr: number | null;
@@ -133,10 +133,26 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
           <p className="text-xs text-gray-500 mt-1">
             {pct}% complete · {d.completeness.filled} of {d.completeness.total} topics filled · {d.completeness.confirmed} confirmed by you
             {d.freshness.learnedAt && <> · learned {formatDistanceToNow(new Date(d.freshness.learnedAt), { addSuffix: true })}</>}
-            {d.freshness.behind ? <span className="text-amber-600"> · the repo has {d.freshness.behind} newer commit{d.freshness.behind > 1 ? "s" : ""} since</span> : null}
+            {d.freshness.behind && !d.freshness.stale ? <span className="text-amber-700 dark:text-amber-300"> · the repo has {d.freshness.behind} newer commit{d.freshness.behind > 1 ? "s" : ""} since</span> : null}
           </p>
         </div>
       </div>
+
+      {d.freshness.stale && d.repo && (
+        <div role="status" className="rounded-xl border border-amber-600 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-semibold">Scan this project again?</p>
+          <p className="mt-1">
+            The repo has {d.freshness.behind} new commits since the AI last learned it{d.freshness.learnedAt ? ` (${formatDistanceToNow(new Date(d.freshness.learnedAt), { addSuffix: true })})` : ""}. Estimates and plans may miss recent changes.
+            A quick scan is free and takes seconds. A deep scan explores the whole repo in your GitHub (a few minutes, uses your AI key). Topics you have confirmed stay as you wrote them.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800" disabled={busy !== null} onClick={() => quickDraft(false)}>
+              {busy === "draft" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}Quick scan now
+            </Button>
+            <Button size="sm" variant="outline" disabled={d.aiBuild === false || !!d.needsPlan || !!d.capReached || !d.workflowInstalled || busy !== null || !!learning} onClick={learn}>Deep scan in my GitHub</Button>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-4 space-y-3">

@@ -48,6 +48,7 @@ function fakeGh(): typeof gh {
     listPrFiles: async () => [],
     listPrComments: async () => state.comments ?? [],
     failedStep: async () => state.failedStep ?? null,
+    runNote: async () => state.note ?? null,
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
   };
@@ -1070,5 +1071,38 @@ describe("workflow failure message", () => {
     await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "f4", deps());
     expect(t.tables.run[0].status).toBe("failed");
     expect(String(t.tables.run[0].error)).toMatch(/^The workflow failed\. Details: /);
+  });
+});
+
+// ---- What the AI said at the end ----------------------------------------------------
+describe("the AI's final message", () => {
+  const SAID = "I stopped: the Codex action only returns the final message, so there are no token counts to read.";
+  it("is saved with the run when the AI changes nothing, so the person learns why", async () => {
+    gh.state.note = SAID;
+    await dispatchedRun();
+    gh.state.branches["idea-hq/RUN1"].sha = "base1";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "n1", deps());
+    expect(t.tables.run[0].status).toBe("failed");
+    expect(t.tables.run[0].error).toBe("The AI made no changes.");
+    expect(t.tables.run[0].agentNote).toBe(SAID);
+  });
+  it("is saved when the run opens a PR, and quoted at the top of the PR description", async () => {
+    gh.state.note = "Added the line.\nTests pass.";
+    await prOpenRun();
+    expect(t.tables.run[0].agentNote).toBe("Added the line.\nTests pass.");
+    const opened = log.find((l) => l.startsWith("openPr"));
+    expect(opened).toBeTruthy();
+  });
+  it("is saved when the workflow fails, and a missing note or a failing lookup never breaks the run", async () => {
+    gh.state.note = "I hit a permissions error.";
+    await dispatchedRun();
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "n2", deps());
+    expect(t.tables.run[0].agentNote).toBe("I hit a permissions error.");
+    t.tables.run.length = 0;
+    gh.runNote = async () => { throw new Error("logs unavailable"); };
+    await dispatchedRun();
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "n3", deps());
+    expect(t.tables.run[0].status).toBe("pr_open");
+    expect(t.tables.run[0].agentNote ?? null).toBeNull();
   });
 });

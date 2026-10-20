@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { github as realGithub, GitHubRateLimitError, type GitHubApi } from "@/lib/github/client";
+import { workflowUpdateAvailable } from "../freshness";
 import { RunError } from "./engine";
 import { FULL_TTL_MS, fullCache } from "./setup-cache";
 import { WORKFLOW_PATH } from "./state";
@@ -21,6 +22,7 @@ export type SetupStatus = {
   currentId: StepId | null;
   repo: { owner: string; name: string } | null;
   suggestions: { build: string | null; test: string | null };
+  workflowUpdateAvailable: boolean; // a newer workflow exists than the installed one (optional, never forced)
   otherRepos: string[]; // other connected repos of this user, for the multi-repo key command
   provider: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string };
   siblings: { id: string; name: string; repo: string; provider: string }[]; // user's other connected projects (for the key relay)
@@ -80,6 +82,7 @@ export async function getSetupStatus(
   // Quick mode makes no GitHub calls: it trusts what the last full check stored.
   let workflowDone = p.workflowInstalled;
   let workflowOutdated = false;
+  let versionSeen: number | null = p.workflowVersionSeen;
   let secretDone: boolean | null = opts.quick ? (workflowDone ? p.secretConfirmed : false) : null;
   let suggestions = { build: null as string | null, test: null as string | null };
 
@@ -88,6 +91,8 @@ export async function getSetupStatus(
     const wf = await gh.getFile(i, o, r, WORKFLOW_PATH, base).catch(soft(null));
     workflowDone = !!wf && workflowVersion(wf.content) >= requiredWorkflowVersion(p.aiProvider);
     workflowOutdated = !!wf && !workflowDone;
+    versionSeen = wf ? workflowVersion(wf.content) : null;
+    if (versionSeen !== p.workflowVersionSeen) await db.project.update({ where: { id: p.id }, data: { workflowVersionSeen: versionSeen } }).catch(() => undefined);
     secretDone = workflowDone ? await gh.secretExists(i, o, r, getProvider(p.aiProvider).secretName).catch(soft(false)) : false;
     // Only needed to suggest commands before the user has confirmed them.
     if (!p.commandsConfirmed) {
@@ -140,6 +145,7 @@ export async function getSetupStatus(
     steps, done, total: steps.length, currentId: current ? current.id : null,
     repo: hasRepo ? { owner: p.repoOwner!, name: p.repoName! } : null,
     suggestions, otherRepos: Array.from(new Set(otherRepos)),
+    workflowUpdateAvailable: workflowDone && workflowUpdateAvailable(versionSeen, p.aiProvider),
   };
   if (!opts.quick) fullCache.set(cacheKey, { at: now(), value: result });
   return result;

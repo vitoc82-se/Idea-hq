@@ -153,6 +153,10 @@ export default async function GuidePage() {
         </UL>
         <Tip>If an estimate or plan feels off, the knowledge is usually the reason. Open the page, fix the topic that is wrong or missing, and generate the plan again.</Tip>
 
+        <P>
+          <b>Keeping it current:</b> when a project&apos;s repo has moved on by 20 or more commits since the AI last learned it, Idea HQ asks whether to scan it again. You see the question on the Projects page, on the project knowledge page (with a free quick scan and a deeper one), and above the plan on an idea. Topics you have confirmed stay as you wrote them. Projects whose installed workflow is older than the newest one also show an optional <b>Update the workflow</b> button on their setup page.
+        </P>
+
         <H id="first">Your first AI change</H>
         <P>Start tiny, so you learn the loop cheaply. The practice idea (add one line to the README) is perfect.</P>
         <ol className="mt-3 space-y-2 text-gray-700 dark:text-gray-300 list-decimal pl-5">
@@ -251,6 +255,7 @@ export default async function GuidePage() {
         <Q q="I paid but nothing changed">Wait about ten seconds and reload the Billing page. If it still shows nothing after a minute, tell the owner with the email you paid with.</Q>
         <Q q="I signed up but I only see &quot;Waiting for approval&quot;">The owner has to approve new accounts. Nothing is wrong on your side. The page continues by itself once you are approved.</Q>
         <Q q="The AI made no changes">Usually the idea was too vague, or the first model was too small for it. Make the idea more specific and try again. The next attempt automatically uses a stronger model. You can also pick one yourself before approving.</Q>
+        <Q q="The run finished but changed nothing">The AI decided it could not or should not make the change, for example because the idea depends on something that is not possible, or it could not reproduce a bug. Open the idea and read <b>What the AI said</b> under the run: it explains why, and the same text appears at the top of a pull request when there is one. You get your run back. This needs the newer workflow: if you see no explanation, open the project&apos;s setup page and press <b>Update the workflow</b>, then merge the pull request.</Q>
         <Q q="The run failed at &quot;Install dependencies&quot;">Your repo&apos;s <code>package-lock.json</code> does not match its <code>package.json</code>, so <code>npm ci</code> refuses to install. In your repo run <code>npm install</code>, commit the updated <code>package-lock.json</code>, and try again. Repos set up with the newest workflow (version 5) carry on anyway and only report the problem at the Verify step.</Q>
         <Q q="The checks failed (red)">The AI&apos;s change did not pass your tests. Use Request changes and paste or describe the problem, or close it and rewrite the idea more simply.</Q>
         <Q q="It says the workflow is outdated">Idea HQ improved the file it installs. Open the project&apos;s Repo and AI setup, click Update workflow, and merge the pull request it opens. This takes a minute.</Q>

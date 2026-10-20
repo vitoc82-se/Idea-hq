@@ -5,6 +5,7 @@ import { canUse } from "@/lib/access";
 import { db } from "@/lib/db";
 import { IdeaDetail } from "../ideas-detail";
 import type { Idea, IdeaRef, StoryChild } from "../ideas-shared";
+import { isStale } from "@/lib/freshness";
 
 export const metadata = { title: "Idea" };
 
@@ -31,7 +32,7 @@ export default async function IdeaDetailPage({
 
   const record = await db.idea.findFirst({
     where: { id: params.id, userId },
-    include: { project: { select: { name: true, color: true } } },
+    include: { project: { select: { name: true, color: true, knowledgeBehind: true } } },
   });
 
   if (!record) {
@@ -136,6 +137,7 @@ export default async function IdeaDetailPage({
       blocks={blocksRefs}
       childStories={children}
       parent={parent}
+      staleKnowledge={isStale(record.project?.knowledgeBehind) ? { behind: record.project!.knowledgeBehind!, projectId: record.projectId } : null}
     />
   );
 }

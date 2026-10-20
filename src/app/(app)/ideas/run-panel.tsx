@@ -19,6 +19,7 @@ type Run = {
   prNumber: number | null;
   checksState: string | null;
   previewUrl?: string | null;
+  agentNote?: string | null;
   costUsd: number | null;
   turns: number | null;
   provider?: string | null;
@@ -331,7 +332,13 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
               </Button>
             )}
 
-            {run.error && <p className="text-sm text-red-600 dark:text-red-400">{run.error}</p>}
+            {run.error && <p className="text-sm text-red-700 dark:text-red-400">{run.error}</p>}
+            {run.agentNote && (
+              <details className="text-sm" open={run.status === "failed" || run.status === "closed" || run.status === "cancelled"}>
+                <summary className="cursor-pointer font-medium text-gray-800 dark:text-gray-200">What the AI said</summary>
+                <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-sm text-gray-800 dark:bg-gray-800/60 dark:text-gray-200">{run.agentNote}</pre>
+              </details>
+            )}
           </div>
         )}
 

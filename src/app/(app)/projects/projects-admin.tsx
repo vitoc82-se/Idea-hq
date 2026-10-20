@@ -60,6 +60,30 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
     projects.forEach((p) => refreshProgress(p.id));
   }, [projects, refreshProgress]);
 
+  // How current each project's AI knowledge and workflow are. The server caches this for an hour,
+  // so opening the page does not ask GitHub every time. One project at a time.
+  const [fresh, setFresh] = useState<Record<string, { behind: number | null; stale: boolean; workflowUpdate: boolean }>>({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      for (const p of projects) {
+        if (cancelled) return;
+        if (!p.repoOwner) continue;
+        try {
+          const r = await fetch(`/api/projects/${p.id}/freshness`, { cache: "no-store" });
+          if (!r.ok) continue;
+          const j = await r.json();
+          if (!cancelled) setFresh((cur) => ({ ...cur, [p.id]: { behind: j.knowledgeBehind, stale: !!j.stale, workflowUpdate: !!j.workflowUpdate } }));
+        } catch {
+          /* no news is fine */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projects]);
+
   const openNew = () => {
     setEditingId(null);
     setForm(BLANK);
@@ -323,6 +347,26 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
                   <Github className="w-4 h-4" aria-hidden="true" /> Repo &amp; AI setup
                 </button>
               </div>
+              {(() => {
+                const f = fresh[p.id] ?? p.freshness;
+                if (!f || (!f.stale && !f.workflowUpdate)) return null;
+                return (
+                  <p className="mt-3 pl-6 text-sm text-amber-900 dark:text-amber-200" role="status">
+                    {f.stale && (
+                      <>
+                        The repo has {f.behind} new commits since the AI last learned this project.{" "}
+                        <Link href={`/projects/${p.id}/knowledge`} className="font-semibold underline">Scan it again</Link>.{" "}
+                      </>
+                    )}
+                    {f.workflowUpdate && (
+                      <>
+                        A newer workflow is available.{" "}
+                        <Link href={`/projects/${p.id}/setup`} className="font-semibold underline">Update it</Link>.
+                      </>
+                    )}
+                  </p>
+                );
+              })()}
               <SpendRow project={p} onSave={(text) => saveCap(p, text)} />
               {repoOpen === p.id && <ProjectRepo projectId={p.id} onChanged={() => refreshProgress(p.id)} />}
               </CardContent>

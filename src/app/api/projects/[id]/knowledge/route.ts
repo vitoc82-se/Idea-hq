@@ -5,6 +5,7 @@ import { requireUser, errorResponse } from "@/lib/runs/http";
 import { reconcileRun } from "@/lib/runs/engine";
 import { buildAccess } from "@/lib/billing";
 import { capState, capMessage } from "@/lib/spend";
+import { isStale } from "@/lib/freshness";
 import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
 import { SECTION_DEFS, completeness, confirmAll, isSectionId, setSection, type SectionId } from "@/lib/knowledge";
 
@@ -24,6 +25,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       const map = (p.envBranches || {}) as Record<string, string>;
       const ref = map[p.defaultEnv || ""] || Object.values(map)[0] || "main";
       behind = await github.commitsAhead(p.installationId!, p.repoOwner!, p.repoName!, k.learnedSha, ref).catch(() => null);
+      if (behind !== null) await db.project.update({ where: { id: p.id }, data: { knowledgeBehind: behind, freshnessCheckedAt: new Date() } }).catch(() => undefined);
     }
     // Forget the export PR once it is merged or closed.
     let exportPr = p.knowledgePrNumber;
@@ -49,7 +51,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       workflowInstalled: p.workflowInstalled,
       sections: SECTION_DEFS.map((d) => ({ id: d.id, title: d.title, hint: d.hint, core: d.core, ...(k.sections[d.id] ?? { text: "", source: null, status: null, updatedAt: null }) })),
       completeness: completeness(k),
-      freshness: { learnedAt: k.learnedAt ?? null, behind },
+      freshness: { learnedAt: k.learnedAt ?? null, behind, stale: isStale(behind) },
       memory: memory.map((m) => ({ id: m.id, kind: m.kind, text: m.text, pinned: m.pinned, source: m.source, createdAt: m.createdAt })),
       learnRun: learn
         ? { id: learn.id, status: learn.status, prNumber: learn.prNumber, checksState: learn.checksState, costUsd: learn.costUsd, error: learn.error, createdAt: learn.createdAt }

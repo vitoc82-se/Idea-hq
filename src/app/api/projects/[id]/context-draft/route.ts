@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
 import { snapshotRepo } from "@/lib/repo-snapshot";
 import { draftSections } from "@/lib/context-draft";
@@ -38,6 +39,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     let k = mergeAiSections(loaded.knowledge, sections, "quick-draft", { force: !!body?.force });
     k = { ...k, learnedSha: head?.sha ?? k.learnedSha, learnedAt: new Date().toISOString() };
     const saved = await saveKnowledge(auth.userId, p.id, k);
+    await db.project.update({ where: { id: p.id }, data: { knowledgeBehind: 0, freshnessCheckedAt: new Date() } }).catch(() => undefined);
     return NextResponse.json({
       context: saved?.context ?? "",
       sections: SECTION_DEFS.map((d) => ({ id: d.id, text: k.sections[d.id]?.text ?? "" })),

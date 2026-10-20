@@ -37,7 +37,9 @@ export interface Project {
   contextUpdatedAt: string;
   _count?: { ideas: number };
   monthlyCapUsd?: number | null;
+  repoOwner?: string | null;
   spend?: { monthUsd: number; runs: number; unpriced: number };
+  freshness?: { behind: number | null; stale: boolean; workflowUpdate: boolean };
 }
 
 // Lightweight reference to another idea (for dependency pickers / links).

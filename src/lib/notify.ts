@@ -17,7 +17,7 @@ function what(kind: string, title: string): string {
   return `"${title}"`;
 }
 
-export function runEmail(p: { event: RunEvent; kind: string; title: string; project: string; error: string | null; link: string; settingsLink: string }) {
+export function runEmail(p: { event: RunEvent; kind: string; title: string; project: string; error: string | null; note?: string | null; link: string; settingsLink: string }) {
   const subject =
     p.event === "failed"
       ? `Did not finish: ${headerSafe(p.title, 80)} (${headerSafe(p.project, 40)})`
@@ -26,7 +26,7 @@ export function runEmail(p: { event: RunEvent; kind: string; title: string; proj
       : `Ready for review: ${headerSafe(p.title, 80)} (${headerSafe(p.project, 40)})`;
   const lines =
     p.event === "failed"
-      ? [`The AI could not finish ${what(p.kind, p.title)} in ${p.project}.`, p.error ? `\n${p.error.slice(0, 300)}` : "", "\nNothing was changed in your project. Open it to try again or adjust the idea:"]
+      ? [`The AI could not finish ${what(p.kind, p.title)} in ${p.project}.`, p.error ? `\n${p.error.slice(0, 300)}` : "", p.note ? `\nWhat the AI said:\n${p.note.slice(0, 600)}` : "", "\nNothing was changed in your project. Open it to try again or adjust the idea:"]
       : p.event === "updated"
       ? [`The AI changed ${what(p.kind, p.title)} in ${p.project} as you asked, and it is ready for another look:`]
       : [`The AI finished ${what(p.kind, p.title)} in ${p.project}. Read the change, ask for tweaks, or merge it:`];
@@ -50,6 +50,7 @@ export async function notifyRunEvent(runId: string, event: RunEvent, deps: Deps 
       title: run.idea?.title || (run.kind === "learn" ? "Project knowledge" : "a change"),
       project: run.project.name,
       error: event === "failed" ? run.error : null,
+      note: event === "failed" ? run.agentNote : null,
       link: `${baseUrl()}${path}`,
       settingsLink: `${baseUrl()}/settings`,
     });

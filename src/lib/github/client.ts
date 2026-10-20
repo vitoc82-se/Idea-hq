@@ -52,12 +52,15 @@ export interface GitHubApi {
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
   listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
   failedStep(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
+  runNote(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
   getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
   putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
   listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
   listRepos(i: number): Promise<{ owner: string; name: string; defaultBranch: string }[]>;
   closePr(i: number, owner: string, repo: string, n: number): Promise<void>;
 }
+
+import { extractNote } from "../runs/note";
 
 const API = "https://api.github.com";
 
@@ -253,6 +256,14 @@ export const github: GitHubApi = {
   async listPrFiles(i, owner, repo, n) {
     const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
     return (j || []).map((f) => f.filename);
+  },
+  async runNote(i, owner, repo, ghRunId) {
+    const j = await call<{ jobs: { id: number }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=5`, undefined, [404]);
+    const jobId = j?.jobs?.[0]?.id;
+    if (!jobId) return null;
+    // The log comes back as plain text (GitHub redirects to a signed address; the token is not forwarded there).
+    const { res, json } = await raw(await installationToken(i), "GET", `/repos/${owner}/${repo}/actions/jobs/${jobId}/logs`);
+    return res.ok && typeof json === "string" ? extractNote(json) : null;
   },
   async failedStep(i, owner, repo, ghRunId) {
     const j = await call<{ jobs: { steps?: { name: string; conclusion: string | null }[] }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=10`, undefined, [404]);
