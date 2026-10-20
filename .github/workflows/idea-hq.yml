@@ -1,4 +1,4 @@
-# idea-hq-workflow-version: 3
+# idea-hq-workflow-version: 6
 name: Idea HQ
 run-name: ${{ format('idea-hq {0}', inputs.run_id) }}
 
@@ -17,10 +17,18 @@ on:
       prompt:
         description: Instructions for the AI
         required: true
+      provider:
+        description: Which AI runs the work (claude or openai)
+        required: false
+        default: "claude"
       model:
-        description: Claude model id
+        description: Model id for the chosen provider
         required: false
         default: "claude-sonnet-5-5"
+      timeout_minutes:
+        description: Hard time limit for the run
+        required: false
+        default: "30"
       effort:
         description: Reasoning effort (low, medium, high, max)
         required: false
@@ -37,7 +45,7 @@ permissions:
 jobs:
   implement:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes || '30') }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,11 +68,17 @@ jobs:
         with:
           node-version: 20
 
+      # Best effort: a lock file that is out of sync with package.json (a common repo problem)
+      # must not stop the AI from making a change. The Verify step below reports what broke.
       - name: Install dependencies
         if: ${{ hashFiles('package-lock.json') != '' }}
-        run: npm ci
+        continue-on-error: true
+        run: |
+          npm ci || npm install --no-audit --no-fund
+          git checkout -- package-lock.json 2>/dev/null || true
 
       - name: Run Claude Code
+        if: ${{ inputs.provider == 'claude' || inputs.provider == '' }}
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
@@ -74,6 +88,18 @@ jobs:
           prompt: ${{ inputs.prompt }}
           claude_args: --max-turns ${{ inputs.max_turns || '40' }} --model ${{ inputs.model || 'claude-sonnet-5-5' }} --effort ${{ inputs.effort || 'medium' }} --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
 
+      - name: Run Codex
+        if: ${{ inputs.provider == 'openai' }}
+        id: codex
+        uses: openai/codex-action@1d82a3dba7c7988ec71ecae1ed5b8e8db96495c5 # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: ${{ inputs.prompt }}
+          model: ${{ inputs.model }}
+          effort: ${{ inputs.effort }}
+          allow-bot-users: "idea-hq-niklas"
+          sandbox: workspace-write
+          codex-version: "0.163.0"
       - name: Verify (build and tests)
         id: verify
         run: |
@@ -101,15 +127,26 @@ jobs:
           EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
           SHA: ${{ steps.push.outputs.sha }}
           FAILED: ${{ steps.verify.outputs.failed }}
-          CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+          CODEX_NOTE: ${{ steps.codex.outputs.final-message }}
+          AGENT_OK: ${{ steps.claude.outputs.conclusion == 'success' || steps.codex.outcome == 'success' }}
         run: |
           COST=""; TURNS=""
           if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
             COST=$(jq -r '[.[] | select(.type=="result")] | last | .total_cost_usd // empty' "$EXEC_FILE" 2>/dev/null || true)
             TURNS=$(jq -r '[.[] | select(.type=="result")] | last | .num_turns // empty' "$EXEC_FILE" 2>/dev/null || true)
           fi
+          # What the AI said at the end (why it changed nothing, or what it did). Printed with a
+          # prefix on every line, so nothing in it can act as a workflow command; Idea HQ reads it back from the log.
+          NOTE=""
+          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
+            NOTE=$(jq -r '([.[] | select(.type=="result")] | last | .result // empty) // ([.[] | select(.type=="assistant")] | last | [.message.content[]? | select(.type=="text") | .text] | join("
+"))' "$EXEC_FILE" 2>/dev/null || true)
+          fi
+          [ -n "$NOTE" ] || NOTE="$CODEX_NOTE"
+          if [ -n "$NOTE" ]; then printf '%s
+' "$NOTE" | head -c 4000 | sed 's/^/IDEAHQ-NOTE| /'; fi
           STATE=success
-          [ "$CONCLUSION" = "success" ] || STATE=failure
+          [ "$AGENT_OK" = "true" ] || STATE=failure
           [ -z "$FAILED" ] || STATE=failure
           [ -n "$SHA" ] || SHA="${{ github.sha }}"
           gh api "repos/${{ github.repository }}/statuses/$SHA" \
