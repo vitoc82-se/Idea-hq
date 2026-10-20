@@ -44,12 +44,15 @@ export const claude: ProviderAdapter = {
     }
   },
 
-  // Unchanged from workflow v3 (frozen by the golden tests).
+  // The same action as workflow v3 (frozen by the golden tests). Since v8 the step also tells Claude Code
+  // not to hand the API key (or other cloud credentials) to the commands the AI runs.
   workflowStep({ appSlug, maxTurns, allowedTools }) {
     return `      - name: Run Claude Code
         if: \${{ inputs.provider == 'claude' || inputs.provider == '' }}
         id: claude
         uses: anthropics/claude-code-action@v1
+        env:
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:
           anthropic_api_key: \${{ secrets.ANTHROPIC_API_KEY }}
           github_token: \${{ secrets.GITHUB_TOKEN }}

@@ -1,4 +1,4 @@
-# idea-hq-workflow-version: 7
+# idea-hq-workflow-version: 8
 name: Idea HQ
 run-name: ${{ format('idea-hq {0}', inputs.run_id) }}
 
@@ -47,17 +47,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ fromJSON(inputs.timeout_minutes || '30') }}
     steps:
+      # No credentials are stored in the checkout: everything the AI runs would be able to read them.
+      # Only the two steps that talk to GitHub (this one and "Push branch") get the token, for one command each.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.base }}
+          persist-credentials: false
 
       - name: Check out the working branch
         env:
           BRANCH: ${{ inputs.branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git fetch origin "$BRANCH"
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          if git -c "http.https://github.com/.extraheader=$AUTH" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git -c "http.https://github.com/.extraheader=$AUTH" fetch origin "$BRANCH"
             git checkout "$BRANCH"
           else
             git checkout -b "$BRANCH"
@@ -81,12 +86,14 @@ jobs:
         if: ${{ inputs.provider == 'claude' || inputs.provider == '' }}
         id: claude
         uses: anthropics/claude-code-action@v1
+        env:
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "idea-hq-niklas"
           prompt: ${{ inputs.prompt }}
-          claude_args: --max-turns ${{ inputs.max_turns || '40' }} --model ${{ inputs.model || 'claude-sonnet-5-5' }} --effort ${{ inputs.effort || 'medium' }} --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
+          claude_args: --max-turns ${{ inputs.max_turns || '40' }} --model ${{ inputs.model || 'claude-sonnet-5-5' }} --effort ${{ inputs.effort || 'medium' }} --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm test:*),Bash(npm run:*),Bash(npm ls:*),Bash(npm install --ignore-scripts:*),Bash(npm ci --ignore-scripts:*),Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
 
       - name: Run Codex
         if: ${{ inputs.provider == 'openai' }}
@@ -100,6 +107,13 @@ jobs:
           allow-bot-users: "idea-hq-niklas"
           sandbox: workspace-write
           codex-version: "0.163.0"
+
+      # Belt and braces: whatever an earlier step may have left in the git settings is removed before the
+      # repo's own build and tests run.
+      - name: Remove stored git credentials
+        if: ${{ always() }}
+        run: git config --local --unset-all http.https://github.com/.extraheader || true
+
       - name: Verify (build and tests)
         id: verify
         run: |
@@ -112,12 +126,14 @@ jobs:
         id: push
         env:
           BRANCH: ${{ inputs.branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "idea-hq[bot]"
           git config user.email "idea-hq@users.noreply.github.com"
           git add -A
           git commit -m "Idea HQ run ${{ inputs.run_id }}" || echo "Nothing to commit"
-          git push origin "HEAD:$BRANCH"
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          git -c "http.https://github.com/.extraheader=$AUTH" push origin "HEAD:$BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Report result

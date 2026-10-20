@@ -55,8 +55,11 @@ describe("golden: Claude workflow step", () => {
     expect(wf).toContain("--model ${{ inputs.model || 'claude-sonnet-5-5' }}");
     expect(wf).toContain("--effort ${{ inputs.effort || 'medium' }}");
   });
-  it("grants exactly this tool allow-list and nothing like an unrestricted shell", () => {
-    expect(ALLOWED_TOOLS).toBe("Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)");
+  it("grants exactly this tool allow-list and nothing like an unrestricted shell (v8: no bare npm, npx or node)", () => {
+    expect(ALLOWED_TOOLS).toBe(
+      "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm test:*),Bash(npm run:*),Bash(npm ls:*),Bash(npm install --ignore-scripts:*),Bash(npm ci --ignore-scripts:*)," +
+        "Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)"
+    );
     expect(wf).toContain(`--allowedTools "${ALLOWED_TOOLS}"`);
   });
   it("passes the prompt as an action input, never through a shell", () => {
@@ -65,7 +68,7 @@ describe("golden: Claude workflow step", () => {
   it("keeps the shared steps: verify, push, and the cost/turns status", () => {
     expect(wf).toContain("npm run build || FAILED");
     expect(wf).toContain("npm test || FAILED");
-    expect(wf).toContain('git push origin "HEAD:$BRANCH"');
+    expect(wf).toContain('push origin "HEAD:$BRANCH"');
     expect(wf).toContain('context="idea-hq/run"');
     expect(wf).toContain("total_cost_usd");
     expect(wf).toContain("num_turns");

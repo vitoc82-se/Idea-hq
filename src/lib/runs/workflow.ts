@@ -15,7 +15,7 @@ import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from
 
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
-export const WORKFLOW_VERSION = 7; // 5: a lock file that is out of sync no longer kills the run. 6: the AI's final message is passed back. 7: fixes invalid YAML in 6 (the run never started)
+export const WORKFLOW_VERSION = 8; // 5: a lock file that is out of sync no longer kills the run. 6: the AI's final message is passed back. 7: fixes invalid YAML in 6 (the run never started). 8: the AI's shell no longer sees git credentials or the AI key, and may only run the project's own scripts
 // Claude runs only need the v3 inputs; the provider and timeout inputs arrived
 // with v4. So a repo still on v3 keeps working for Claude and is only asked to
 // update when its project switches to another provider.
@@ -38,10 +38,18 @@ export function workflowVersion(content: string): number {
 }
 
 // Tools the AI may use. Without an allow-list agent mode denies file edits (seen
-// in the first live run: permission_denials_count 5). Bash is limited to reading
-// and the project's own npm/node tooling; no git writes, no curl, no env dumps.
-export const ALLOWED_TOOLS =
-  "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(git diff:*),Bash(git status:*)";
+// in the first live run: permission_denials_count 5). Bash is limited to reading and
+// the project's own scripts: `npm test`, `npm run <script>`, a few well-known checkers,
+// and installs WITHOUT lifecycle scripts. No bare npm/npx/node: those run any package or
+// one-liner from the network, which is how an injected instruction would leak something.
+// No git writes, no curl, no env dumps.
+export const ALLOWED_TOOLS = [
+  "Edit", "MultiEdit", "Write", "Read", "Glob", "Grep",
+  "Bash(npm test:*)", "Bash(npm run:*)", "Bash(npm ls:*)",
+  "Bash(npm install --ignore-scripts:*)", "Bash(npm ci --ignore-scripts:*)",
+  "Bash(npx tsc:*)", "Bash(npx vitest:*)", "Bash(npx jest:*)", "Bash(npx eslint:*)", "Bash(npx prettier:*)",
+  "Bash(ls:*)", "Bash(cat:*)", "Bash(git diff:*)", "Bash(git status:*)",
+].join(",");
 
 export const DEFAULT_MODEL = CLAUDE_DEFAULT_MODEL;
 
@@ -125,17 +133,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: \${{ fromJSON(inputs.timeout_minutes || '${timeout}') }}
     steps:
+      # No credentials are stored in the checkout: everything the AI runs would be able to read them.
+      # Only the two steps that talk to GitHub (this one and "Push branch") get the token, for one command each.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: \${{ inputs.base }}
+          persist-credentials: false
 
       - name: Check out the working branch
         env:
           BRANCH: \${{ inputs.branch }}
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
         run: |
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git fetch origin "$BRANCH"
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\\n')"
+          if git -c "http.https://github.com/.extraheader=$AUTH" ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git -c "http.https://github.com/.extraheader=$AUTH" fetch origin "$BRANCH"
             git checkout "$BRANCH"
           else
             git checkout -b "$BRANCH"
@@ -156,6 +169,13 @@ jobs:
           git checkout -- package-lock.json 2>/dev/null || true
 
 ${agentSteps}
+
+      # Belt and braces: whatever an earlier step may have left in the git settings is removed before the
+      # repo's own build and tests run.
+      - name: Remove stored git credentials
+        if: \${{ always() }}
+        run: git config --local --unset-all http.https://github.com/.extraheader || true
+
       - name: Verify (build and tests)
         id: verify
         run: |
@@ -167,12 +187,14 @@ ${checks.length ? checks.join("\n") : '          echo "No build or test command 
         id: push
         env:
           BRANCH: \${{ inputs.branch }}
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "idea-hq[bot]"
           git config user.email "idea-hq@users.noreply.github.com"
           git add -A
           git commit -m "Idea HQ run \${{ inputs.run_id }}" || echo "Nothing to commit"
-          git push origin "HEAD:$BRANCH"
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\\n')"
+          git -c "http.https://github.com/.extraheader=$AUTH" push origin "HEAD:$BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Report result
@@ -237,6 +259,7 @@ export function buildPrompt(args: {
     `- Write or update automated tests for the new behavior${test ? ` (project test command: ${test})` : ""}. If the repo has no test setup, say so in your final message instead of adding a framework.`,
     "- Make sure the project type-checks and builds.",
     "- Do NOT run git commit, git push or open pull requests. The workflow does that.",
+    "- Run the project's own scripts with npm (`npm test`, `npm run <script>`). Do not run npx, node or any other program directly. To add a dependency use `npm install --ignore-scripts <package>`.",
     "- If the plan mentions feature branches, merging, pushing or deploying, ignore those steps: the workflow owns all git and deploy work. Only change files in the working tree.",
     "- Verify with the project's own commands (type-check, tests, build) before you finish.",
     "- Do NOT edit anything under .github/workflows, and never print or write secrets.",
