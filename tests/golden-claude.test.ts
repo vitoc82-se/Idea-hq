@@ -43,7 +43,7 @@ describe("golden: Claude workflow step", () => {
   const wf = buildWorkflow({ appSlug: "idea-hq-niklas", buildCommand: "npm run build", testCommand: "npm test" });
 
   it("runs anthropics/claude-code-action with the key from the ANTHROPIC_API_KEY secret", () => {
-    expect(wf).toContain("uses: anthropics/claude-code-action@v1");
+    expect(wf).toContain("uses: anthropics/claude-code-action@");
     expect(wf).toContain("anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}");
     expect(wf).toContain("github_token: ${{ secrets.GITHUB_TOKEN }}");
   });

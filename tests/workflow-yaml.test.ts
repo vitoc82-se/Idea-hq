@@ -154,3 +154,12 @@ describe("what the AI's shell can reach", () => {
     expect(p).toMatch(/Do not run npx, node/);
   });
 });
+
+describe("actions are pinned to exact commits", () => {
+  it("every action in the generated workflow and in this repo's own workflows is a full commit id", () => {
+    const text = [buildWorkflow({ appSlug: "a" }), readFileSync(".github/workflows/ci.yml", "utf8"), readFileSync(".github/workflows/idea-hq.yml", "utf8")].join("\n");
+    const uses = Array.from(text.matchAll(/^\s*(?:- )?uses: (\S+)/gm)).map((m) => m[1]);
+    expect(uses.length).toBeGreaterThan(8);
+    for (const u of uses) expect(u, u).toMatch(/^[\w.-]+\/[\w./-]+@[0-9a-f]{40}$/);
+  });
+});

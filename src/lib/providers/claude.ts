@@ -1,4 +1,5 @@
 import type { ProviderAdapter } from "./types";
+import { ACTION_PINS } from "../runs/action-pins";
 
 export const CLAUDE_DEFAULT_MODEL = "claude-sonnet-5-5";
 
@@ -50,7 +51,7 @@ export const claude: ProviderAdapter = {
     return `      - name: Run Claude Code
         if: \${{ inputs.provider == 'claude' || inputs.provider == '' }}
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: ${ACTION_PINS.claudeCode}
         env:
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:

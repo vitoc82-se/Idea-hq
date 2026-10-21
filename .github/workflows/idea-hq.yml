@@ -1,4 +1,4 @@
-# idea-hq-workflow-version: 8
+# idea-hq-workflow-version: 9
 name: Idea HQ
 run-name: ${{ format('idea-hq {0}', inputs.run_id) }}
 
@@ -52,7 +52,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.base }}
@@ -71,7 +71,7 @@ jobs:
             git checkout -b "$BRANCH"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: ${{ hashFiles('package.json') != '' }}
         with:
           node-version: 20
@@ -94,7 +94,7 @@ jobs:
       - name: Run Claude Code
         if: ${{ inputs.provider == 'claude' || inputs.provider == '' }}
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1
         env:
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
         with:
@@ -145,7 +145,7 @@ jobs:
 
       - name: Upload the AI's changes
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: idea-hq-output
           path: ${{ runner.temp }}/out
@@ -161,7 +161,7 @@ jobs:
       contents: write
       statuses: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.base }}
@@ -180,13 +180,13 @@ jobs:
             git checkout -b "$BRANCH"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: ${{ hashFiles('package.json') != '' }}
         with:
           node-version: 20
 
       - name: Download the AI's changes
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         continue-on-error: true
         with:
           name: idea-hq-output

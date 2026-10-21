@@ -1,4 +1,5 @@
 import { WORKFLOW_FILE } from "./state";
+import { ACTION_PINS } from "./action-pins";
 import { claude, openai } from "../providers";
 import { CLAUDE_DEFAULT_MODEL } from "../providers/claude";
 import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from "../knowledge";
@@ -15,7 +16,7 @@ import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from
 
 // Bump when the template changes. An installed workflow with an older version
 // is refused at run time and offered as an update PR.
-export const WORKFLOW_VERSION = 8; // 5: a lock file that is out of sync no longer kills the run. 6: the AI's final message is passed back. 7: fixes invalid YAML in 6 (the run never started). 8: the AI's shell no longer sees git credentials or the AI key, and may only run the project's own scripts
+export const WORKFLOW_VERSION = 9; // 5: a lock file that is out of sync no longer kills the run. 6: the AI's final message is passed back. 7: fixes invalid YAML in 6 (the run never started). 8: the AI's shell no longer sees git credentials or the AI key, and may only run the project's own scripts. 9: actions pinned to exact commits
 // Claude runs only need the v3 inputs; the provider and timeout inputs arrived
 // with v4. So a repo still on v3 keeps working for Claude and is only asked to
 // update when its project switches to another provider.
@@ -86,7 +87,7 @@ export function buildWorkflow(o: WorkflowOptions): string {
 
   // Steps both jobs start with. No credentials are stored in the checkout (everything the AI runs, and every
   // script in the repo, could read them); the token is passed to the one git command that needs it.
-  const CHECKOUT_STEPS = `      - uses: actions/checkout@v4
+  const CHECKOUT_STEPS = `      - uses: ${ACTION_PINS.checkout}
         with:
           fetch-depth: 0
           ref: \${{ inputs.base }}
@@ -105,7 +106,7 @@ export function buildWorkflow(o: WorkflowOptions): string {
             git checkout -b "$BRANCH"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: ${ACTION_PINS.setupNode}
         if: \${{ hashFiles('package.json') != '' }}
         with:
           node-version: 20`;
@@ -214,7 +215,7 @@ ${agentSteps}
 
       - name: Upload the AI's changes
         if: \${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: ${ACTION_PINS.uploadArtifact}
         with:
           name: idea-hq-output
           path: \${{ runner.temp }}/out
@@ -233,7 +234,7 @@ ${agentSteps}
 ${CHECKOUT_STEPS}
 
       - name: Download the AI's changes
-        uses: actions/download-artifact@v4
+        uses: ${ACTION_PINS.downloadArtifact}
         continue-on-error: true
         with:
           name: idea-hq-output
