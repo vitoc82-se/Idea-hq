@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { AUTH_BUTTON, AUTH_INPUT, AuthLabel, AuthShell } from "@/components/landing/auth-shell";
 
 export default function ChangePasswordPage() {
   const [loading, setLoading] = useState(false);
@@ -44,66 +41,51 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-600 mb-4">
-            <Rocket className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Change password
-          </h1>
+    <AuthShell title="Change password" highlight="password">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div>
+          <AuthLabel htmlFor="current">Current password</AuthLabel>
+          <input
+            id="current"
+            type="password"
+            value={form.current}
+            onChange={(e) => setForm({ ...form, current: e.target.value })}
+            required
+            className={AUTH_INPUT}
+          />
+        </div>
+        <div>
+          <AuthLabel htmlFor="next">New password</AuthLabel>
+          <input
+            id="next"
+            type="password"
+            placeholder="Min. 8 characters"
+            value={form.next}
+            onChange={(e) => setForm({ ...form, next: e.target.value })}
+            required
+            minLength={8}
+            className={AUTH_INPUT}
+          />
+        </div>
+        <div>
+          <AuthLabel htmlFor="confirm">Confirm new password</AuthLabel>
+          <input
+            id="confirm"
+            type="password"
+            value={form.confirm}
+            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+            required
+            minLength={8}
+            className={AUTH_INPUT}
+          />
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <Label htmlFor="current">Current password</Label>
-              <Input
-                id="current"
-                type="password"
-                value={form.current}
-                onChange={(e) => setForm({ ...form, current: e.target.value })}
-                required
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="next">New password</Label>
-              <Input
-                id="next"
-                type="password"
-                placeholder="Min. 8 characters"
-                value={form.next}
-                onChange={(e) => setForm({ ...form, next: e.target.value })}
-                required
-                minLength={8}
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="confirm">Confirm new password</Label>
-              <Input
-                id="confirm"
-                type="password"
-                value={form.confirm}
-                onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-                required
-                minLength={8}
-                className="mt-1.5"
-              />
-            </div>
+        {error && <p role="alert" className="m-0 text-[15px] font-medium text-[#B42318]">{error}</p>}
 
-            {error && (
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Please wait..." : "Change password"}
-            </Button>
-          </form>
-        </div>
-      </div>
-    </div>
+        <button type="submit" className={AUTH_BUTTON} disabled={loading}>
+          {loading ? "Please wait..." : "Change password"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

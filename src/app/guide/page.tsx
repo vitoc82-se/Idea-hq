@@ -61,7 +61,7 @@ function Q({ q, children }: { q: string; children: React.ReactNode }) {
 export default async function GuidePage() {
   const session = await getServerSession(authOptions);
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+    <div className="nb-skin min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100">
       <SiteHeader signedIn={!!session} />
       <main className="max-w-3xl mx-auto px-4 pt-10">
         <h1 className="text-4xl font-bold tracking-tight">How Idea HQ works</h1>
@@ -178,6 +178,7 @@ export default async function GuidePage() {
           <li><b>See it running:</b> if your hosting builds a preview of every pull request (Vercel, Netlify and Cloudflare Pages do), a <b>See it running</b> button appears next to the PR a minute or two after it opens. Open it to try the change before you merge. If it says &quot;No preview link yet&quot;, your host has not posted one (yet).</li>
           <li><b>Email:</b> you get an email when a change is ready for review, when a revision is ready again, or when the AI could not finish. Turn it off under <b>Settings</b> in the menu.</li>
           <li><b>Many ideas at once:</b> one run per project at a time, so changes do not collide. Queue the rest.</li>
+          <li><b>Light or dark:</b> use the <b>Light / Dark</b> switch in the menu. Idea HQ remembers your choice on this device. The first time, it follows your device&apos;s setting.</li>
         </UL>
 
         <H id="ideas">Writing good ideas</H>

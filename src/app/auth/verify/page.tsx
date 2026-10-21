@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { AUTH_BUTTON, AuthShell } from "@/components/landing/auth-shell";
 
 type State = "ready" | "working" | "done" | "failed" | "missing";
 
@@ -38,26 +38,23 @@ export default function VerifyPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-700 dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Confirm your email</h1>
-        {state === "missing" && <p className="mt-3 text-gray-700 dark:text-gray-300">This link is incomplete. Open the link from the email again.</p>}
-        {(state === "ready" || state === "working" || state === "failed") && (
-          <>
-            <p className="mt-3 text-gray-700 dark:text-gray-300">Press the button to confirm that this email address is yours.</p>
-            <Button className="mt-5 w-full bg-emerald-700 hover:bg-emerald-800" onClick={confirm} disabled={state === "working"}>
-              {state === "working" ? "Confirming…" : "Confirm my email"}
-            </Button>
-            {state === "failed" && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-400">{error}</p>}
-          </>
-        )}
-        {state === "done" && (
-          <>
-            <p role="status" className="mt-3 text-gray-700 dark:text-gray-300">Thank you, your email is confirmed. The owner can approve your account now.</p>
-            <Link href="/ideas" className="mt-5 inline-flex min-h-[44px] items-center rounded-lg bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800">Continue to Idea HQ</Link>
-          </>
-        )}
-      </div>
-    </main>
+    <AuthShell title="Confirm your email" highlight="email">
+      {state === "missing" && <p className="m-0 text-[#3B3E45]">This link is incomplete. Open the link from the email again.</p>}
+      {(state === "ready" || state === "working" || state === "failed") && (
+        <>
+          <p className="m-0 text-[#3B3E45]">Press the button to confirm that this email address is yours.</p>
+          <button type="button" className={`${AUTH_BUTTON} mt-5`} onClick={confirm} disabled={state === "working"}>
+            {state === "working" ? "Confirming…" : "Confirm my email"}
+          </button>
+          {state === "failed" && <p role="alert" className="mb-0 mt-3 text-[15px] font-medium text-[#B42318]">{error}</p>}
+        </>
+      )}
+      {state === "done" && (
+        <>
+          <p role="status" className="m-0 text-[#3B3E45]">Thank you, your email is confirmed. The owner can approve your account now.</p>
+          <Link href="/ideas" className={`${AUTH_BUTTON} mt-5 no-underline`}>Continue to Idea HQ</Link>
+        </>
+      )}
+    </AuthShell>
   );
 }
