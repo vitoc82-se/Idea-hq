@@ -60,8 +60,8 @@
 **Later:** refunds are not automated (switching off Pro does not refund; refund in Lemon Squeezy, and the webhook takes a refunded pack back); a one-off pack bought in test mode shares the live webhook (test events are accepted); Support tickets are still a manual Admin toggle (not part of Pro); the wording "Ask the owner" still shows for people the owner switched off; failed-payment emails come from Lemon Squeezy only.
 
 ## Give Preview deploys their own database
-**Done (2026-10-20):** the build (`scripts/build.mjs`) only changes the schema on a production deploy, and never accepts data loss unless `ALLOW_DATA_LOSS=1` is set for that deploy. Preview and local builds leave the schema alone.
-**Still open:** Preview deploys still *run* against the production database (DATABASE_URL is set for Preview too), so a preview of a branch that changes the schema can misbehave on live data. Fix: a Neon branch for Preview with its own DATABASE_URL (Vercel, Settings, Environment Variables, Preview only), and the staging site below.
+**Done (2026-10-21):** the build (`scripts/build.mjs`) only changes the schema on a production deploy, and never accepts data loss unless `ALLOW_DATA_LOSS=1` is set for that deploy. Preview deploys now use their own Neon branch (`preview`, schema only, no real data) through a Preview-only `DATABASE_URL`, their own `NEXTAUTH_SECRET`, and no `ANTHROPIC_API_KEY`. Production variables are Production only.
+**Remember:** the preview branch does not get schema changes automatically (preview builds leave the schema alone). After a schema change, refresh it in Neon (reset the `preview` branch from production, schema only) before testing a preview of that change.
 
 ## Let me test pages behind sign-in (local test mode, then staging)
 **What:** A way to test everything behind the login without using real accounts or the live database.
