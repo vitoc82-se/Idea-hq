@@ -8,7 +8,7 @@ import { capState, capMessage } from "@/lib/spend";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
-  checksState: true, agentNote: true, previewUrl: true, costUsd: true, turns: true, provider: true, model: true, effort: true, maxTurns: true, error: true, createdAt: true, finishedAt: true, parentRunId: true,
+  checksState: true, agentNote: true, previewUrl: true, costUsd: true, turns: true, provider: true, model: true, effort: true, maxTurns: true, error: true, createdAt: true, startedAt: true, finishedAt: true, parentRunId: true,
 } as const;
 
 export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
