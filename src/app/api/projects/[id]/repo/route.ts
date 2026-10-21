@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { github, installationConfigureUrl } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
+import { repoAccessFrom, RECONNECT_MESSAGE } from "@/lib/github/access";
 import { safeCommand } from "@/lib/runs/workflow";
 import { invalidateSetupCache } from "@/lib/runs/setup-cache";
 import { getProvider, listProviders, isProviderId } from "@/lib/providers";
@@ -21,10 +22,14 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     if (!p) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
     const installs = await db.githubInstallation.findMany({ where: { userId: auth.userId } });
-    const available = [];
+    const available: { installationId: number; repos: { owner: string; name: string; defaultBranch: string; isPrivate?: boolean }[]; needsReconnect?: boolean; configureUrl?: string; error?: string }[] = [];
     for (const inst of installs) {
       try {
-        available.push({ installationId: inst.id, repos: await github.listRepos(inst.id), configureUrl: await installationConfigureUrl(inst.id) });
+        const all = await github.listRepos(inst.id);
+        // Only repos this person can open themselves. Connected before this check existed (list unknown): show all,
+        // and saving a NEW repo will ask them to reconnect.
+        const repos = Array.isArray(inst.repos) ? all.filter((r) => repoAccessFrom(inst.repos, r.owner, r.name) === "yes") : all;
+        available.push({ installationId: inst.id, repos, needsReconnect: !Array.isArray(inst.repos), configureUrl: await installationConfigureUrl(inst.id) });
       } catch {
         available.push({ installationId: inst.id, repos: [], error: "Could not list repos" });
       }
@@ -38,9 +43,14 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       await db.project.update({ where: { id: p.id }, data: { repoPrivate } });
     }
 
+    // Does this person still have access to the repo the project is linked to?
+    const linkedAccess = p.installationId && p.repoOwner && p.repoName
+      ? repoAccessFrom(installs.find((x) => x.id === p.installationId)?.repos, p.repoOwner, p.repoName)
+      : "unknown";
+
     let workflowInstalled = p.workflowInstalled;
     let workflowOutdated = false;
-    if (p.installationId && p.repoOwner && p.repoName) {
+    if (p.installationId && p.repoOwner && p.repoName && linkedAccess !== "no") {
       const map = (p.envBranches || {}) as Record<string, string>;
       const base = map[p.defaultEnv || ""] || Object.values(map)[0];
       const file = base ? await github.getFile(p.installationId, p.repoOwner, p.repoName, WORKFLOW_PATH, base).catch(() => null) : null;
@@ -63,7 +73,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
         installationId: p.installationId, repoOwner: p.repoOwner, repoName: p.repoName,
         envBranches: p.envBranches, defaultEnv: p.defaultEnv, autoMerge: p.autoMerge,
         buildCommand: p.buildCommand, testCommand: p.testCommand, aiBias: p.aiBias, aiProvider: getProvider(p.aiProvider).id,
-        workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber, repoPublic: repoPrivate === false,
+        workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber, repoPublic: repoPrivate === false, repoAccess: linkedAccess,
       },
       available,
       // What a user may pick, and the facts the UI needs (secret name, where to get a key).
@@ -92,6 +102,16 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     const repos = await github.listRepos(installationId);
     const repo = repos.find((r) => r.owner === b.repoOwner && r.name === b.repoName);
     if (!repo) return NextResponse.json({ error: "That repo is not part of the installation." }, { status: 400 });
+
+    // The installation may cover more repos than this person can open (an organisation's). Linking a NEW repo needs
+    // GitHub's word, given when they connected, that it is one of theirs. Saving settings for the repo already linked
+    // does not ask again.
+    const linkedNow = p.installationId === installationId && p.repoOwner === repo.owner && p.repoName === repo.name;
+    if (!linkedNow) {
+      const access = repoAccessFrom(mine.repos, repo.owner, repo.name);
+      if (access === "unknown") return NextResponse.json({ error: RECONNECT_MESSAGE }, { status: 409 });
+      if (access === "no") return NextResponse.json({ error: "You do not have access to that repository on GitHub, so it cannot be linked." }, { status: 403 });
+    }
 
     const env = b.envBranches;
     if (!env || typeof env !== "object" || !Object.keys(env).length || Object.keys(env).length > 5) {

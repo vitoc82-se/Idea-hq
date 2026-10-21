@@ -1,3 +1,4 @@
+import { repoAccessProblem } from "@/lib/github/access";
 import { db } from "@/lib/db";
 import { github as realGithub, GitHubRateLimitError, type GitHubApi } from "@/lib/github/client";
 import { workflowUpdateAvailable } from "../freshness";
@@ -76,7 +77,8 @@ export async function getSetupStatus(
   if (!p) throw new RunError(404, "Project not found");
 
   const installs = await db.githubInstallation.count({ where: { userId } });
-  const hasRepo = !!(p.installationId && p.repoOwner && p.repoName);
+  // A repository the person may not open counts as "no repository" here (the repo card explains why).
+  const hasRepo = !!(p.installationId && p.repoOwner && p.repoName) && !(await repoAccessProblem(p));
   const envs = (p.envBranches || {}) as Record<string, string>;
   const base = envs[p.defaultEnv || ""] || Object.values(envs)[0] || null;
 

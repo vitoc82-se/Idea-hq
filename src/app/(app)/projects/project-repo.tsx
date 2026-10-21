@@ -9,13 +9,13 @@ import { Select } from "@/components/ui/select";
 import { PUBLIC_REPO_NOTICE } from "@/lib/runs/public-safe";
 
 type Repo = { owner: string; name: string; defaultBranch: string; isPrivate?: boolean };
-type Available = { installationId: number; repos: Repo[]; error?: string; configureUrl?: string };
+type Available = { installationId: number; repos: Repo[]; error?: string; configureUrl?: string; needsReconnect?: boolean };
 type Data = {
   appConfigured: boolean;
   project: {
     installationId: number | null; repoOwner: string | null; repoName: string | null;
     envBranches: Record<string, string> | null; defaultEnv: string | null; autoMerge: boolean;
-    buildCommand: string | null; testCommand: string | null; aiBias?: string; aiProvider?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null; repoPublic?: boolean;
+    buildCommand: string | null; testCommand: string | null; aiBias?: string; aiProvider?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null; repoPublic?: boolean; repoAccess?: string;
   };
   available: Available[];
   providers?: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string }[];
@@ -258,6 +258,12 @@ export function ProjectRepo({
           {showSetup && p.workflowInstalled && (
             <p className="text-xs text-gray-400">
               Runs use the ANTHROPIC_API_KEY secret in the repo (Settings, Secrets and variables, Actions). Idea HQ never sees it.
+            </p>
+          )}
+          {p.repoOwner && p.repoAccess === "no" && (
+            <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
+              You do not have access to {p.repoOwner}/{p.repoName} on GitHub, so Idea HQ will not work on it for you. Reconnect GitHub to check again, or choose a repository you can open.{" "}
+              <a href="/api/github/install" className="font-semibold underline">Reconnect GitHub</a>
             </p>
           )}
           {showSetup && p.repoOwner && p.repoPublic && (

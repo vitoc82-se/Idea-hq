@@ -31,7 +31,7 @@ beforeEach(async () => {
   await resetDb();
   process.env.OWNER_EMAIL = "ann@x.se";
   await db.user.create({ data: { id: "u1", email: "ann@x.se", approved: true } });
-  await db.githubInstallation.create({ data: { id: 1, userId: "u1", accountLogin: "acme" } as never });
+  await db.githubInstallation.create({ data: { id: 1, userId: "u1", accountLogin: "acme", repos: ["acme/open", "acme/secret", "acme/mystery"] } });
   await db.project.create({ data: { id: "p1", userId: "u1", name: "Shop", slug: "shop", context: "" } });
   gh.repos = [
     { owner: "acme", name: "open", defaultBranch: "main", isPrivate: false },

@@ -1,3 +1,4 @@
+import { requireRepoAccess } from "@/lib/github/access";
 import { db } from "@/lib/db";
 import { github as realGithub, type GitHubApi } from "@/lib/github/client";
 import { KNOWLEDGE_FILE, renderMarkdown, withClaudeImport } from "./knowledge";
@@ -12,6 +13,7 @@ export async function exportKnowledgeToRepo(userId: string, projectId: string, g
   if (!loaded) throw new RunError(404, "Project not found");
   const { project: p, knowledge } = loaded;
   if (!p.installationId || !p.repoOwner || !p.repoName) throw new RunError(409, "Connect a GitHub repo to this project first.");
+  await requireRepoAccess(p);
   if (!Object.keys(knowledge.sections).length) throw new RunError(409, "There is nothing to save yet. Draft or write the knowledge first.");
   const i = p.installationId, o = p.repoOwner, r = p.repoName;
 

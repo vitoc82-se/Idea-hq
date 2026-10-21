@@ -43,10 +43,13 @@ export async function GET(request: Request) {
   }
 
   for (const id of ids) {
+    // Reconnecting refreshes which repos this person may use through the installation (when GitHub says).
+    const repos = mine.find((x) => x.id === id)?.repos;
+    const known = Array.isArray(repos) ? { repos, reposCheckedAt: new Date() } : {};
     await db.githubInstallation.upsert({
       where: { userId_id: { userId: auth.userId, id } },
-      create: { userId: auth.userId, id },
-      update: {},
+      create: { userId: auth.userId, id, ...known },
+      update: known,
     });
   }
   return back("connected");

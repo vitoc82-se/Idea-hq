@@ -1,3 +1,4 @@
+import { repoAccessProblem } from "@/lib/github/access";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
@@ -18,7 +19,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     const loaded = await loadKnowledge(auth.userId, params.id);
     if (!loaded) return NextResponse.json({ error: "Project not found" }, { status: 404 });
     const { project: p, knowledge: k, memory } = loaded;
-    const hasRepo = !!(p.installationId && p.repoOwner && p.repoName);
+    const hasRepo = !!(p.installationId && p.repoOwner && p.repoName) && !(await repoAccessProblem(p));
 
     // How far the repo has moved since the knowledge was learned (one cached request).
     let behind: number | null = null;

@@ -1,3 +1,4 @@
+import { repoAccessProblem } from "@/lib/github/access";
 import { db } from "./db";
 import { github as realGithub, type GitHubApi } from "./github/client";
 import { knowledgeFor } from "./knowledge";
@@ -32,6 +33,7 @@ export async function refreshFreshness(
   if (!p) return null;
   const cached = (): Freshness => ({ knowledgeBehind: p.knowledgeBehind, workflowVersionSeen: p.workflowVersionSeen, checkedAt: p.freshnessCheckedAt ? p.freshnessCheckedAt.toISOString() : null });
   if (!p.installationId || !p.repoOwner || !p.repoName) return cached();
+  if (await repoAccessProblem(p)) return cached();
   if (!opts.force && p.freshnessCheckedAt && now.getTime() - p.freshnessCheckedAt.getTime() < FRESHNESS_TTL_MS) return cached();
 
   const map = (p.envBranches || {}) as Record<string, string>;

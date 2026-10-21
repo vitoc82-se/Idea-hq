@@ -1,3 +1,4 @@
+import { requireRepoAccess } from "@/lib/github/access";
 import { db } from "@/lib/db";
 import { github as realGithub, SecretsPermissionError, type GitHubApi } from "@/lib/github/client";
 import { sealSecret } from "@/lib/github/seal";
@@ -67,6 +68,7 @@ export async function relayProviderKey(
     const seen = new Set<string>();
     for (const p of [project, ...extras]) {
       if (!p.installationId || !p.repoOwner || !p.repoName) continue;
+      await requireRepoAccess(p); // writing a secret into a repository is exactly what must not be done for someone who cannot open it
       const k = `${p.installationId}:${p.repoOwner}/${p.repoName}`.toLowerCase();
       if (seen.has(k)) continue;
       seen.add(k);

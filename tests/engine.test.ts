@@ -91,6 +91,46 @@ beforeEach(() => {
   seed();
 });
 
+// An installation on an organisation covers repos a given member cannot open. Idea HQ acts with the app's rights,
+// so every run action first asks whether THIS person may use the repo (what GitHub told us when they connected).
+describe("repository access", () => {
+  const connected = (repos: string[] | null) => t.tables.githubInstallation.push({ userId: "u1", id: 5, repos });
+  it("a repo the person cannot open is refused before anything happens", async () => {
+    connected(["acme/other"]);
+    await expect(startRun("u1", "i1", deps())).rejects.toThrow(/do not have access to Acme\/app/);
+    expect(t.tables.run).toHaveLength(0);
+  });
+  it("one that is theirs works", async () => {
+    connected(["acme/app"]);
+    await expect(startRun("u1", "i1", deps())).resolves.toBeTruthy();
+  });
+  it("a connection from before the check (no list) keeps working", async () => {
+    connected(null);
+    await expect(startRun("u1", "i1", deps())).resolves.toBeTruthy();
+    expect(t.tables.run).toHaveLength(1);
+  });
+  it("access lost after the run was prepared stops approving, revising, merging, reverting and cancelling it", async () => {
+    connected(["acme/app"]);
+    await startedRun();
+    t.tables.githubInstallation[0].repos = ["acme/other"]; // removed from the organisation since
+    for (const act of [() => approveRun("u1", "RUN1", deps()), () => reviseRun("u1", "RUN1", "x", deps()), () => mergeRun("u1", "RUN1", {}, deps()), () => revertRun("u1", "RUN1", deps()), () => cancelRun("u1", "RUN1", deps())]) {
+      await expect(act()).rejects.toThrow(/do not have access/);
+    }
+    expect(gh.state.lastInputs).toBeUndefined();
+    expect(t.tables.run[0].status).toBe("awaiting_approval");
+  });
+  it("learning the project and opening the setup PR are refused too", async () => {
+    connected(["acme/other"]);
+    await expect(startLearnRun("u1", "p1", deps())).rejects.toThrow(/do not have access/);
+    await expect(openSetupPr("u1", "p1", "idea-hq-app", deps())).rejects.toThrow(/do not have access/);
+  });
+  it("another person's connection says nothing about this one", async () => {
+    t.tables.githubInstallation.push({ userId: "u2", id: 5, repos: ["acme/app"] });
+    connected(["acme/other"]);
+    await expect(startRun("u1", "i1", deps())).rejects.toThrow(/do not have access/);
+  });
+});
+
 describe("startRun", () => {
   it("needs a plan, a repo and an installed workflow", async () => {
     t.tables.idea[0].plan = null;

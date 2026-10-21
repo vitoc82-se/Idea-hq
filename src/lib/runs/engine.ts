@@ -1,3 +1,4 @@
+import { requireRepoAccess } from "@/lib/github/access";
 import { db } from "@/lib/db";
 import { github as realGithub, type GitHubApi } from "@/lib/github/client";
 import {
@@ -88,6 +89,7 @@ function envBase(p: ProjectRow, env?: string | null): { env: string; base: strin
 async function loadOwned(userId: string, runId: string) {
   const run = await db.run.findFirst({ where: { id: runId, userId }, include: { project: true, idea: true } });
   if (!run) throw new RunError(404, "Run not found");
+  await requireRepoAccess(run.project);
   return run;
 }
 
@@ -120,6 +122,7 @@ export async function startRun(userId: string, ideaId: string, deps?: Deps) {
   }
   const p = idea.project;
   repoOf(p);
+  await requireRepoAccess(p);
   if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
   await assertUnderCap(p.id, p.name);
   const { env, base } = envBase(p);
@@ -285,6 +288,7 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
   const p = await db.project.findFirst({ where: { id: projectId, userId } });
   if (!p) throw new RunError(404, "Project not found");
   repoOf(p);
+  await requireRepoAccess(p);
   if (!p.workflowInstalled) throw new RunError(409, "Finish the repo setup first (merge the setup PR).");
   await assertUnderCap(p.id, p.name);
   const { env, base } = envBase(p);
@@ -451,6 +455,7 @@ export async function openSetupPr(
   const p = await db.project.findFirst({ where: { id: projectId, userId } });
   if (!p) throw new RunError(404, "Project not found");
   const { i, owner, repo } = repoOf(p);
+  await requireRepoAccess(p);
   const { base } = envBase(p);
   const b = await gh.repoBranch(i, owner, repo, base);
   if (!b) throw new RunError(409, `Base branch "${base}" not found.`);

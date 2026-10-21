@@ -1,3 +1,4 @@
+import { repoAccessProblem } from "@/lib/github/access";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
@@ -20,6 +21,8 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
   let label = "pasted text";
   if (typeof body?.path === "string" && body.path) {
     if (!p.installationId || !p.repoOwner || !p.repoName) return NextResponse.json({ error: "Connect a GitHub repo to this project first." }, { status: 409 });
+    const noAccess = await repoAccessProblem(p);
+    if (noAccess) return NextResponse.json({ error: noAccess }, { status: 403 });
     const map = (p.envBranches || {}) as Record<string, string>;
     const ref = map[p.defaultEnv || ""] || Object.values(map)[0] || "main";
     try {

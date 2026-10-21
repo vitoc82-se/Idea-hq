@@ -84,7 +84,7 @@ export function githubConfigured(): boolean {
   return !!(process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY && process.env.GITHUB_WEBHOOK_SECRET);
 }
 
-const tokenCache = new Map<number, { token: string; exp: number }>();
+const tokenCache = new Map<string, { token: string; exp: number }>();
 
 async function raw(token: string, method: string, path: string, body?: unknown, extra: Record<string, string> = {}) {
   const res = await fetch(path.startsWith("http") ? path : `${API}${path}`, {
@@ -105,16 +105,22 @@ async function raw(token: string, method: string, path: string, body?: unknown, 
   return { res, json };
 }
 
-export async function installationToken(installationId: number): Promise<string> {
-  const cached = tokenCache.get(installationId);
+// With `repo`, the token only works for that one repository (even if the installation covers many), so a mistake
+// elsewhere in the code can never touch another repo with it.
+export async function installationToken(installationId: number, repo?: string): Promise<string> {
+  const key = repo ? `${installationId}:${repo.toLowerCase()}` : String(installationId);
+  const cached = tokenCache.get(key);
   if (cached && cached.exp > Date.now() + 60_000) return cached.token;
   const jwt = appJwt(process.env.GITHUB_APP_ID || "", privateKey());
-  const { res, json } = await raw(jwt, "POST", `/app/installations/${installationId}/access_tokens`);
+  const { res, json } = await raw(jwt, "POST", `/app/installations/${installationId}/access_tokens`, repo ? { repositories: [repo] } : undefined);
   if (!res.ok) throw new GitHubError(res.status, "Could not get installation token", json);
   const j = json as { token: string; expires_at: string };
-  tokenCache.set(installationId, { token: j.token, exp: Date.parse(j.expires_at) });
+  tokenCache.set(key, { token: j.token, exp: Date.parse(j.expires_at) });
   return j.token;
 }
+
+// The repository a GitHub path is about, when it is one ("/repos/{owner}/{repo}/...").
+export const repoFromPath = (path: string): string | undefined => /^\/repos\/[^/]+\/([^/?]+)/.exec(path)?.[1];
 
 // Conditional requests: GitHub answers 304 without counting it against the rate
 // limit, so repeated reads of unchanged data are free. Warm serverless
@@ -139,7 +145,7 @@ export function rateLimitWait(res: { status: number; headers: Headers }, message
 }
 
 async function call<T>(i: number, method: string, path: string, body?: unknown, okStatuses: number[] = []): Promise<T | null> {
-  const token = await installationToken(i);
+  const token = await installationToken(i, repoFromPath(path));
   const key = `${i}:${path}`;
   const cached = method === "GET" ? etagCache.get(key) : undefined;
   const { res, json } = await raw(token, method, path, body, cached ? { "If-None-Match": cached.etag } : {});
@@ -262,7 +268,7 @@ export const github: GitHubApi = {
     // Workflow v8 prints the note in its last job (publish); older ones have a single job. Look from the last one back.
     for (const job of [...(j?.jobs ?? [])].reverse()) {
       // The log comes back as plain text (GitHub redirects to a signed address; the token is not forwarded there).
-      const { res, json } = await raw(await installationToken(i), "GET", `/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`);
+      const { res, json } = await raw(await installationToken(i, repo), "GET", `/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`);
       const note = res.ok && typeof json === "string" ? extractNote(json) : null;
       if (note) return note;
     }
@@ -314,7 +320,7 @@ export const github: GitHubApi = {
 // GitHub user OAuth (the app's "user authorization"): exchange the code and list
 // the installations this GitHub user can see. Used to claim installations, so
 // nobody can attach an installation id that is not theirs.
-export async function userInstallations(code: string): Promise<{ id: number; account: string | null }[] | null> {
+export async function userInstallations(code: string): Promise<{ id: number; account: string | null; repos?: string[] | null }[] | null> {
   const id = process.env.GITHUB_APP_CLIENT_ID;
   const secret = process.env.GITHUB_APP_CLIENT_SECRET;
   if (!id || !secret) return null;
@@ -328,7 +334,23 @@ export async function userInstallations(code: string): Promise<{ id: number; acc
   const { res, json } = await raw(tok.access_token, "GET", "/user/installations?per_page=100");
   if (!res.ok) return null;
   const list = (json as { installations?: { id: number; account?: { login?: string } }[] }).installations || [];
-  return list.map((x) => ({ id: x.id, account: x.account?.login ?? null }));
+  const out: { id: number; account: string | null; repos: string[] | null }[] = [];
+  for (const x of list) out.push({ id: x.id, account: x.account?.login ?? null, repos: await userRepos(tok.access_token, x.id) });
+  return out;
+}
+
+// The repositories THIS person can reach through one installation (GitHub filters by the person's own rights, so on
+// an organisation's installation a member sees only what they may open). null when GitHub would not say.
+async function userRepos(userToken: string, installationId: number): Promise<string[] | null> {
+  const names: string[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const { res, json } = await raw(userToken, "GET", `/user/installations/${installationId}/repositories?per_page=100&page=${page}`);
+    if (!res.ok) return null;
+    const repos = (json as { repositories?: { full_name?: string }[] }).repositories || [];
+    for (const r of repos) if (typeof r.full_name === "string") names.push(r.full_name.toLowerCase());
+    if (repos.length < 100) return names;
+  }
+  return names;
 }
 
 export async function userCanSeeInstallation(code: string, installationId: number): Promise<boolean> {

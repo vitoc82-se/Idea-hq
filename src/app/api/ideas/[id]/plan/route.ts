@@ -1,3 +1,4 @@
+import { repoAccessProblem } from "@/lib/github/access";
 import { intro as planIntro, ideaBlock, structure as planStructure } from "@/lib/runs/plan-prompt";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -88,7 +89,7 @@ Rules: be concrete and specific to ${idea.project.name} and grounded in the proj
     // When the project's repo is connected, let the AI open real files before it
     // writes the plan (read-only, bounded). Otherwise write from the context alone.
     const p = idea.project;
-    const hasRepo = !!(p.installationId && p.repoOwner && p.repoName);
+    const hasRepo = !!(p.installationId && p.repoOwner && p.repoName) && !(await repoAccessProblem(p));
     const map = (p.envBranches || {}) as Record<string, string>;
     const ref = map[p.defaultEnv || ""] || Object.values(map)[0] || "main";
     let plan = "";

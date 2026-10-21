@@ -1,3 +1,4 @@
+import { repoAccessProblem } from "@/lib/github/access";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
@@ -18,6 +19,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId } });
   if (!p) return NextResponse.json({ error: "Project not found" }, { status: 404 });
   if (!p.installationId || !p.repoOwner || !p.repoName) return NextResponse.json({ repoConnected: false, files: [] });
+  const noAccess = await repoAccessProblem(p);
+  if (noAccess) return NextResponse.json({ error: noAccess }, { status: 403 });
   try {
     const tree = await github.listTree(p.installationId, p.repoOwner, p.repoName, refOf(p));
     return NextResponse.json({ repoConnected: true, repo: `${p.repoOwner}/${p.repoName}`, files: findBacklogFiles(tree.paths) });

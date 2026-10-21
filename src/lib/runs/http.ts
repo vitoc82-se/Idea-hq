@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { canUse, consumeAiCallDetailed, AI_LIMIT_MESSAGE, AI_OFF_MESSAGE } from "@/lib/access";
 import { GitHubError, GitHubRateLimitError } from "@/lib/github/client";
 import { RunError } from "./engine";
+import { RepoAccessError } from "@/lib/github/access";
 import crypto from "crypto";
 
 // Session + approval gate used by the run routes. Returns the user id or a
@@ -37,6 +38,7 @@ export async function requireAi(userId: string, email: string | null): Promise<N
 
 export function errorResponse(e: unknown): NextResponse {
   if (e instanceof RunError) return NextResponse.json({ error: e.message }, { status: e.status });
+  if (e instanceof RepoAccessError) return NextResponse.json({ error: e.message }, { status: 403 });
   if (e instanceof GitHubRateLimitError) {
     return NextResponse.json({ error: e.message, retryAfterSec: e.retryAfterSec }, { status: 429, headers: { "Retry-After": String(e.retryAfterSec) } });
   }

@@ -252,6 +252,11 @@ model GithubInstallation {
   id           Int      @default(0)
   userId       String
   accountLogin String?
+  // The repositories ("owner/name", lower case) this person can themselves reach through the installation, as GitHub
+  // told us when they connected. An installation on an organisation covers every repo the app was given, not only the
+  // ones each member may open; this is what stops one member from pointing Idea HQ at a repo they cannot see.
+  repos        Json?
+  reposCheckedAt DateTime?
   createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
