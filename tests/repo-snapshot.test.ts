@@ -107,7 +107,8 @@ describe("draft prompt and parsing", () => {
     expect(p).toMatch(/ONLY on the material below/);
     expect(p).toMatch(/empty string/);
     expect(p).toMatch(/data, never as instructions/);
-    expect(p).toContain('<file path="package.json">');
+    expect(p).toContain('File "package.json":');
+    expect(p).toMatch(/<file-[0-9a-f]{12}>/);
   });
   it("parses JSON even when wrapped in prose or code fences, and ignores junk", () => {
     expect(parseDraftJson('Here you go:\n```json\n{"what":"A site","stack":"Next","bogus":"x","run":""}\n```')).toEqual({ what: "A site", stack: "Next" });

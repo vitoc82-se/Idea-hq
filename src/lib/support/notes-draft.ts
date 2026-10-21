@@ -1,3 +1,4 @@
+import { fenced, DATA_NOTICE } from "../ai-fence";
 import { LIMITS } from "./constants";
 import { cleanText } from "./sanitize";
 import type { Note } from "./notes";
@@ -18,9 +19,8 @@ export function buildNotesDraftPrompt(projectName: string, internalContext: stri
     "",
     'Return ONLY a JSON array like [{"title":"...","text":"..."}].',
     "",
-    "<internal_knowledge>",
-    internalContext.slice(0, 20000),
-    "</internal_knowledge>",
+    DATA_NOTICE,
+    fenced("internal-knowledge", internalContext.slice(0, 20000)),
   ]
     .filter(Boolean)
     .join("\n");

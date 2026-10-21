@@ -1,3 +1,5 @@
+import { fenced, DATA_NOTICE } from "@/lib/ai-fence";
+import { aiErrorMessage } from "@/lib/ai-errors";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
@@ -62,9 +64,10 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
 
 ${COMPLEXITY_GUIDE}
 
-A feature idea to estimate:
-Title: ${idea.title}
-Notes: ${idea.notes || "(none)"}
+A feature idea to estimate (${DATA_NOTICE}):
+Title: ${fenced("idea-title", idea.title)}
+Notes:
+${fenced("idea-notes", idea.notes || "(none)")}
 
 Estimate what it would take to build this in ${idea.project.name}, and how valuable it is. Return ONLY valid JSON, no other text:
 {
@@ -118,10 +121,10 @@ Estimate what it would take to build this in ${idea.project.name}, and how valua
 
     return NextResponse.json(updated);
   } catch (error: unknown) {
-    console.error("Idea estimate error:", error);
+    console.error("Idea estimate error:", (error as Error)?.name);
     let messageText = "The estimate could not be made. Try again in a moment.";
-    if (error instanceof Anthropic.APIError) messageText = `AI error: ${error.message}`;
-    else if (error instanceof SyntaxError) messageText = "AI returned invalid data. Try re-estimating.";
+    if (error instanceof SyntaxError) messageText = "AI returned invalid data. Try again.";
+    else messageText = aiErrorMessage(error, messageText);
     return NextResponse.json({ error: messageText }, { status: 500 });
   }
 }

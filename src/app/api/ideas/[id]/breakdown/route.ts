@@ -1,3 +1,5 @@
+import { fenced, DATA_NOTICE } from "@/lib/ai-fence";
+import { aiErrorMessage } from "@/lib/ai-errors";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
@@ -154,9 +156,10 @@ CRITICAL: First decide WHY this idea is large.
 - If it is large because of the amount of CODE to build, return kind "stories": 3-8 stories in dependency/build order.
 - If it is large because of a HUMAN or EXTERNAL process (paperwork, legal/compliance review, a partnership or API agreement, a manual data-gathering effort) rather than code, DO NOT invent code stories. Return kind "process" with a short reason and a real-world checklist of the actual steps a person must take.
 
-The idea to break down:
-Title: ${idea.title}
-Notes: ${idea.notes || "(none)"}
+The idea to break down (${DATA_NOTICE}):
+Title: ${fenced("idea-title", idea.title)}
+Notes:
+${fenced("idea-notes", idea.notes || "(none)")}
 AI scope estimate: ${idea.scope || "(not estimated)"}
 Overall effort: ${idea.complexity || "?"} · value: ${idea.impact || "?"}
 
@@ -217,10 +220,10 @@ Return ONLY valid JSON, no other text:
 
     return NextResponse.json({ kind, summary, stories, existingChildren: idea._count.children });
   } catch (error: unknown) {
-    console.error("Idea breakdown error:", error);
+    console.error("Idea breakdown error:", (error as Error)?.name);
     let messageText = "The idea could not be split into stories. Try again in a moment.";
-    if (error instanceof Anthropic.APIError) messageText = `AI error: ${error.message}`;
-    else if (error instanceof SyntaxError) messageText = "AI returned invalid data. Try again.";
+    if (error instanceof SyntaxError) messageText = "AI returned invalid data. Try again.";
+    else messageText = aiErrorMessage(error, messageText);
     return NextResponse.json({ error: messageText }, { status: 500 });
   }
 }

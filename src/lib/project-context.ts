@@ -1,3 +1,4 @@
+import { fenced, DATA_NOTICE } from "./ai-fence";
 // The grounding block handed to Claude when it estimates an idea's scope or
 // writes a build prompt. In Snapmeal this was a single hardcoded app context;
 // in Idea HQ it is per-project — each Project carries its own `context` (its
@@ -13,9 +14,7 @@ export function projectPromptContext(project: {
   if (!ctx) {
     return `The project is "${project.name}". No architecture context has been added for it yet, so estimate conservatively from the title and notes alone and say in the scope that project context is missing.`;
   }
-  return `Below is the current architecture and context for the project "${project.name}" — the source of truth for how it is actually built. Ground everything you write in it: reuse the routes, data models, libraries and patterns shown; do not invent files or endpoints that aren't here; and never propose building something that already exists.
+  return `Below is the current architecture and context for the project "${project.name}" — the source of truth for how it is actually built. Ground everything you write in it: reuse the routes, data models, libraries and patterns shown; do not invent files or endpoints that aren't here; and never propose building something that already exists. ${DATA_NOTICE}
 
-<project-context project="${project.name}">
-${ctx}
-</project-context>`;
+${fenced("project-context", ctx)}`;
 }

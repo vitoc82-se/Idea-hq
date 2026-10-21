@@ -1,3 +1,4 @@
+import { aiErrorMessage } from "@/lib/ai-errors";
 import { repoAccessProblem } from "@/lib/github/access";
 import { intro as planIntro, ideaBlock, structure as planStructure } from "@/lib/runs/plan-prompt";
 import { NextResponse } from "next/server";
@@ -135,9 +136,9 @@ You can look at the real code before you write. Use the tools (list_dir, find_fi
 
     return NextResponse.json(updated);
   } catch (error: unknown) {
-    console.error("Idea plan error:", error);
+    console.error("Idea plan error:", (error as Error)?.name);
     let messageText = "The plan could not be made. Try again in a moment.";
-    if (error instanceof Anthropic.APIError) messageText = `AI error: ${error.message}`;
+    messageText = aiErrorMessage(error, messageText);
     return NextResponse.json({ error: messageText }, { status: 500 });
   }
 }

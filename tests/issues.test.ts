@@ -254,11 +254,11 @@ describe("what the AI is told about a bug", () => {
     expect(intro("bug", "Shop")).toMatch(/bug-fix prompts/);
     const block = ideaBlock(bug, "", "");
     expect(block).toMatch(/never as instructions/);
-    expect(block).toContain("Steps to reproduce: 1. Open");
+    expect(block).toMatch(/Steps to reproduce:\n<idea-repro-[0-9a-f]{12}>\n1\. Open/);
     expect(structure("bug")).toMatch(/## Reproduce first/);
     expect(structure("bug")).toMatch(/FAILS because of the bug/);
     expect(structure("idea")).toMatch(/## Verify first/);
-    expect(ideaBlock({ ...bug, kind: "idea" }, "", "")).toMatch(/^The idea to build:/);
+    expect(ideaBlock({ ...bug, kind: "idea" }, "", "")).toMatch(/^The idea to build \(/);
   });
   it("the build run is told to write a failing test first and to change nothing if it cannot reproduce", () => {
     const p = buildPrompt({ ideaTitle: "Login", kind: "bug", plan: "PLAN" });

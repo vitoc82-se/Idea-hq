@@ -22,6 +22,6 @@ describe("drafting help notes from project knowledge", () => {
     const p = buildNotesDraftPrompt("Acme", "We use Next.js and Neon.", []);
     expect(p).toMatch(/no code/i);
     expect(p).toMatch(/orders, payments|orders, payments, invoices/i);
-    expect(p).toContain("<internal_knowledge>");
+    expect(p).toMatch(/<internal-knowledge-[0-9a-f]{12}>/);
   });
 });
