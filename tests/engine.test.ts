@@ -241,11 +241,34 @@ describe("model and effort tiers", () => {
     expect(inputs().model).toBe("claude-haiku-5-5");
   });
 
-  it("steps up after an earlier failed attempt on the same idea", async () => {
+  it("steps up after an earlier attempt on the same idea where the AI changed nothing", async () => {
     t.tables.idea[0].complexity = "S";
     await startedRun();
-    t.tables.run.push({ id: "old", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed" });
+    t.tables.run.push({ id: "old", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", error: "The AI made no changes." });
     await approveRun("u1", "RUN1", deps());
+    expect(inputs().model).toBe("claude-sonnet-5-5");
+  });
+
+  it("does not step up for failures that say nothing about the model (install, key, credit, GitHub)", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    for (const [i, error] of ['The workflow failed at the step "Install dependencies". Installing your project\'s dependencies failed.', 'The workflow failed at the step "Run Claude Code". The AI step failed. Check that the ANTHROPIC_API_KEY secret', "No result from GitHub in time. Check the Actions tab.", "Could not start the workflow: 404"].entries()) {
+      t.tables.run.push({ id: `old${i}`, userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", error, turns: 3, maxTurns: 30, createdAt: new Date(2026, 0, i + 1) });
+    }
+    await approveRun("u1", "RUN1", deps());
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
+  });
+
+  it("the practice idea starts on the cheapest model, even when no size was ever stored for it", async () => {
+    t.tables.idea[0].title = "Practice: add a one-line note to the README";
+    t.tables.idea[0].complexity = null;
+    await dispatchedRun();
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
+  });
+
+  it("an idea of unknown size still starts in the middle", async () => {
+    t.tables.idea[0].complexity = null;
+    await dispatchedRun();
     expect(inputs().model).toBe("claude-sonnet-5-5");
   });
 
@@ -261,7 +284,7 @@ describe("model and effort tiers", () => {
     t.tables.idea[0].complexity = "S";
     await startedRun();
     t.tables.run.push({ id: "old1", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", turns: 31, maxTurns: 30, createdAt: new Date("2026-01-01") });
-    t.tables.run.push({ id: "old2", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", turns: 4, maxTurns: 30, createdAt: new Date("2026-01-02") });
+    t.tables.run.push({ id: "old2", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", turns: 4, maxTurns: 30, error: "The AI made no changes.", createdAt: new Date("2026-01-02") });
     await approveRun("u1", "RUN1", deps());
     expect(inputs().model).toBe("claude-sonnet-5-5");
   });

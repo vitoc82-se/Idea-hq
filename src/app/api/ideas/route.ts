@@ -6,6 +6,7 @@ import { canUse } from "@/lib/access";
 import { cleanKind, cleanSeverity } from "@/lib/issues";
 import { cleanText } from "@/lib/support/sanitize";
 import { CAPS, tooLong, firstProblem, ideaRoom } from "@/lib/caps";
+import { isPracticeTitle } from "@/lib/runs/practice";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,8 @@ export async function POST(request: Request) {
         notes: body?.notes ? String(body.notes) : null,
         status: STATUSES.includes(body?.status) ? body.status : "new",
         priority: PRIORITIES.includes(body?.priority) ? body.priority : "none",
+        // The setup journey's practice idea is a known one-line change: sized small up front, no AI estimate needed.
+        ...(isPracticeTitle(title) ? { complexity: "S", impact: "low", scope: "One line added to the README.", aiEstimatedAt: new Date() } : {}),
         ...(kind === "bug" ? { kind: "bug", severity: cleanSeverity(body?.severity) ?? "medium", repro: cleanText(body?.repro, 4000) || null } : {}),
       },
       ...withProject,

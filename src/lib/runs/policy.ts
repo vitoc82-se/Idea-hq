@@ -58,6 +58,14 @@ export function ranOutOfTurns(run: { turns?: number | null; maxTurns?: number | 
   return typeof run.turns === "number" && typeof run.maxTurns === "number" && run.maxTurns > 0 && run.turns >= run.maxTurns;
 }
 
+// A failed run is a reason to try a stronger model only when the AI itself came up short: it finished and changed
+// nothing. A broken install, a missing key, no credit, a GitHub or permission problem say nothing about the model,
+// and a bug it could not reproduce is a matter of the report (clearer steps help, a bigger model does not), so none
+// of those move it up (a stronger model costs several times more).
+export function suggestsStrongerModel(run: { error?: string | null }): boolean {
+  return /made no changes/i.test(run.error ?? "");
+}
+
 // What the next try gets after a run ran out: about 70% more, up to the most a run may have.
 export function moreTurns(maxTurns: number): number {
   return Math.min(MAX_TURNS_RANGE.max, Math.ceil(maxTurns * 1.7));

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { workflowFailureMessage } from "@/lib/runs/failure";
 import { buildPrompt, buildLearnPrompt } from "@/lib/runs/workflow";
-import { recommendTier, resolveTier, planModel, ranOutOfTurns, moreTurns, MODEL_IDS, TIERS, PLANNING_MODEL } from "@/lib/runs/policy";
+import { recommendTier, resolveTier, planModel, ranOutOfTurns, moreTurns, suggestsStrongerModel, MODEL_IDS, TIERS, PLANNING_MODEL } from "@/lib/runs/policy";
 
 describe("recommendTier", () => {
   it("scales model, effort and turns with idea size", () => {
@@ -108,5 +108,16 @@ describe("the out-of-turns message and the turn budget in the prompts", () => {
     expect(buildPrompt({ ideaTitle: "T", plan: "P" })).not.toContain("turns");
     expect(buildLearnPrompt("App", { sections: {} }, 60)).toContain("at most 60 turns");
     expect(buildLearnPrompt("App", { sections: {} })).not.toContain("turns");
+  });
+});
+
+describe("which failures step the model up", () => {
+  it("only when the AI itself came up short", () => {
+    expect(suggestsStrongerModel({ error: "The AI made no changes." })).toBe(true);
+    // A bug it could not reproduce needs clearer steps, not a bigger model.
+    expect(suggestsStrongerModel({ error: "The AI could not reproduce the bug, so it changed nothing. Add clearer steps to reproduce and try again." })).toBe(false);
+    expect(suggestsStrongerModel({ error: 'The workflow failed at the step "Install dependencies".' })).toBe(false);
+    expect(suggestsStrongerModel({ error: "No result from GitHub in time." })).toBe(false);
+    expect(suggestsStrongerModel({ error: null })).toBe(false);
   });
 });

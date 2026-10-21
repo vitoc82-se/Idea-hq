@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProjectRepo } from "../../project-repo";
 import { KeyRelay } from "../../key-relay";
+import { PRACTICE_TITLE } from "@/lib/runs/practice";
 
 type Step = { id: string; title: string; status: "done" | "todo" | "blocked" | "warn"; detail?: string; url?: string };
 type Status = {
@@ -139,7 +140,7 @@ export function SetupJourney({
     const res = await fetch("/api/ideas", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        projectId, title: "Practice: add a one-line note to the README",
+        projectId, title: PRACTICE_TITLE,
         notes: "Practice run for Idea HQ. Add one short line at the end of the README that says this repo is set up for AI implementation with Idea HQ. Change nothing else.",
       }),
     });
