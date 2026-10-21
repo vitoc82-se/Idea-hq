@@ -200,6 +200,8 @@ export default async function GuidePage() {
           <li>The AI runs in your own GitHub, with a time limit and a cap on how many steps it may take. It only touches the repo you connected.</li>
           <li>Your API key lives in GitHub, not in Idea HQ.</li>
           <li>With the newest workflow (version 8) the AI works in a step that can only read your repo, and hands its changes over as a patch. A second step, which never sees your API key, applies the patch, runs your checks and saves the branch. The AI can only run your project&apos;s own npm scripts. After an update, press <b>Update the workflow</b> on a project&apos;s setup page and merge that pull request.</li>
+          <li>If your repository is <b>public</b>, anything Idea HQ tells the AI (the idea, its plan, customer text) and what the AI answers can be read by anyone in the repository&apos;s Actions logs and pull requests. Idea HQ shows a notice for public repos, and removes email addresses and phone numbers from customer tickets that become bugs or ideas. Leave out anything private.</li>
+          <li>The AI cannot read files that usually hold secrets (such as <code>.env</code>, key files, <code>.npmrc</code> and Terraform variable files), and project knowledge never includes them.</li>
           <li>Auto-merge is off by default. If you turn it on for a project, it only merges when every check is green and the main branch is protected on GitHub.</li>
           <li>You can undo any merged change with one button.</li>
         </UL>
