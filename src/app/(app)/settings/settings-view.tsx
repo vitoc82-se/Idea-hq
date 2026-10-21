@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 import { Notice } from "@/components/notice";
 
 export function SettingsView() {
@@ -37,6 +38,17 @@ export function SettingsView() {
     }
   };
 
+  const signOutEverywhere = async () => {
+    setNotice("");
+    try {
+      const res = await fetch("/api/auth/revoke-sessions", { method: "POST" });
+      if (!res.ok) throw new Error("not done");
+      await signOut({ callbackUrl: "/auth/signin" });
+    } catch {
+      setNotice("Could not sign you out everywhere. Check your connection and try again.");
+    }
+  };
+
   return (
     <div className="max-w-2xl space-y-5">
       <div>
@@ -60,6 +72,13 @@ export function SettingsView() {
           </span>
         </label>
         {saved && <p role="status" className="mt-1 text-sm text-emerald-800 dark:text-emerald-300">Saved.</p>}
+      </section>
+      <section className="rounded-xl border border-gray-300 bg-white p-4 dark:border-gray-600 dark:bg-gray-800" aria-labelledby="sessions-h">
+        <h2 id="sessions-h" className="font-semibold text-gray-900 dark:text-white">Signed-in devices</h2>
+        <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Lost a device, or used a shared computer? This signs you out everywhere, including here.</p>
+        <button type="button" onClick={signOutEverywhere} className="mt-2 min-h-[44px] rounded-lg border border-gray-400 px-4 text-sm font-medium text-gray-900 hover:bg-gray-100 dark:border-gray-500 dark:text-white dark:hover:bg-gray-700">
+          Sign out on all devices
+        </button>
       </section>
       <p className="text-sm text-gray-700 dark:text-gray-300">
         <Link href="/auth/change-password" className="underline">Change your password</Link> · <Link href="/billing" className="underline">Billing</Link>

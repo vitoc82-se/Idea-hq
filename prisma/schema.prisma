@@ -50,6 +50,8 @@ model User {
   image         String?
   password      String?
   mustChangePassword Boolean @default(false)
+  // Bumped to sign the person out everywhere (password change, "sign out on all devices"); a session carries the number it was made with.
+  sessionVersion Int @default(0)
   // Invite-only access: the owner is always allowed; everyone else needs approval.
   approved      Boolean   @default(false)
   // Set when the welcome journey is finished or skipped.

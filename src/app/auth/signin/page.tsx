@@ -29,6 +29,10 @@ export default function SignInPage() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "register") setIsRegister(true);
   }, []);
+  const [changed, setChanged] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("changed") === "1") setChanged(true);
+  }, []);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
 
@@ -196,6 +200,9 @@ export default function SignInPage() {
 
             {isRegister && siteKey && <div ref={widgetBox} aria-label="Security check" className="min-h-[65px]" />}
 
+            {changed && !isRegister && !error && (
+              <p role="status" className="text-sm text-emerald-800 dark:text-emerald-300">Your password was changed. Sign in with the new one.</p>
+            )}
             {error && (
               <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>
             )}

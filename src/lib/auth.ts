@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { normalizeEmail } from "./support/sanitize";
 import { ipFrom, loginBlocked, TOO_MANY_LOGINS } from "./auth-limits";
+import { assertSessionCurrent, SESSION_REVOKED } from "./sessions";
 
 // A real bcrypt hash of a throwaway password. Checking against it when the address is unknown (or the
 // account has no password) makes a failed sign-in take as long as a real one, so timing does not reveal
@@ -66,15 +67,31 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        // The session is made with the account's current session version (see src/lib/sessions.ts).
+        const row = await db.user.findUnique({ where: { id: user.id }, select: { sessionVersion: true } });
+        token.sv = row?.sessionVersion ?? 0;
       }
       return token;
     },
     async session({ session, token }) {
+      // An older session than the account's current one (password changed, signed out everywhere) or a deleted
+      // account: throwing makes next-auth answer "no session" and clear the cookie.
+      await assertSessionCurrent(token.id, token.sv);
       if (session.user) {
         session.user.id = token.id as string;
       }
       return session;
     },
+  },
+  // A revoked session is normal, not an error worth a log line. Everything else is logged by name only.
+  logger: {
+    error(code, metadata) {
+      const m = metadata as { message?: string } | undefined;
+      if (code === "JWT_SESSION_ERROR" && m?.message === SESSION_REVOKED) return;
+      console.error("auth error:", code);
+    },
+    warn() {},
+    debug() {},
   },
   pages: {
     signIn: "/auth/signin",

@@ -15,6 +15,8 @@ export const AUTH_RULES = {
   registerIp: (ip: string): Rule => ({ key: `register:ip:${hashIdent(ip)}`, limit: 5, windowSec: 3600 }),
   registerEmail: (email: string): Rule => ({ key: `register:email:${hashIdent(email)}`, limit: 3, windowSec: 3600 }),
   verifyIp: (ip: string): Rule => ({ key: `verify:ip:${hashIdent(ip)}`, limit: 20, windowSec: 3600 }),
+  changePasswordUser: (userId: string): Rule => ({ key: `chpw:user:${hashIdent(userId)}`, limit: 8, windowSec: 900 }),
+  changePasswordIp: (ip: string): Rule => ({ key: `chpw:ip:${hashIdent(ip)}`, limit: 30, windowSec: 900 }),
   resendUser: (userId: string): Rule => ({ key: `resend:user:${hashIdent(userId)}`, limit: 3, windowSec: 3600 }),
 };
 
@@ -45,4 +47,8 @@ export async function verifyBlocked(ip: string): Promise<boolean> {
 
 export async function resendBlocked(userId: string): Promise<boolean> {
   return !!(await firstExceeded(rateStore, [AUTH_RULES.resendUser(userId)]));
+}
+
+export async function changePasswordBlocked(userId: string, ip: string): Promise<boolean> {
+  return !!(await firstExceeded(rateStore, [AUTH_RULES.changePasswordUser(userId), AUTH_RULES.changePasswordIp(ip)]));
 }

@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function ChangePasswordPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
@@ -36,8 +35,8 @@ export default function ChangePasswordPage() {
         setLoading(false);
         return;
       }
-      router.push("/ideas");
-      router.refresh();
+      // Every session is signed out by a password change, this one too: sign in again with the new password.
+      await signOut({ callbackUrl: "/auth/signin?changed=1" });
     } catch {
       setError("Could not change the password. Check your connection and try again.");
       setLoading(false);
