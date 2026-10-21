@@ -111,7 +111,7 @@ import { GET as getSettings, PUT as putSettings } from "@/app/api/projects/[id]/
 import { POST as checkSiteRoute } from "@/app/api/projects/[id]/support/check-site/route";
 import { PATCH as patchUser } from "@/app/api/admin/users/[id]/route";
 import { runRetention } from "@/lib/support/retention";
-import { checkSite, isPrivateAddress } from "@/lib/support/site-check";
+import { checkSite, isPrivateAddress, type Fetcher } from "@/lib/support/site-check";
 import { deriveTicketToken, hashToken } from "@/lib/support/tokens";
 
 const T = st.tables;
@@ -386,7 +386,7 @@ describe("the Tickets switch on the Users page", () => {
 
 describe("Check my site", () => {
   const publicLookup = async () => ["93.184.216.34"];
-  const page = (html: string, status = 200) => (async () => new Response(html, { status })) as unknown as typeof fetch;
+  const page = (html: string, status = 200) => (async () => ({ status, location: null, body: html })) as Fetcher;
   it("recognises private and internal addresses", () => {
     for (const ip of ["127.0.0.1", "10.1.2.3", "192.168.0.5", "172.16.0.1", "172.31.255.255", "169.254.169.254", "0.0.0.0", "100.64.0.1", "::1", "::", "fd00::1", "fe80::1", "::ffff:10.0.0.1", "224.0.0.1"]) {
       expect(isPrivateAddress(ip), ip).toBe(true);
@@ -394,11 +394,11 @@ describe("Check my site", () => {
     for (const ip of ["93.184.216.34", "8.8.8.8", "172.32.0.1", "2606:4700:4700::1111"]) expect(isPrivateAddress(ip), ip).toBe(false);
   });
   it("refuses internal hosts before fetching anything", async () => {
-    const f = vi.fn();
+    const f = vi.fn() as unknown as Fetcher;
     for (const u of ["https://localhost/", "https://127.0.0.1/", "https://[::1]/", "https://metadata.internal/", "https://printer.local/"]) {
-      expect((await checkSite(u, "ihq_x", [], f as unknown as typeof fetch, publicLookup)).status, u).toBe("blocked");
+      expect((await checkSite(u, "ihq_x", [], f, publicLookup)).status, u).toBe("blocked");
     }
-    expect((await checkSite("https://evil.example", "k", [], f as unknown as typeof fetch, async () => ["10.0.0.9"])).status).toBe("blocked");
+    expect((await checkSite("https://evil.example", "k", [], f, async () => ["10.0.0.9"])).status).toBe("blocked");
     expect(f).not.toHaveBeenCalled();
   });
   it("rejects bad input", async () => {
@@ -415,9 +415,9 @@ describe("Check my site", () => {
     expect((await checkSite("https://shop.example.com", key, [], page("no", 500), publicLookup)).status).toBe("unreachable");
   });
   it("follows redirects but re-checks every hop", async () => {
-    const hops = vi.fn(async (u: string) => (String(u).includes("start") ? new Response(null, { status: 302, headers: { location: "https://internal.example/x" } }) : new Response("ok")));
+    const hops = vi.fn(async (u: URL) => (u.hostname.includes("start") ? { status: 302, location: "https://internal.example/x", body: "" } : { status: 200, location: null, body: "ok" }));
     const lookup = async (h: string) => (h === "internal.example" ? ["10.0.0.1"] : ["93.184.216.34"]);
-    expect((await checkSite("https://start.example/", "k", [], hops as unknown as typeof fetch, lookup)).status).toBe("blocked");
+    expect((await checkSite("https://start.example/", "k", [], hops as unknown as Fetcher, lookup)).status).toBe("blocked");
     expect(hops).toHaveBeenCalledTimes(1);
   });
   it("the real resolver is not used in tests", () => {
