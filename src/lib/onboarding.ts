@@ -45,6 +45,8 @@ export async function getOnboarding(
   const user = await db.user.findUnique({ where: { id: userId }, select: { approved: true, onboardingDismissed: true } });
   const owner = await isOwner(userId, email);
   const approved = !!user && (owner || user.approved);
+  // Someone who is not approved yet never causes GitHub requests, whatever the caller asked for.
+  const quick = opts.quick || !approved;
   const dismissed = !!user?.onboardingDismissed;
 
   const projects = await db.project.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
@@ -66,7 +68,7 @@ export async function getOnboarding(
 
   let setupSteps: { id: string; title: string; status: OnboardStatus; detail?: string }[] = [];
   if (project && approved) {
-    const st = await getSetupStatus(userId, project.id, { gh: opts.gh, quick: opts.quick });
+    const st = await getSetupStatus(userId, project.id, { gh: opts.gh, quick });
     setupSteps = st.steps.filter((s) => s.id !== "practice");
   }
   for (const id of ["github", "repo", "commands", "workflow", "secret"]) {

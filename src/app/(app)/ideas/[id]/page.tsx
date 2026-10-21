@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { canUse } from "@/lib/access";
+import { ownerDisplayName } from "@/lib/owner";
 import { db } from "@/lib/db";
 import { IdeaDetail } from "../ideas-detail";
 import type { Idea, IdeaRef, StoryChild } from "../ideas-shared";
@@ -25,7 +26,7 @@ export default async function IdeaDetailPage(
       <div className="max-w-md">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ideas</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-2">
-          Your account is waiting for approval. Ask Niklas to approve you.
+          Your account is waiting for approval. Ask {await ownerDisplayName()} to approve you.
         </p>
       </div>
     );

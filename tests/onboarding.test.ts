@@ -53,6 +53,20 @@ describe("getOnboarding", () => {
     expect(Object.values(ids(o)).filter((s) => s === "done")).toHaveLength(0);
   });
 
+  it("someone who is not approved never causes GitHub requests, even when a full check is asked for", async () => {
+    t.tables.project.push({ id: "p1", userId: "u1", name: "P", ...BASE });
+    const calls: string[] = [];
+    const spy = new Proxy(gh, { get: (target, k) => (typeof target[k as string] === "function" ? (...a: unknown[]) => { calls.push(String(k)); return target[k as string](...a); } : target[k as string]) });
+    const o = await getOnboarding("u1", "f@x.se", { gh: spy, quick: false });
+    expect(o.approved).toBe(false);
+    expect(calls).toEqual([]);
+    // an approved person with the same setup does get the full check
+    t.tables.user[1].approved = true;
+    clearSetupCache();
+    await getOnboarding("u1", "f@x.se", { gh: spy, quick: false });
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
   it("approved with no project: next is creating the project", async () => {
     t.tables.user[1].approved = true;
     const o = await getOnboarding("u1", "f@x.se", { gh });

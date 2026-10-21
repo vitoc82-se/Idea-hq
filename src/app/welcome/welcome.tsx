@@ -1,5 +1,6 @@
 "use client";
 
+import { AccountData } from "@/components/account-data";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -200,6 +201,7 @@ export function Welcome({ name }: { name: string }) {
         </div>
 
         {!ob.approved ? (
+          <>
           <PhaseCard n={1} title="Waiting for approval" status="current">
             <p className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
               <Clock className="w-4 h-4 mt-0.5 shrink-0" />
@@ -207,6 +209,8 @@ export function Welcome({ name }: { name: string }) {
             </p>
             <ConfirmEmail />
           </PhaseCard>
+          <AccountData />
+          </>
         ) : (
           <>
             <PhaseCard n={1} title="Create your first project" status={st("project") === "done" ? "done" : "current"}>

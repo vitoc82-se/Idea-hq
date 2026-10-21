@@ -5,7 +5,7 @@
 // pages and the embed script set their own stricter policies in src/lib/support/page-shell.ts.)
 export const APP_CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://ideahq.cloud https://challenges.cloudflare.com",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
@@ -20,9 +20,6 @@ export const APP_CSP = [
 const nextConfig = {
   // Do not tell the world which framework (and so which advisories) to try.
   poweredByHeader: false,
-  env: {
-    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
-  },
   images: {
     remotePatterns: [
       {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { Notice } from "@/components/notice";
+import { AccountData } from "@/components/account-data";
 
 export function SettingsView() {
   const [email, setEmail] = useState<string | null>(null);
@@ -80,6 +81,7 @@ export function SettingsView() {
           Sign out on all devices
         </button>
       </section>
+      <AccountData />
       <p className="text-sm text-gray-700 dark:text-gray-300">
         <Link href="/auth/change-password" className="underline">Change your password</Link> · <Link href="/billing" className="underline">Billing</Link>
       </p>

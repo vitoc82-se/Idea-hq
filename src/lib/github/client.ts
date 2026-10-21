@@ -120,6 +120,14 @@ export async function installationToken(installationId: number, repo?: string): 
 }
 
 // The repository a GitHub path is about, when it is one ("/repos/{owner}/{repo}/...").
+// A file path inside a repository, safe to put into a GitHub API address: each part is encoded, and "..", "." and
+// empty parts (which could climb out of /contents/) are refused.
+export function encodeRepoPath(path: string): string {
+  const parts = String(path).replace(/^\/+/, "").split("/");
+  if (parts.some((p) => p === "" || p === "." || p === "..")) throw new GitHubError(400, "Not a valid file path in the repository");
+  return parts.map(encodeURIComponent).join("/");
+}
+
 export const repoFromPath = (path: string): string | undefined => /^\/repos\/[^/]+\/([^/?]+)/.exec(path)?.[1];
 
 // Conditional requests: GitHub answers 304 without counting it against the rate
@@ -211,14 +219,14 @@ export const github: GitHubApi = {
     return !!j;
   },
   async getFile(i, owner, repo, path, ref) {
-    const j = await call<{ sha: string; content: string }>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
+    const j = await call<{ sha: string; content: string }>(i, "GET", `/repos/${owner}/${repo}/contents/${encodeRepoPath(path)}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
     return j ? { sha: j.sha, content: Buffer.from(j.content || "", "base64").toString("utf8") } : null;
   },
   async createBranch(i, owner, repo, branch, fromSha) {
     await call(i, "POST", `/repos/${owner}/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha: fromSha });
   },
   async putFile(i, owner, repo, path, branch, content, message, sha) {
-    await call(i, "PUT", `/repos/${owner}/${repo}/contents/${path}`, {
+    await call(i, "PUT", `/repos/${owner}/${repo}/contents/${encodeRepoPath(path)}`, {
       message, branch, content: Buffer.from(content).toString("base64"), ...(sha ? { sha } : {}),
     });
   },
@@ -305,7 +313,7 @@ export const github: GitHubApi = {
     }
   },
   async listDir(i, owner, repo, path, ref) {
-    const j = await call<{ name: string; type: string }[]>(i, "GET", `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
+    const j = await call<{ name: string; type: string }[]>(i, "GET", `/repos/${owner}/${repo}/contents/${path ? encodeRepoPath(path) : ""}?ref=${encodeURIComponent(ref)}`, undefined, [404]);
     return Array.isArray(j) ? j.map((e) => (e.type === "dir" ? `${e.name}/` : e.name)) : [];
   },
   async listRepos(i) {

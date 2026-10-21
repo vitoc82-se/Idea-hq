@@ -46,5 +46,7 @@ export async function GET() {
       emailWarning: !u.email ? null : (seen.get(u.email.trim().toLowerCase()) ?? 0) > 1 ? "duplicate" : u.email !== u.email.trim() ? "padded" : null, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
     });
   }
-  return NextResponse.json({ users: out, defaultDailyLimit: dailyAiLimit(), usageDay: today, paywall: paywallOn() });
+  // The exact build that is running (owner only; it is deliberately not in the public page code).
+  const build = (process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 7) || null;
+  return NextResponse.json({ users: out, defaultDailyLimit: dailyAiLimit(), usageDay: today, paywall: paywallOn(), build });
 }

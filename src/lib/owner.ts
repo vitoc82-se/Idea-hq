@@ -20,6 +20,15 @@ export async function ownerUserId(): Promise<string | null> {
   return first?.id ?? null;
 }
 
+// What to call the owner in messages to other people ("Ask Ann to approve you"): the first name on the owner's account.
+export async function ownerDisplayName(): Promise<string> {
+  const id = await ownerUserId();
+  if (!id) return "the owner";
+  const u = await db.user.findUnique({ where: { id }, select: { name: true } });
+  const first = (u?.name || "").trim().split(/\s+/)[0];
+  return first ? first.slice(0, 40) : "the owner";
+}
+
 export async function isOwner(
   userId: string | null | undefined,
   email: string | null | undefined

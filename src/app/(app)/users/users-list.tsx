@@ -16,6 +16,7 @@ export function UsersList() {
   const [users, setUsers] = useState<U[] | null>(null);
   const [defaultLimit, setDefaultLimit] = useState(20);
   const [paywall, setPaywall] = useState(false);
+  const [build, setBuild] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
 
@@ -26,6 +27,7 @@ export function UsersList() {
     setUsers(d.users);
     setDefaultLimit(d.defaultDailyLimit ?? 20);
     setPaywall(!!d.paywall);
+    setBuild(typeof d.build === "string" ? d.build : null);
     setError("");
   }, []);
   useEffect(() => {
@@ -44,7 +46,7 @@ export function UsersList() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin</h1>
-          <p className="text-sm text-gray-700 dark:text-gray-300">Who is allowed in, and what each person can use. The owner is always allowed and is never limited.</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">Who is allowed in, and what each person can use. The owner is always allowed and is never limited.{build ? <span className="ml-2 text-gray-600 dark:text-gray-400">Running build {build}.</span> : null}</p>
         </div>
         <div className="w-full sm:w-64">
           <label htmlFor="people-search" className="sr-only">Search people</label>

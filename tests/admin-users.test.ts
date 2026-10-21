@@ -61,6 +61,15 @@ describe("approving someone whose email is not confirmed", () => {
     expect((await patch("stranger", { aiDailyLimit: 5 })).status).toBe(200);
     expect((await patch("friend", { approved: false })).status).toBe(200);
   });
+  it("the owner sees which build is running (a short id), and it is not put in the page code", async () => {
+    process.env.VERCEL_GIT_COMMIT_SHA = "abcdef1234567890";
+    expect((await (await GET()).json()).build).toBe("abcdef1");
+    sess.user = FRIEND;
+    expect((await GET()).status).toBe(401);
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+    sess.user = OWNER;
+    expect((await (await GET()).json()).build).toBeNull();
+  });
   it("the list says who is confirmed", async () => {
     const d = await (await GET()).json();
     const by = (id: string) => d.users.find((u: { id: string }) => u.id === id);

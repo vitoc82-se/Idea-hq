@@ -17,7 +17,7 @@ describe("the app's Content-Security-Policy", () => {
     for (const path of ["/widget/ihq_x", "/help/ihq_x", "/t/token", "/embed/ihq_x.js", "/api/support/ticket/x"]) expect(covers(path), path).toBe(false);
   });
   it("limits scripts to this site and Cloudflare's check, with no eval and no wildcards", () => {
-    expect(directives["script-src"]).toEqual(["'self'", "'unsafe-inline'", "https://ideahq.cloud", "https://challenges.cloudflare.com"]);
+    expect(directives["script-src"]).toEqual(["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"]);
     expect(APP_CSP).not.toContain("unsafe-eval");
     for (const [name, values] of Object.entries(directives)) {
       if (name === "img-src") continue; // pictures may come from any https address (avatars, uploads)
