@@ -2,6 +2,7 @@ import { db } from "./db";
 import { cleanText } from "./support/sanitize";
 import { LIMITS } from "./support/constants";
 import { emailReply, statusPatch } from "./support/owner-tickets";
+import { repoMayBePublic, redactPersonalDetails } from "./runs/public-safe";
 
 // Bugs and the link between support tickets and the idea board. A bug is an idea with
 // a different start (what happens, steps, severity) and a different job for the AI
@@ -35,6 +36,7 @@ export async function draftFromTicket(userId: string, ticketId: string) {
     where: { id: ticketId, project: { userId } },
     select: {
       id: true, number: true, subject: true, fields: true, ideaId: true, projectId: true,
+      project: { select: { repoPrivate: true } },
       messages: { where: { author: "customer" }, orderBy: { createdAt: "asc" }, take: 1, select: { body: true } },
     },
   });
@@ -46,21 +48,37 @@ export async function draftFromTicket(userId: string, ticketId: string) {
     .slice(0, 12);
   const message = t.messages[0]?.body ?? "";
   const notes = [`Reported by a customer in support ticket #${t.number}:`, "", cleanText(message, 3000), ...(details.length ? ["", "Details they gave:", ...details] : [])].join("\n");
-  return { ticketId: t.id, projectId: t.projectId, linkedIdeaId: t.ideaId, title: cleanText(t.subject, TITLE_MAX), notes };
+  // The idea ends up in the repo's Actions logs and pull requests. When that repo is (or may be) public, a
+  // customer's email address or phone number must not travel with it.
+  const strip = repoMayBePublic(t.project);
+  const cleaned = strip ? redactPersonalDetails(notes) : notes;
+  const title = cleanText(t.subject, TITLE_MAX);
+  return {
+    ticketId: t.id, projectId: t.projectId, linkedIdeaId: t.ideaId,
+    title: strip ? redactPersonalDetails(title) : title,
+    notes: cleaned,
+    repoPublic: t.project.repoPrivate === false,
+    personalDetailsRemoved: strip && (cleaned !== notes || (strip && redactPersonalDetails(title) !== title)),
+  };
 }
 
 export type IssueInput = { kind: unknown; title: unknown; notes?: unknown; repro?: unknown; severity?: unknown };
 
 export async function createIssueFromTicket(userId: string, ticketId: string, input: IssueInput) {
   const kind = cleanKind(input.kind) ?? "bug";
-  const title = cleanText(input.title, TITLE_MAX);
-  if (!title) throw new IssueError(400, "Give it a title.");
-  const notes = cleanText(input.notes, NOTES_MAX) || null;
-  const repro = kind === "bug" ? cleanText(input.repro, REPRO_MAX) || null : null;
+  const rawTitle = cleanText(input.title, TITLE_MAX);
+  if (!rawTitle) throw new IssueError(400, "Give it a title.");
+  const rawNotes = cleanText(input.notes, NOTES_MAX) || null;
+  const rawRepro = kind === "bug" ? cleanText(input.repro, REPRO_MAX) || null : null;
   const severity = kind === "bug" ? cleanSeverity(input.severity) ?? "medium" : null;
 
-  const t = await db.ticket.findFirst({ where: { id: ticketId, project: { userId } }, select: { id: true, projectId: true, ideaId: true } });
+  const t = await db.ticket.findFirst({ where: { id: ticketId, project: { userId } }, select: { id: true, projectId: true, ideaId: true, project: { select: { repoPrivate: true } } } });
   if (!t) throw new IssueError(404, "Ticket not found.");
+  // Same rule as the draft: a possibly public repo never gets a customer's email or phone number.
+  const strip = repoMayBePublic(t.project);
+  const title = strip ? redactPersonalDetails(rawTitle) : rawTitle;
+  const notes = strip && rawNotes ? redactPersonalDetails(rawNotes) : rawNotes;
+  const repro = strip && rawRepro ? redactPersonalDetails(rawRepro) : rawRepro;
   if (t.ideaId) throw new IssueError(409, "This ticket is already linked. Unlink it first if you want to create a new one.");
 
   return db.$transaction(async (tx) => {

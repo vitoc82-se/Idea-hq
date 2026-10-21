@@ -102,7 +102,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "idea-hq-niklas"
           prompt: ${{ inputs.prompt }}
-          claude_args: --max-turns ${{ inputs.max_turns || '40' }} --model ${{ inputs.model || 'claude-sonnet-5-5' }} --effort ${{ inputs.effort || 'medium' }} --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm test:*),Bash(npm run:*),Bash(npm ls:*),Bash(npm install --ignore-scripts:*),Bash(npm ci --ignore-scripts:*),Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(git diff:*),Bash(git status:*)" --disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**)"
+          claude_args: --max-turns ${{ inputs.max_turns || '40' }} --model ${{ inputs.model || 'claude-sonnet-5-5' }} --effort ${{ inputs.effort || 'medium' }} --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(npm test:*),Bash(npm run:*),Bash(npm ls:*),Bash(npm install --ignore-scripts:*),Bash(npm ci --ignore-scripts:*),Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(git diff:*),Bash(git status:*)" --disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**),Read(**/.env),Read(**/.env.local),Read(**/.env.production),Read(**/.env.development),Read(**/*.pem),Read(**/*.key),Read(**/id_rsa*),Read(**/id_ed25519*),Read(**/.ssh/**),Read(**/.aws/**),Read(**/.npmrc),Read(**/.netrc),Read(**/.pypirc),Read(**/*.tfvars),Read(**/*.tfstate),Read(**/*.p12),Read(**/*.pfx)"
 
       - name: Run Codex
         if: ${{ inputs.provider == 'openai' }}

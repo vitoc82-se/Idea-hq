@@ -30,6 +30,14 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       }
     }
 
+    // Keep what GitHub says about the repo being public or private (it can change in GitHub at any time).
+    let repoPrivate = p.repoPrivate;
+    const seen = available.flatMap((a) => a.repos ?? []).find((r) => r.owner === p.repoOwner && r.name === p.repoName);
+    if (seen && typeof seen.isPrivate === "boolean" && seen.isPrivate !== p.repoPrivate) {
+      repoPrivate = seen.isPrivate;
+      await db.project.update({ where: { id: p.id }, data: { repoPrivate } });
+    }
+
     let workflowInstalled = p.workflowInstalled;
     let workflowOutdated = false;
     if (p.installationId && p.repoOwner && p.repoName) {
@@ -55,7 +63,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
         installationId: p.installationId, repoOwner: p.repoOwner, repoName: p.repoName,
         envBranches: p.envBranches, defaultEnv: p.defaultEnv, autoMerge: p.autoMerge,
         buildCommand: p.buildCommand, testCommand: p.testCommand, aiBias: p.aiBias, aiProvider: getProvider(p.aiProvider).id,
-        workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber,
+        workflowInstalled, workflowOutdated, setupPrNumber: p.setupPrNumber, repoPublic: repoPrivate === false,
       },
       available,
       // What a user may pick, and the facts the UI needs (secret name, where to get a key).
@@ -122,7 +130,7 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     const updated = await db.project.update({
       where: { id: p.id },
       data: {
-        installationId, repoOwner: repo.owner, repoName: repo.name,
+        installationId, repoOwner: repo.owner, repoName: repo.name, repoPrivate: typeof repo.isPrivate === "boolean" ? repo.isPrivate : null,
         envBranches: env, defaultEnv, autoMerge: !!b.autoMerge, buildCommand, testCommand, commandsConfirmed: true, aiProvider, ...(providerChanged ? { secretConfirmed: false } : {}), aiBias: ["saver", "auto", "max"].includes(b.aiBias) ? b.aiBias : p.aiBias,
         ...(changedRepo ? { workflowInstalled: false, setupPrNumber: null } : {}),
       },

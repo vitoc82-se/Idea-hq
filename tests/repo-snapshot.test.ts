@@ -52,6 +52,14 @@ describe("isReadable (never read secrets, binaries or vendored code)", () => {
       expect(isReadable(p), p).toBe(false);
     }
   });
+  it("also blocks tool configs with tokens, Terraform values, key stores and cloud service accounts", () => {
+    for (const p of [".npmrc", "apps/web/.npmrc", ".pypirc", ".netrc", "infra/prod.tfvars", "infra/terraform.tfstate", "infra/terraform.tfstate.backup", "certs/app.p12", "certs/app.pfx", "release.keystore", "app.jks", "vault.kdbx", "secret.gpg", "prod.env", "service-account.json", "config/serviceAccountKey.json", "firebase-adminsdk-abc.json", "id_ed25519", ".ssh/config", ".aws/config", ".kube/config", "kubeconfig", ".git-credentials", ".htpasswd", ".vault_pass.txt", "secrets/prod.yaml"]) {
+      expect(isReadable(p), p).toBe(false);
+    }
+  });
+  it("still reads ordinary files that merely look similar", () => {
+    for (const p of ["src/npmrc-docs.md", "src/keyboard.ts", "docs/env.md", "src/environment.ts", "src/lib/service.ts", "infra/main.tf", "package.json", "tsconfig.json"]) expect(isReadable(p), p).toBe(true);
+  });
   it("allows normal source and example env files", () => {
     for (const p of ["src/index.ts", "README.md", ".env.example", "pages/api/x.js"]) expect(isReadable(p), p).toBe(true);
   });

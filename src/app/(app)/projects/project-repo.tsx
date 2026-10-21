@@ -6,15 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { PUBLIC_REPO_NOTICE } from "@/lib/runs/public-safe";
 
-type Repo = { owner: string; name: string; defaultBranch: string };
+type Repo = { owner: string; name: string; defaultBranch: string; isPrivate?: boolean };
 type Available = { installationId: number; repos: Repo[]; error?: string; configureUrl?: string };
 type Data = {
   appConfigured: boolean;
   project: {
     installationId: number | null; repoOwner: string | null; repoName: string | null;
     envBranches: Record<string, string> | null; defaultEnv: string | null; autoMerge: boolean;
-    buildCommand: string | null; testCommand: string | null; aiBias?: string; aiProvider?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null;
+    buildCommand: string | null; testCommand: string | null; aiBias?: string; aiProvider?: string; workflowInstalled: boolean; workflowOutdated?: boolean; setupPrNumber: number | null; repoPublic?: boolean;
   };
   available: Available[];
   providers?: { id: string; label: string; secretName: string; keyHelpUrl: string; keyHelpText: string }[];
@@ -257,6 +258,11 @@ export function ProjectRepo({
           {showSetup && p.workflowInstalled && (
             <p className="text-xs text-gray-400">
               Runs use the ANTHROPIC_API_KEY secret in the repo (Settings, Secrets and variables, Actions). Idea HQ never sees it.
+            </p>
+          )}
+          {showSetup && p.repoOwner && p.repoPublic && (
+            <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+              {PUBLIC_REPO_NOTICE}
             </p>
           )}
         </>

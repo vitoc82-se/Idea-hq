@@ -15,11 +15,28 @@ export type Snapshot = {
 const SKIP = /(^|\/)(node_modules|dist|build|out|vendor|\.next|\.git|coverage|__pycache__|\.venv|venv|target|\.turbo|\.cache)\//;
 const BINARY = /\.(png|jpe?g|gif|webp|ico|svg|woff2?|ttf|eot|pdf|zip|gz|mp4|mov|mp3|wasm|lock|map|min\.js)$/i;
 const LOCK = /(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|Gemfile\.lock|composer\.lock|go\.sum)$/;
-const SECRETISH = /(^|\/)(\.env(\..*)?|.*\.pem|.*\.key|id_rsa.*|.*secret.*|.*credentials.*)$/i;
+// Files that hold (or usually hold) secrets: never shown to the AI and never listed.
+const SECRETISH = new RegExp(
+  "(^|/)(" +
+    [
+      "\\.env(\\..*)?", ".*\\.env", // .env, .env.local, prod.env
+      ".*\\.pem", ".*\\.key", ".*\\.p12", ".*\\.pfx", ".*\\.jks", ".*\\.keystore", ".*\\.kdbx", ".*\\.gpg", ".*\\.asc", // keys and stores
+      "id_(rsa|dsa|ecdsa|ed25519).*", "\\.ssh", // ssh
+      ".*\\.tfvars", ".*\\.tfstate(\\.backup)?", // Terraform values and state
+      "\\.npmrc", "\\.pypirc", "\\.netrc", "\\.git-credentials", "\\.dockercfg", "\\.htpasswd", "\\.pgpass", "\\.vault[-_]?pass.*", "kubeconfig", // tool configs with tokens
+      "service[-_]?account.*\\.json", ".*adminsdk.*\\.json", // cloud service accounts
+      ".*secret.*", ".*credentials.*",
+    ].join("|") +
+    ")$",
+  "i"
+);
+// Folders that are secret as a whole.
+const SECRET_DIRS = /(^|\/)(\.ssh|\.aws|\.gnupg|\.kube|secrets?)\//i;
 const EXAMPLE_ENV = /\.env\.(example|sample|template)$/i;
 
 export function isReadable(path: string): boolean {
   if (SKIP.test(path) || BINARY.test(path) || LOCK.test(path)) return false;
+  if (SECRET_DIRS.test(path)) return false;
   if (SECRETISH.test(path) && !EXAMPLE_ENV.test(path)) return false;
   return true;
 }
@@ -94,7 +111,7 @@ export function pickFiles(paths: string[], max = 16): string[] {
 export function buildOutline(paths: string[], maxLines = 70): string[] {
   const counts = new Map<string, number>();
   for (const p of paths) {
-    if (!isReadable(p) && !SECRETISH.test(p)) continue;
+    if (!isReadable(p) && !SECRETISH.test(p) && !SECRET_DIRS.test(p)) continue;
     const parts = p.split("/");
     if (parts.length === 1) continue;
     const key = parts.length > 2 ? `${parts[0]}/${parts[1]}/` : `${parts[0]}/`;

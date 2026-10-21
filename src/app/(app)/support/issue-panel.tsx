@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { PUBLIC_REPO_NOTICE } from "@/lib/runs/public-safe";
 
 type Linked = { id: string; title: string; kind: string; status: string } | null;
 type Candidate = { id: string; title: string; kind: string; status: string };
@@ -25,6 +26,7 @@ export function IssuePanel({ ticketId, linked, onChanged }: { ticketId: string; 
   const [draft, setDraft] = useState({ title: "", notes: "", repro: "", severity: "medium" });
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [pick, setPick] = useState("");
+  const [publicRepo, setPublicRepo] = useState<{ open: boolean; removed: boolean }>({ open: false, removed: false });
 
   const begin = async (m: Exclude<Mode, null>) => {
     setMode(m);
@@ -35,6 +37,7 @@ export function IssuePanel({ ticketId, linked, onChanged }: { ticketId: string; 
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || "Could not open this.");
       setDraft({ title: d.draft.title, notes: d.draft.notes, repro: "", severity: "medium" });
+      setPublicRepo({ open: !!d.draft.repoPublic, removed: !!d.draft.personalDetailsRemoved });
       setCandidates(d.candidates);
       setPick(d.candidates[0]?.id ?? "");
     } catch (e) {
@@ -113,6 +116,12 @@ export function IssuePanel({ ticketId, linked, onChanged }: { ticketId: string; 
             <Label htmlFor="issue-notes">{mode === "bug" ? "What happens and what should happen" : "Notes"}</Label>
             <Textarea id="issue-notes" className={`${field} min-h-[120px]`} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
             <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Pre-filled from the customer. Read it and remove anything you do not want the AI to see.</p>
+            {publicRepo.open && (
+              <p role="note" className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                {PUBLIC_REPO_NOTICE}
+                {publicRepo.removed ? " Some details were removed from this draft." : ""}
+              </p>
+            )}
           </div>
           {mode === "bug" && (
             <>

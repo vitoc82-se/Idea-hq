@@ -3,6 +3,16 @@ import { ACTION_PINS } from "../runs/action-pins";
 
 export const CLAUDE_DEFAULT_MODEL = "claude-sonnet-5-5";
 
+// Files the AI may not read (or, for .git, touch): the git settings, and the usual places secrets live. The scanner
+// that builds project knowledge skips the same kinds of files (src/lib/repo-snapshot.ts).
+export const CLAUDE_DISALLOWED_TOOLS = [
+  "Read(.git/**)", "Edit(.git/**)", "Write(.git/**)",
+  "Read(**/.env)", "Read(**/.env.local)", "Read(**/.env.production)", "Read(**/.env.development)",
+  "Read(**/*.pem)", "Read(**/*.key)", "Read(**/id_rsa*)", "Read(**/id_ed25519*)", "Read(**/.ssh/**)", "Read(**/.aws/**)",
+  "Read(**/.npmrc)", "Read(**/.netrc)", "Read(**/.pypirc)",
+  "Read(**/*.tfvars)", "Read(**/*.tfstate)", "Read(**/*.p12)", "Read(**/*.pfx)",
+].join(",");
+
 const q = (s: string) => JSON.stringify(s);
 
 export const claude: ProviderAdapter = {
@@ -59,7 +69,7 @@ export const claude: ProviderAdapter = {
           github_token: \${{ secrets.GITHUB_TOKEN }}
           allowed_bots: ${q(appSlug)}
           prompt: \${{ inputs.prompt }}
-          claude_args: --max-turns \${{ inputs.max_turns || '${maxTurns}' }} --model \${{ inputs.model || '${CLAUDE_DEFAULT_MODEL}' }} --effort \${{ inputs.effort || 'medium' }} --allowedTools "${allowedTools}" --disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**)"
+          claude_args: --max-turns \${{ inputs.max_turns || '${maxTurns}' }} --model \${{ inputs.model || '${CLAUDE_DEFAULT_MODEL}' }} --effort \${{ inputs.effort || 'medium' }} --allowedTools "${allowedTools}" --disallowedTools "${CLAUDE_DISALLOWED_TOOLS}"
 `;
   },
   successExpr: "steps.claude.outputs.conclusion == 'success'",

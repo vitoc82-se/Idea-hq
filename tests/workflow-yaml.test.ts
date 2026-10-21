@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createRequire } from "node:module";
 import { readFileSync, existsSync } from "node:fs";
+import { CLAUDE_DISALLOWED_TOOLS } from "@/lib/providers/claude";
 import { buildWorkflow, workflowVersion, requiredWorkflowVersion, WORKFLOW_VERSION, ALLOWED_TOOLS, buildPrompt } from "@/lib/runs/workflow";
 
 // Version 6 of the workflow shipped with a newline inside a shell step that ended the YAML block early:
@@ -146,7 +147,10 @@ describe("what the AI's shell can reach", () => {
   });
   it("the AI cannot read the git settings", () => {
     const agent = implement.steps.find((s) => s.name === "Run Claude Code")!;
-    expect(String(agent.with?.claude_args)).toContain('--disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**)"');
+    const denied = CLAUDE_DISALLOWED_TOOLS.split(",");
+    for (const d of ["Read(.git/**)", "Edit(.git/**)", "Write(.git/**)", "Read(**/.env)", "Read(**/.npmrc)", "Read(**/*.tfvars)", "Read(**/.ssh/**)", "Read(**/*.pem)"]) expect(denied).toContain(d);
+    expect(denied).not.toContain("Read(**/.env.example)");
+    expect(String(agent.with?.claude_args)).toContain(`--disallowedTools "${CLAUDE_DISALLOWED_TOOLS}"`);
   });
   it("the AI is told how to work within that", () => {
     const p = buildPrompt({ ideaTitle: "T", plan: "P" });

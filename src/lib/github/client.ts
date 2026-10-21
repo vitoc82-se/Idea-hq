@@ -56,7 +56,7 @@ export interface GitHubApi {
   getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
   putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
   listDir(i: number, owner: string, repo: string, path: string, ref: string): Promise<string[]>;
-  listRepos(i: number): Promise<{ owner: string; name: string; defaultBranch: string }[]>;
+  listRepos(i: number): Promise<{ owner: string; name: string; defaultBranch: string; isPrivate?: boolean }[]>;
   closePr(i: number, owner: string, repo: string, n: number): Promise<void>;
 }
 
@@ -303,8 +303,8 @@ export const github: GitHubApi = {
     return Array.isArray(j) ? j.map((e) => (e.type === "dir" ? `${e.name}/` : e.name)) : [];
   },
   async listRepos(i) {
-    const j = await call<{ repositories: { name: string; default_branch: string; owner: { login: string } }[] }>(i, "GET", `/installation/repositories?per_page=100`);
-    return (j?.repositories || []).map((r) => ({ owner: r.owner.login, name: r.name, defaultBranch: r.default_branch }));
+    const j = await call<{ repositories: { name: string; default_branch: string; private?: boolean; owner: { login: string } }[] }>(i, "GET", `/installation/repositories?per_page=100`);
+    return (j?.repositories || []).map((r) => ({ owner: r.owner.login, name: r.name, defaultBranch: r.default_branch, isPrivate: typeof r.private === "boolean" ? r.private : undefined }));
   },
   async closePr(i, owner, repo, n) {
     await call(i, "PATCH", `/repos/${owner}/${repo}/pulls/${n}`, { state: "closed" });

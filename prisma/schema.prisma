@@ -113,6 +113,7 @@ model Project {
   // Implement button: the GitHub repo this project ships to.
   repoOwner         String?
   repoName          String?
+  repoPrivate       Boolean?   // from GitHub: true = private, false = public, null = not known yet
   installationId    Int?     // GitHub App installation id
   envBranches       Json?    // { "test": "develop", "live": "main" } environment -> base branch
   defaultEnv        String?

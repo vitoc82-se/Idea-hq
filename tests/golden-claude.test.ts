@@ -4,6 +4,7 @@
 // input, provider-guarded steps. Everything asserted here must stay true.
 import { describe, it, expect } from "vitest";
 import { buildWorkflow, ALLOWED_TOOLS, DEFAULT_MODEL } from "@/lib/runs/workflow";
+import { CLAUDE_DISALLOWED_TOOLS } from "@/lib/providers/claude";
 import { TIERS, MODELS, recommendTier, resolveTier, LEARN_TIER, planModel, PLANNING_MODEL } from "@/lib/runs/policy";
 
 describe("golden: Claude tier table", () => {
@@ -61,7 +62,7 @@ describe("golden: Claude workflow step", () => {
         "Bash(npx tsc:*),Bash(npx vitest:*),Bash(npx jest:*),Bash(npx eslint:*),Bash(npx prettier:*),Bash(ls:*),Bash(git diff:*),Bash(git status:*)"
     );
     expect(wf).toContain(`--allowedTools "${ALLOWED_TOOLS}"`);
-    expect(wf).toContain('--disallowedTools "Read(.git/**),Edit(.git/**),Write(.git/**)"');
+    expect(wf).toContain(`--disallowedTools "${CLAUDE_DISALLOWED_TOOLS}"`);
   });
   it("passes the prompt as an action input, never through a shell", () => {
     expect(wf).toContain("prompt: ${{ inputs.prompt }}");
