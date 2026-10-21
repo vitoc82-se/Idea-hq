@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/runs/http";
+import { CAPS, tooLong } from "@/lib/caps";
 import { approveRun, reviseRun, mergeRun, revertRun, cancelRun } from "@/lib/runs/engine";
 
 // POST /api/runs/:id/{approve|revise|merge|revert|cancel}
@@ -19,6 +20,8 @@ export async function POST(
       }
       case "revise": {
         const body = await request.json().catch(() => ({}));
+        const tooBig = tooLong("The instruction", body.instruction, CAPS.instruction);
+        if (tooBig) return NextResponse.json({ error: tooBig }, { status: 400 });
         await reviseRun(auth.userId, params.id, String(body.instruction || ""));
         return NextResponse.json({ ok: true });
       }

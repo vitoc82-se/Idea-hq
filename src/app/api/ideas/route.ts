@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
 import { cleanKind, cleanSeverity } from "@/lib/issues";
 import { cleanText } from "@/lib/support/sanitize";
+import { CAPS, tooLong, firstProblem, ideaRoom } from "@/lib/caps";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A title is required" }, { status: 400 });
     }
 
+    const problem = firstProblem(tooLong("The title", title, CAPS.title), tooLong("The notes", typeof body?.notes === "string" ? body.notes : "", CAPS.notes));
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+
     const kind = cleanKind(body?.kind) ?? "idea";
     const projectId = String(body?.projectId ?? "").trim();
     if (!projectId) {
@@ -68,6 +72,9 @@ export async function POST(request: Request) {
     if (!project) {
       return NextResponse.json({ error: "Unknown project" }, { status: 400 });
     }
+
+    const full = await ideaRoom(project.id);
+    if (full) return NextResponse.json({ error: full }, { status: 409 });
 
     const idea = await db.idea.create({
       data: {

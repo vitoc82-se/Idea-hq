@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser, errorResponse } from "@/lib/runs/http";
 import { addMemory, loadKnowledge } from "@/lib/knowledge-store";
+import { db } from "@/lib/db";
+import { CAPS, tooLong } from "@/lib/caps";
 
 const KINDS = ["change", "lesson", "gotcha", "decision", "user"];
 
@@ -14,6 +16,11 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     const b = await request.json().catch(() => null);
     const text = String(b?.text ?? "").trim();
     if (!text) return NextResponse.json({ error: "Write the fact first." }, { status: 400 });
+    const tooBig = tooLong("The fact", text, CAPS.memoryText);
+    if (tooBig) return NextResponse.json({ error: tooBig }, { status: 400 });
+    if (b?.pinned !== false && (await db.projectMemory.count({ where: { projectId: params.id, userId: auth.userId, pinned: true } })) >= CAPS.pinnedFacts) {
+      return NextResponse.json({ error: `You already have ${CAPS.pinnedFacts} pinned facts. Unpin or remove some first.` }, { status: 409 });
+    }
     const row = await addMemory(auth.userId, params.id, {
       kind: KINDS.includes(b?.kind) ? b.kind : "user", text, pinned: b?.pinned !== false, source: "you",
     });

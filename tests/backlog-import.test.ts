@@ -76,7 +76,7 @@ const st = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   db: {
     project: { findFirst: async (a: Row) => (st.project && a.where.id === st.project.id && a.where.userId === st.project.userId ? st.project : null) },
-    idea: { findMany: async () => st.ideas, createMany: async (a: Row) => { st.created.push(...a.data); return { count: a.data.length }; } },
+    idea: { findMany: async () => st.ideas, count: async () => st.ideas.length + st.created.length, createMany: async (a: Row) => { st.created.push(...a.data); return { count: a.data.length }; } },
   },
 }));
 vi.mock("@/lib/github/client", async () => {

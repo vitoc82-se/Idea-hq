@@ -3,6 +3,7 @@ import { cleanText } from "./support/sanitize";
 import { LIMITS } from "./support/constants";
 import { emailReply, statusPatch } from "./support/owner-tickets";
 import { repoMayBePublic, redactPersonalDetails } from "./runs/public-safe";
+import { ideaRoom } from "./caps";
 
 // Bugs and the link between support tickets and the idea board. A bug is an idea with
 // a different start (what happens, steps, severity) and a different job for the AI
@@ -74,6 +75,8 @@ export async function createIssueFromTicket(userId: string, ticketId: string, in
 
   const t = await db.ticket.findFirst({ where: { id: ticketId, project: { userId } }, select: { id: true, projectId: true, ideaId: true, project: { select: { repoPrivate: true } } } });
   if (!t) throw new IssueError(404, "Ticket not found.");
+  const full = await ideaRoom(t.projectId);
+  if (full) throw new IssueError(409, full);
   // Same rule as the draft: a possibly public repo never gets a customer's email or phone number.
   const strip = repoMayBePublic(t.project);
   const title = strip ? redactPersonalDetails(rawTitle) : rawTitle;

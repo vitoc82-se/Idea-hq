@@ -1,3 +1,4 @@
+import { CAPS, tooLong, firstProblem, cleanColor, cleanHttpsUrl } from "@/lib/caps";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -28,16 +29,22 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       monthlyCapUsd?: number | null;
     } = {};
 
+    const url = body?.contextSourceUrl !== undefined ? cleanHttpsUrl(body.contextSourceUrl) : null;
+    const problem = firstProblem(
+      tooLong("The name", typeof body?.name === "string" ? body.name.trim() : "", CAPS.projectName),
+      tooLong("The project description", body?.context === existing.context ? undefined : body?.context, CAPS.projectContext), // (an unchanged older text is never refused)
+      url && !url.ok ? url.error : null,
+    );
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+
     if (body?.monthlyCapUsd !== undefined) {
       const cap = cleanCap(body.monthlyCapUsd);
       if (!cap.ok) return NextResponse.json({ error: cap.error }, { status: 400 });
       data.monthlyCapUsd = cap.value;
     }
     if (typeof body?.name === "string" && body.name.trim()) data.name = body.name.trim();
-    if (body?.color !== undefined) data.color = body.color ? String(body.color) : null;
-    if (body?.contextSourceUrl !== undefined) {
-      data.contextSourceUrl = body.contextSourceUrl ? String(body.contextSourceUrl) : null;
-    }
+    if (body?.color !== undefined) data.color = cleanColor(body.color);
+    if (url && url.ok) data.contextSourceUrl = url.value;
     // Only bump contextUpdatedAt when the context text actually changes — that
     // timestamp is what marks every existing estimate for this project stale.
     if (typeof body?.context === "string" && body.context !== existing.context) {

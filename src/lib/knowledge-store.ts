@@ -1,3 +1,4 @@
+import { CAPS } from "./caps";
 import { db } from "@/lib/db";
 import { assembleContext, knowledgeFor, type Knowledge } from "./knowledge";
 
@@ -27,8 +28,16 @@ export async function saveKnowledge(userId: string, projectId: string, knowledge
 }
 
 // Add a memory entry (and refresh the assembled context).
+// Keeps the memory from growing without end: past the limit the oldest facts that are not pinned are dropped.
+export async function pruneMemory(projectId: string): Promise<void> {
+  const total = await db.projectMemory.count({ where: { projectId } });
+  if (total <= CAPS.memoryPerProject) return;
+  const old = await db.projectMemory.findMany({ where: { projectId, pinned: false }, orderBy: { createdAt: "asc" }, take: total - CAPS.memoryPerProject, select: { id: true } });
+  if (old.length) await db.projectMemory.deleteMany({ where: { id: { in: old.map((o: { id: string }) => o.id) } } });
+}
+
 export async function addMemory(userId: string, projectId: string, entry: { kind: string; text: string; pinned?: boolean; source?: string; runId?: string }) {
-  const text = entry.text.trim().slice(0, 600);
+  const text = entry.text.trim().slice(0, CAPS.memoryText);
   if (!text) return null;
   if (entry.runId) {
     const dup = await db.projectMemory.findFirst({ where: { projectId, userId, runId: entry.runId, kind: entry.kind } });
@@ -37,6 +46,7 @@ export async function addMemory(userId: string, projectId: string, entry: { kind
   const row = await db.projectMemory.create({
     data: { projectId, userId, kind: entry.kind, text, pinned: !!entry.pinned, source: entry.source || "auto", runId: entry.runId ?? null },
   });
+  await pruneMemory(projectId);
   const loaded = await loadKnowledge(userId, projectId);
   if (loaded) await saveKnowledge(userId, projectId, loaded.knowledge);
   return row;

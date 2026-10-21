@@ -115,3 +115,6 @@ Sessions are signed JWT cookies. `User.sessionVersion` is copied into the token 
 
 ### Service worker (M2)
 `public/sw.js` caches only public files (`/_next/static/`, `/icons/`, the manifest, `/offline.html`) and never pages or API data; a page request goes to the network and shows `/offline.html` when there is none. The cache name was bumped to `idea-hq-v2`, so the activate step deletes the old `idea-hq-v1` cache, which held signed-in pages. `tests/service-worker.test.ts` runs the worker against a fake browser.
+
+### Size and count limits (M4)
+All numbers live in `src/lib/caps.ts` (`CAPS`): field lengths (idea title 200, notes 20,000, closing note 4,000; project name 80, description 30,000; run change request 4,000; stories per breakdown 40; blocked-by 50), counts (50 projects per account, 2,000 ideas per project, 100 pinned facts and 300 facts per project, the oldest unpinned facts are dropped), and a 1 MB request body (2 MB for pasted backlog lists) refused in `src/middleware.ts` before any route reads it (webhooks exempt). Text over a limit gets a 400 that names the field; a full project or account gets a 409. Source addresses must be short https links. An older text that is already over a limit is only refused if it is changed. Support tickets and the widget have their own limits (`src/lib/support/constants.ts`). `tests/caps.test.ts`.

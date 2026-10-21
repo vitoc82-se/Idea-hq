@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { github } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
+import { ideaRoom } from "@/lib/caps";
 import { cleanImportRequest, findBacklogFiles, withoutExisting } from "@/lib/backlog-import";
 
 const refOf = (p: { envBranches: unknown; defaultEnv: string | null }) => {
@@ -40,6 +41,8 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     const existing = await db.idea.findMany({ where: { projectId: p.id, userId: auth.userId }, select: { title: true } });
     const { fresh, skipped } = withoutExisting(items, existing.map((e: { title: string }) => e.title));
     if (fresh.length) {
+      const full = await ideaRoom(p.id, fresh.length);
+      if (full) return NextResponse.json({ error: full }, { status: 409 });
       await db.idea.createMany({
         data: fresh.map((it) => ({
           userId: auth.userId, projectId: p.id, title: it.title, status: it.done ? "done" : "new",

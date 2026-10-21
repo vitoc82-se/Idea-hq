@@ -1,3 +1,4 @@
+import { CAPS, tooLong, firstProblem, cleanColor, cleanHttpsUrl, projectRoom } from "@/lib/caps";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -51,7 +52,16 @@ export async function POST(request: Request) {
     if (!name) {
       return NextResponse.json({ error: "A project name is required" }, { status: 400 });
     }
-    const slug = slugify(body?.slug ? String(body.slug) : name) || slugify(name);
+    const url = cleanHttpsUrl(body?.contextSourceUrl);
+    const problem = firstProblem(
+      tooLong("The name", name, CAPS.projectName),
+      tooLong("The project description", typeof body?.context === "string" ? body.context : "", CAPS.projectContext),
+      url.ok ? null : url.error,
+    );
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+    const full = await projectRoom(userId);
+    if (full) return NextResponse.json({ error: full }, { status: 409 });
+    const slug = slugify(body?.slug ? String(body.slug).slice(0, CAPS.projectName) : name) || slugify(name);
     if (!slug) {
       return NextResponse.json({ error: "Could not derive a slug from the name" }, { status: 400 });
     }
@@ -70,9 +80,9 @@ export async function POST(request: Request) {
         userId,
         name,
         slug,
-        color: body?.color ? String(body.color) : null,
-        context: body?.context ? String(body.context) : "",
-        contextSourceUrl: body?.contextSourceUrl ? String(body.contextSourceUrl) : null,
+        color: cleanColor(body?.color),
+        context: typeof body?.context === "string" ? body.context : "",
+        contextSourceUrl: url.ok ? url.value : null,
         contextUpdatedAt: new Date(),
       },
     });

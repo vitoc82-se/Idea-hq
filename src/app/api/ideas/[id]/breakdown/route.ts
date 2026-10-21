@@ -8,6 +8,7 @@ import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { projectPromptContext } from "@/lib/project-context";
 import type { Idea as IdeaRecord } from "@/generated/prisma/client";
+import { CAPS, ideaRoom } from "@/lib/caps";
 
 const COMPLEXITIES = ["S", "M", "L", "XL"];
 const IMPACTS = ["low", "medium", "high"];
@@ -35,10 +36,10 @@ function cleanStory(s: StoryIn) {
   if (!title) return null;
   return {
     title: title.slice(0, 200),
-    notes: s?.notes ? String(s.notes) : null,
+    notes: s?.notes ? String(s.notes).slice(0, CAPS.storyNotes) : null,
     complexity: COMPLEXITIES.includes(s?.complexity as string) ? (s.complexity as string) : "M",
     impact: IMPACTS.includes(s?.impact as string) ? (s.impact as string) : null,
-    scope: s?.scope ? String(s.scope) : null,
+    scope: s?.scope ? String(s.scope).slice(0, CAPS.storyScope) : null,
   };
 }
 
@@ -71,6 +72,9 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
   // ---- Commit path: write the approved stories as children ----
   if (body?.commit) {
+    if (Array.isArray(body?.stories) && body.stories.length > CAPS.storiesPerBreakdown) {
+      return NextResponse.json({ error: `An idea can be split into at most ${CAPS.storiesPerBreakdown} stories. Remove some and try again.` }, { status: 400 });
+    }
     const stories = (Array.isArray(body?.stories) ? (body.stories as StoryIn[]) : [])
       .map(cleanStory)
       .filter((s): s is NonNullable<ReturnType<typeof cleanStory>> => s !== null);
@@ -83,6 +87,10 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
         { status: 409 }
       );
     }
+
+    const replacing = body?.replace ? idea._count.children : 0;
+    const full = await ideaRoom(idea.projectId, stories.length - replacing);
+    if (full) return NextResponse.json({ error: full }, { status: 409 });
 
     // Replacing regenerates from scratch: drop the old children first.
     if (body?.replace && idea._count.children > 0) {

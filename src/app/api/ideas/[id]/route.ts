@@ -5,6 +5,7 @@ import { canUse } from "@/lib/access";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { cleanKind, cleanSeverity } from "@/lib/issues";
 import { cleanText } from "@/lib/support/sanitize";
+import { CAPS, tooLong, firstProblem } from "@/lib/caps";
 
 const STATUSES = ["new", "considering", "building", "done", "parked"];
 const PRIORITIES = ["none", "low", "medium", "high"];
@@ -41,6 +42,12 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       severity?: string | null;
       repro?: string | null;
     } = {};
+    const problem = firstProblem(
+      tooLong("The title", typeof body?.title === "string" ? body.title.trim() : "", CAPS.title),
+      tooLong("The notes", body?.notes === existing.notes ? undefined : body?.notes, CAPS.notes),
+      tooLong("The closing note", body?.closureNote, CAPS.closureNote),
+    );
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
     if (body?.notes !== undefined) data.notes = body.notes ? String(body.notes) : null;
     if (STATUSES.includes(body?.status)) data.status = body.status;
@@ -72,12 +79,12 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     }
 
     if (Array.isArray(body?.tags)) {
-      data.tags = normalizeTags(body.tags.map((t: unknown) => String(t)));
+      data.tags = normalizeTags(body.tags.slice(0, 50).map((t: unknown) => String(t)));
     }
 
     if (Array.isArray(body?.blockedBy)) {
       // Keep only real ideas owned by this user, never the idea itself.
-      const rawIds = (body.blockedBy as unknown[]).map((x) => String(x));
+      const rawIds = (body.blockedBy as unknown[]).slice(0, CAPS.blockedBy).map((x) => String(x));
       const wanted: string[] = Array.from(new Set(rawIds)).filter(
         (id) => id !== params.id
       );
