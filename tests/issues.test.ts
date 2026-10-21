@@ -53,6 +53,23 @@ afterEach(() => {
   delete process.env.SUPPORT_FROM_EMAIL;
 });
 
+describe("the setup journey's practice idea", () => {
+  const json = (url: string, method: string, body: unknown) => new Request(url, { method, body: JSON.stringify(body) });
+  it("is created already sized small, so no AI estimate is spent on it and it starts on the cheapest model", async () => {
+    const res = await createIdea(json("https://x/api/ideas", "POST", { title: "Practice: add a one-line note to the README", projectId: "p1" }));
+    const { id } = await res.json();
+    const row = await db.idea.findUnique({ where: { id } });
+    expect(row).toMatchObject({ complexity: "S", impact: "low" });
+    expect(row?.aiEstimatedAt).toBeInstanceOf(Date);
+  });
+  it("any other idea is left for the AI to size", async () => {
+    const { id } = await (await createIdea(json("https://x/api/ideas", "POST", { title: "Add dark mode", projectId: "p1" }))).json();
+    const row = await db.idea.findUnique({ where: { id } });
+    expect(row?.complexity).toBeNull();
+    expect(row?.aiEstimatedAt).toBeNull();
+  });
+});
+
 describe("draft from a ticket", () => {
   it("pre-fills the title and notes from the customer's first message and the details they gave", async () => {
     const d = await draftFromTicket("u1", "t1");

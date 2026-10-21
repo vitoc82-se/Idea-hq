@@ -15,6 +15,7 @@ import { SetupJourney } from "@/app/(app)/projects/[id]/setup/setup-journey";
 import { RunPanel } from "@/app/(app)/ideas/run-panel";
 import { BacklogImport } from "@/components/backlog-import";
 import { Select } from "@/components/ui/select";
+import { PRACTICE_TITLE } from "@/lib/runs/practice";
 
 type Step = { id: string; title: string; status: "done" | "todo" | "blocked" | "warn"; phase: string; detail?: string };
 type Onboarding = {
@@ -299,7 +300,7 @@ export function Welcome({ name }: { name: string }) {
                   <div><Label className="text-xs">Details (optional)</Label><Textarea value={ideaNotes} onChange={(e) => setIdeaNotes(e.target.value)} className="mt-1 min-h-[80px] text-sm" /></div>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={createIdea} disabled={!ideaTitle.trim() || busy !== null}>Add idea</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setIdeaTitle("Practice: add a one-line note to the README"); setIdeaNotes("Add one short line at the end of the README saying this repo is set up for AI implementation with Idea HQ. Change nothing else."); }}>Use a practice idea</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setIdeaTitle(PRACTICE_TITLE); setIdeaNotes("Add one short line at the end of the README saying this repo is set up for AI implementation with Idea HQ. Change nothing else."); }}>Use a practice idea</Button>
                   </div>
                 </div>
               ) : (

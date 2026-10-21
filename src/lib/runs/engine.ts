@@ -11,7 +11,8 @@ import {
   runBranch,
 } from "./state";
 import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion, WORKFLOW_VERSION } from "./workflow";
-import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, timeoutFor, type Override, type Tier } from "./policy";
+import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, suggestsStrongerModel, timeoutFor, type Override, type Tier } from "./policy";
+import { isPracticeTitle } from "./practice";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
@@ -201,14 +202,17 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, 
 
 // The tier we would pick for this run: from the idea's size and the project's
 // bias, one step up for every earlier failed attempt on the same idea.
-export async function recommendForRun(run: { ideaId: string | null; userId: string; id: string; project: { aiBias: string; aiProvider?: string | null }; idea: { complexity: string | null } | null }) {
+export async function recommendForRun(run: { ideaId: string | null; userId: string; id: string; project: { aiBias: string; aiProvider?: string | null }; idea: { complexity: string | null; title?: string | null } | null }) {
   const failedRuns = run.ideaId
-    ? await db.run.findMany({ where: { ideaId: run.ideaId, userId: run.userId, kind: "implement", status: "failed" }, orderBy: { createdAt: "desc" }, select: { turns: true, maxTurns: true } })
+    ? await db.run.findMany({ where: { ideaId: run.ideaId, userId: run.userId, kind: "implement", status: "failed" }, orderBy: { createdAt: "desc" }, select: { turns: true, maxTurns: true, error: true } })
     : [];
   // A run that ran out of turns was not too weak for the job, it was given too little room: it does not step the
-  // model up, it gets more turns. Any other failure still steps up a tier.
+  // model up, it gets more turns. Only a failure where the AI itself came up short steps the model up.
   const ranOut = failedRuns.filter(ranOutOfTurns);
-  const rec = recommendTier(run.idea?.complexity, run.project.aiBias, failedRuns.length - ranOut.length, run.project.aiProvider);
+  const tooWeak = failedRuns.filter((r) => !ranOutOfTurns(r) && suggestsStrongerModel(r));
+  // The practice idea is one README line, whatever an old row says about its size.
+  const size = run.idea?.complexity ?? (isPracticeTitle(run.idea?.title) ? "S" : null);
+  const rec = recommendTier(size, run.project.aiBias, tooWeak.length, run.project.aiProvider);
   const last = ranOut[0];
   const next = last ? moreTurns(last.maxTurns!) : 0;
   if (last && next > rec.maxTurns) {
