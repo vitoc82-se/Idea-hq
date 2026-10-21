@@ -19,12 +19,12 @@ describe("golden: Claude tier table", () => {
   it("offers exactly these models", () => {
     expect(MODELS.map((m) => m.id)).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"]);
   });
-  it("recommendation rules: bias shifts one tier, failures step up, unknown size is the middle", () => {
+  it("recommendation rules: bias shifts one tier, failures step up, unknown size starts on the cheapest", () => {
     expect(recommendTier("S").model).toBe("claude-haiku-5-5");
     expect(recommendTier("M", "saver").model).toBe("claude-haiku-5-5");
     expect(recommendTier("M", "max").model).toBe("claude-opus-5-5");
     expect(recommendTier("S", "auto", 1).model).toBe("claude-sonnet-5-5");
-    expect(recommendTier(null).model).toBe("claude-sonnet-5-5");
+    expect(recommendTier(null).model).toBe("claude-haiku-5-5"); // was the middle tier before the practice-idea fix
   });
   it("override validation is unchanged (allow-listed model/effort, turns 5..100)", () => {
     const rec = recommendTier("S");

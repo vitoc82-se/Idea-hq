@@ -229,9 +229,9 @@ describe("model and effort tiers", () => {
     expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "high", max_turns: "80" });
   });
 
-  it("unknown size falls back to the middle tier", async () => {
+  it("unknown size starts on the cheapest tier", async () => {
     await dispatchedRun();
-    expect(inputs()).toMatchObject({ model: "claude-sonnet-5-5", effort: "medium", max_turns: "50" });
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
   });
 
   it("project bias shifts the tier", async () => {
@@ -266,9 +266,11 @@ describe("model and effort tiers", () => {
     expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
   });
 
-  it("an idea of unknown size still starts in the middle", async () => {
+  it("an idea of unknown size steps up one level after a run that changed nothing, not two", async () => {
     t.tables.idea[0].complexity = null;
-    await dispatchedRun();
+    await startedRun();
+    t.tables.run.push({ id: "old", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", error: "The AI made no changes." });
+    await approveRun("u1", "RUN1", deps());
     expect(inputs().model).toBe("claude-sonnet-5-5");
   });
 

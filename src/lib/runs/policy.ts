@@ -42,11 +42,13 @@ export function recommendTier(
 ): Recommendation {
   const tiers = getProvider(provider).tiers;
   const known = isComplexity(complexity);
-  const base = known ? BASE_INDEX[complexity] : 1; // unknown size: middle of the road
+  // Unknown size: the cheapest setting is tried first, as for a small idea. It costs cents if it falls short, and a run
+  // that changed nothing steps the model up by itself, whereas starting on a strong model for a small job costs several times more.
+  const base = known ? BASE_INDEX[complexity] : 0;
   const shift = bias === "saver" ? -1 : bias === "max" ? 1 : 0;
   const step = Math.max(0, Math.min(3, failedAttempts));
   const index = Math.max(0, Math.min(tiers.length - 1, base + shift + step));
-  const parts = [known ? `${complexity} sized idea` : "size not estimated yet"];
+  const parts = [known ? `${complexity} sized idea` : "size not estimated yet, so the cheapest setting is tried first"];
   if (shift) parts.push(shift < 0 ? "project set to save money" : "project set to maximum quality");
   if (step) parts.push(`stepping up after ${step} failed attempt${step > 1 ? "s" : ""}`);
   return { ...tiers[index], index, reason: parts.join(", ") };
