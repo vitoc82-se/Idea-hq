@@ -5,6 +5,7 @@ import { startRun, reconcileRun, recommendForRun } from "@/lib/runs/engine";
 import { getProvider } from "@/lib/providers";
 import { buildAccess } from "@/lib/billing";
 import { capState, capMessage } from "@/lib/spend";
+import { effectiveSize } from "@/lib/runs/size";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
@@ -16,7 +17,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
-    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, project: { select: { aiProvider: true, name: true } } } });
+    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, title: true, complexity: true, project: { select: { aiProvider: true, name: true } } } });
     if (!idea) return NextResponse.json({ error: "Idea not found" }, { status: 404 });
 
     // Epic: when the idea is split into stories, show them and which one is next.
@@ -65,6 +66,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       runs, recommended, epic,
       aiBuild: access.ok || access.reason !== "off", // false: show a notice instead of the AI build buttons
       needsPlan: !access.ok && access.reason === "needs_plan", // paywall: no Pro and no credits left
+      sized: !!effectiveSize(idea), // the AI only implements an idea that has a size
       models: prov.models,
       efforts: prov.efforts,
       provider: { id: prov.id, label: prov.label, reportsCost: prov.reportsCost, supportsTurnCap: prov.supportsTurnCap },

@@ -12,7 +12,7 @@ import {
 } from "./state";
 import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion, WORKFLOW_VERSION } from "./workflow";
 import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, suggestsStrongerModel, timeoutFor, type Override, type Tier } from "./policy";
-import { isPracticeTitle } from "./practice";
+import { effectiveSize, SIZE_FIRST_MESSAGE } from "./size";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
@@ -118,6 +118,7 @@ export async function startRun(userId: string, ideaId: string, deps?: Deps) {
   const idea = await db.idea.findFirst({ where: { id: ideaId, userId }, include: { project: true } });
   if (!idea) throw new RunError(404, "Idea not found");
   if (!idea.plan) throw new RunError(409, "Create the plan first (Promote to plan), then implement.");
+  if (!effectiveSize(idea)) throw new RunError(409, SIZE_FIRST_MESSAGE);
   const storyCount = await db.idea.count({ where: { parentId: idea.id, userId } });
   if (storyCount > 0) {
     throw new RunError(409, "This idea is split into stories. Implement the stories one at a time, in order. Open the next story below.");
@@ -210,9 +211,7 @@ export async function recommendForRun(run: { ideaId: string | null; userId: stri
   // model up, it gets more turns. Only a failure where the AI itself came up short steps the model up.
   const ranOut = failedRuns.filter(ranOutOfTurns);
   const tooWeak = failedRuns.filter((r) => !ranOutOfTurns(r) && suggestsStrongerModel(r));
-  // The practice idea is one README line, whatever an old row says about its size.
-  const size = run.idea?.complexity ?? (isPracticeTitle(run.idea?.title) ? "S" : null);
-  const rec = recommendTier(size, run.project.aiBias, tooWeak.length, run.project.aiProvider);
+  const rec = recommendTier(effectiveSize(run.idea), run.project.aiBias, tooWeak.length, run.project.aiProvider);
   const last = ranOut[0];
   const next = last ? moreTurns(last.maxTurns!) : 0;
   if (last && next > rec.maxTurns) {
@@ -226,6 +225,8 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   const gh = g(deps);
   const run = await loadOwned(userId, runId);
   if (run.status !== "awaiting_approval") throw new RunError(409, `Run is ${run.status}, not waiting for approval.`);
+  // A run that was prepared before the rule existed (or on an idea whose size was removed) is not started unsized.
+  if (run.ideaId && !effectiveSize(run.idea)) throw new RunError(409, SIZE_FIRST_MESSAGE);
   const p = run.project;
   await assertUnderCap(p.id, p.name);
   const { wfVersion } = await preflight(p, run.baseBranch!, gh);

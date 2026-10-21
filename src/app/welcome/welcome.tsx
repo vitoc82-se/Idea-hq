@@ -16,13 +16,14 @@ import { RunPanel } from "@/app/(app)/ideas/run-panel";
 import { BacklogImport } from "@/components/backlog-import";
 import { Select } from "@/components/ui/select";
 import { PRACTICE_TITLE } from "@/lib/runs/practice";
+import { effectiveSize } from "@/lib/runs/size";
 
 type Step = { id: string; title: string; status: "done" | "todo" | "blocked" | "warn"; phase: string; detail?: string };
 type Onboarding = {
   approved: boolean; steps: Step[]; done: number; total: number; currentId: string | null;
   projectId: string | null; projectName: string | null;
-  idea: { id: string; title: string; plan: string | null } | null;
-  ideas: { id: string; title: string; plan: string | null }[];
+  idea: { id: string; title: string; plan: string | null; complexity: string | null } | null;
+  ideas: { id: string; title: string; plan: string | null; complexity: string | null }[];
   contextLength: number; shipped: boolean;
 };
 
@@ -163,6 +164,11 @@ export function Welcome({ name }: { name: string }) {
     if (!ob.projectId) return;
     const j = await post("idea", "/api/ideas", { projectId: ob.projectId, title: ideaTitle, notes: ideaNotes });
     if (j) { setIdeaTitle(""); setIdeaNotes(""); load(); }
+  };
+  const estimate = async () => {
+    if (!cur) return;
+    const j = await post("estimate", `/api/ideas/${cur.id}/estimate`);
+    if (j) load();
   };
   const makePlan = async () => {
     if (!cur) return;
@@ -327,7 +333,7 @@ export function Welcome({ name }: { name: string }) {
                       <details className="text-sm"><summary className="cursor-pointer text-gray-600 dark:text-gray-300">Read the build prompt</summary>
                         <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-auto">{cur.plan}</pre>
                       </details>
-                      <RunPanel key={cur.id} ideaId={cur.id} projectId={ob.projectId!} plan={cur.plan} />
+                      <RunPanel key={cur.id} ideaId={cur.id} projectId={ob.projectId!} plan={cur.plan} sized={!!effectiveSize(cur)} onEstimate={estimate} estimating={busy === "estimate"} />
                     </>
                   )}
                 </div>

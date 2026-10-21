@@ -14,9 +14,16 @@ describe("recommendTier", () => {
     const idx = ["S", "M", "L", "XL"].map((c) => recommendTier(c).index);
     expect(idx).toEqual([0, 1, 2, 3]);
   });
-  it("uses the middle tier when the size is unknown", () => {
-    for (const c of [null, undefined, "", "huge"]) expect(recommendTier(c).index).toBe(1);
-    expect(recommendTier(null).reason).toMatch(/not estimated/);
+  it("starts on the cheapest tier when the size is unknown, and steps up from there", () => {
+    for (const c of [null, undefined, "", "huge"]) expect(recommendTier(c).index).toBe(0);
+    expect(recommendTier(null).reason).toMatch(/not estimated.*cheapest/);
+    expect(recommendTier(null, "auto", 1).index).toBe(1);
+    expect(recommendTier(null, "saver").index).toBe(0);
+    expect(recommendTier(null, "max").index).toBe(1);
+  });
+  it("nothing without a known big size starts on the strongest models unless the project asks for maximum quality", () => {
+    for (const size of [null, "S", "M"]) expect(recommendTier(size, "auto").index).toBeLessThan(2);
+    expect(recommendTier("S", "auto", 1).index).toBeLessThan(2);
   });
   it("project bias shifts one tier and clamps at the ends", () => {
     expect(recommendTier("M", "saver").index).toBe(0);
