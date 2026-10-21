@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, KeyRound, Users, BookOpen, LifeBuoy, CreditCard, Settings } from "lucide-react";
+import { Menu, X, Lightbulb, Target, FolderKanban, LogOut, KeyRound, Users, BookOpen, LifeBuoy, CreditCard, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import { ThemeSwitcher } from "./theme-switcher";
 import { Wordmark } from "./wordmark";
@@ -13,6 +13,7 @@ import { APP_VERSION } from "@/lib/version";
 const navLinks = [
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/focus", label: "Focus", icon: Target },
   { href: "/users", label: "Admin", icon: Users },
   { href: "/guide", label: "Guide", icon: BookOpen },
 ];
