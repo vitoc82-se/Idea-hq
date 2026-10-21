@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idea HQ: keep shipping your app</title>
+<!-- Reference design for the Idea HQ landing page ("The notebook"). See ideahq-landing-handoff.md. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&amp;family=Shantell+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FAFAF7}
+a{color:#2446C8}a:hover{color:#15161A}
+.margin-line{position:absolute;top:0;bottom:0;left:72px;width:2px;background:#F1B5AE}
+@media (max-width: 760px){.margin-line{display:none}}
+</style>
+</head>
+<body>
+<div style="position: relative; min-height: 100vh; background-color: #FAFAF7; background-image: linear-gradient(#E8EBF2 1px, transparent 1px), linear-gradient(90deg, #E8EBF2 1px, transparent 1px); background-size: 28px 28px; color: #15161A; font-family: 'Familjen Grotesk', system-ui, sans-serif; font-size: 17px; line-height: 1.55; overflow: hidden">
+<div class="margin-line" aria-hidden="true"></div>
+
+<header style="position: relative">
+<nav aria-label="Main" style="max-width: 1180px; margin: 0 auto; padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+<a href="#top" style="display: flex; flex-direction: column; text-decoration: none; color: #15161A">
+<span style="font-weight: 700; font-size: 22px; letter-spacing: -0.02em">Idea HQ</span>
+<svg aria-hidden="true" width="86" height="8" viewBox="0 0 86 8" fill="none"><path d="M2 5c18-3 40-4 82-2" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path></svg>
+</a>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 22px; font-size: 16px">
+<a href="#how" style="color: #15161A; text-decoration: none">How it works</a>
+<a href="#receipts" style="color: #15161A; text-decoration: none">Receipts</a>
+<a href="#safety" style="color: #15161A; text-decoration: none">Safety</a>
+<a href="#pricing" style="color: #15161A; text-decoration: none">Pricing</a>
+<a href="/guide" style="color: #15161A; text-decoration: none">Guide</a>
+<a href="/auth/signin" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 2px solid #15161A; border-radius: 4px; color: #15161A; text-decoration: none; font-weight: 600">Sign in</a>
+</div>
+</nav>
+</header>
+
+<main id="top" style="position: relative">
+
+<section aria-labelledby="hero-title" style="max-width: 1180px; margin: 0 auto; padding: 72px 24px 112px; display: flex; flex-wrap: wrap; align-items: center; gap: 64px">
+<div style="flex: 1 1 500px; min-width: 0; display: flex; flex-direction: column; gap: 26px">
+<span style="font-family: 'Shantell Sans', cursive; font-size: 19px; font-weight: 500; line-height: 1.2; color: #2446C8; transform: rotate(-2deg); align-self: flex-start">early access, small batches</span>
+<h1 id="hero-title" style="margin: 0; font-weight: 700; font-size: clamp(44px, 6vw, 82px); line-height: 0.98; letter-spacing: -0.04em">Keep shipping your app. <span style="background: linear-gradient(transparent 58%, #FFE45C 58%, #FFE45C 92%, transparent 92%); padding: 0 4px">Skip the code editor.</span></h1>
+<p style="margin: 0; font-size: 20px; line-height: 1.5; color: #3B3E45; max-width: 560px">Built your app with Lovable, Bolt or a freelancer? Write what you want next in plain words. Idea HQ plans it, an AI builds it in your own GitHub, and nothing changes until you approve it.</p>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px">
+<a href="/auth/signin?mode=register" style="display: inline-flex; align-items: center; min-height: 52px; padding: 0 26px; border-radius: 4px; background: #15161A; color: #FAFAF7; font-weight: 600; font-size: 17px; text-decoration: none">Request early access</a>
+<a href="#demo" style="display: inline-flex; align-items: center; min-height: 52px; padding: 0 8px; color: #15161A; font-weight: 600; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px">Watch the 90-second demo</a>
+</div>
+<p style="margin: 0; font-size: 15px; color: #55585F">Free during early access. You pay Anthropic or OpenAI directly for the AI, usually cents per change.</p>
+</div>
+
+<div style="flex: 1 1 420px; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 520px">
+<div style="font-family: 'Shantell Sans', cursive; font-size: 21px; line-height: 1.7; color: #2446C8; padding-left: 8px">
+<div style="font-weight: 600; font-size: 24px; margin-bottom: 6px">ideas for my shop</div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 20px; height: 20px; border: 2px solid #2446C8; border-radius: 3px; display: inline-block"></span>dark mode switch</div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 20px; height: 20px; border: 2px solid #2446C8; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1">✓</span><span style="text-decoration: line-through; text-decoration-thickness: 2px">show the app version in the footer</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="width: 20px; height: 20px; border: 2px solid #2446C8; border-radius: 3px; display: inline-block"></span>import my TODO list</div>
+</div>
+
+<svg aria-hidden="true" width="120" height="90" viewBox="0 0 120 90" fill="none" style="margin-left: 120px; margin-top: -4px"><path d="M10 6c6 34 34 60 92 70" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path><path d="M88 66l15 10-17 6" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+
+<div style="align-self: flex-end; width: 330px; max-width: 100%; transform: rotate(2deg); filter: drop-shadow(0 10px 18px rgba(21,22,26,0.14)); margin-top: -40px">
+<div style="background: #FFFFFF; padding: 22px 24px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7; color: #15161A">
+<div style="text-align: center; font-weight: 600; letter-spacing: 0.12em">IDEA HQ · CHANGE RECEIPT</div>
+<div style="text-align: center; color: #55585F; margin-bottom: 10px">pull request #42</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div>Show the app version in the footer</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div style="display: flex; justify-content: space-between"><span>files changed</span><span>4</span></div>
+<div style="display: flex; justify-content: space-between"><span>lines</span><span>41</span></div>
+<div style="display: flex; justify-content: space-between"><span>build + tests</span><span>PASSED</span></div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600"><span>AI COST</span><span>$0.21</span></div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0 12px"></div>
+<div style="display: flex; gap: 8px">
+<button type="button" style="flex: 1; min-height: 44px; border: 1.5px solid #15161A; background: #FFFFFF; color: #15161A; font: inherit; font-weight: 500">Tweak</button>
+<button type="button" style="flex: 1; min-height: 44px; border: 0; background: #15161A; color: #FFFFFF; font: inherit; font-weight: 600">Merge</button>
+</div>
+</div>
+<svg aria-hidden="true" width="330" height="10" viewBox="0 0 330 10" preserveAspectRatio="none" style="display: block; width: 100%"><path d="M0 0h330v2l-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8V0z" fill="#FFFFFF"></path></svg>
+</div>
+
+<span style="font-family: 'Shantell Sans', cursive; font-size: 18px; font-weight: 500; line-height: 1.2; color: #2446C8; transform: rotate(-3deg); align-self: flex-start; margin-top: 10px; margin-left: 12px">← that's what it really cost</span>
+</div>
+</section>
+
+<section id="demo" aria-label="Product demo" style="max-width: 1180px; margin: 0 auto; padding: 0 24px 112px">
+<div style="aspect-ratio: 16 / 9; width: 100%; border: 2px solid #15161A; border-radius: 6px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 24px; box-sizing: border-box">
+<svg aria-hidden="true" width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="29" stroke="#15161A" stroke-width="2"></circle><path d="M26 20v24l19-12-19-12z" fill="#15161A"></path></svg>
+<div style="font-weight: 700; font-size: 20px">[90-SECOND DEMO VIDEO]</div>
+<div style="font-family: 'Shantell Sans', cursive; font-size: 18px; font-weight: 500; color: #2446C8">one line → plan → pull request → merge</div>
+</div>
+</section>
+
+<section id="how" aria-labelledby="how-title" style="max-width: 1180px; margin: 0 auto; padding: 0 24px 112px; display: flex; flex-direction: column; gap: 48px">
+<h2 id="how-title" style="margin: 0; font-weight: 700; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.03em; max-width: 760px">Three steps. <span style="background: linear-gradient(transparent 58%, #FFE45C 58%, #FFE45C 92%, transparent 92%); padding: 0 4px">You say yes to each one.</span></h2>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 40px">
+<li style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="64" height="64" viewBox="0 0 64 64" fill="none" style="position: absolute; inset: 0"><path d="M33 6C17 5 6 17 7 33s14 26 28 25 23-12 22-27S45 6 30 9" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path></svg>
+<span style="font-family: 'Shantell Sans', cursive; font-size: 26px; font-weight: 600; color: #2446C8">1</span>
+</div>
+<h3 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em">Write it down</h3>
+<p style="margin: 0; color: #3B3E45">One line is enough. The AI sizes it and drafts a plan you can read and edit.</p>
+</li>
+<li style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="64" height="64" viewBox="0 0 64 64" fill="none" style="position: absolute; inset: 0"><path d="M30 7C15 8 5 20 7 35s16 24 30 22 22-14 20-28S44 6 28 10" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path></svg>
+<span style="font-family: 'Shantell Sans', cursive; font-size: 26px; font-weight: 600; color: #2446C8">2</span>
+</div>
+<h3 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em">Approve the plan</h3>
+<p style="margin: 0; color: #3B3E45">The AI builds it on a separate branch in your repo and runs your tests.</p>
+</li>
+<li style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="64" height="64" viewBox="0 0 64 64" fill="none" style="position: absolute; inset: 0"><path d="M34 6C18 6 6 18 8 34s15 25 29 23 21-13 20-27S46 7 31 9" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path></svg>
+<span style="font-family: 'Shantell Sans', cursive; font-size: 26px; font-weight: 600; color: #2446C8">3</span>
+</div>
+<h3 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em">Review and merge</h3>
+<p style="margin: 0; color: #3B3E45">Try the preview, ask for tweaks in plain words, then merge. Changed your mind? One button undoes it.</p>
+</li>
+</ol>
+</section>
+
+<section id="receipts" aria-labelledby="receipts-title" style="background: #15161A; color: #FAFAF7; position: relative">
+<div style="max-width: 1180px; margin: 0 auto; padding: 104px 24px 112px; display: flex; flex-direction: column; gap: 56px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px">
+<h2 id="receipts-title" style="margin: 0; font-weight: 700; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.03em; max-width: 640px">Every change comes with a receipt.</h2>
+<p style="margin: 0; max-width: 420px; color: #C9CBD1">The real AI cost, straight from the provider. No credits, no markup. Set a monthly cap per project and new runs pause when you reach it.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; justify-content: center">
+
+<div style="flex: 0 1 250px; min-width: 220px; transform: rotate(-2.5deg)">
+<div style="background: #FFFFFF; color: #15161A; padding: 20px 20px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7">
+<div style="font-weight: 600; letter-spacing: 0.1em">RECEIPT · #38</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div>Add a Help button</div>
+<div style="color: #55585F">1 file · 2 lines</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600"><span>TOTAL</span><span>$0.01</span></div>
+</div>
+<svg aria-hidden="true" width="250" height="10" viewBox="0 0 250 10" preserveAspectRatio="none" style="display: block; width: 100%"><path d="M0 0h250v2l-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8V0z" fill="#FFFFFF"></path></svg>
+</div>
+
+<div style="flex: 0 1 250px; min-width: 220px; transform: rotate(1.5deg); margin-top: 28px">
+<div style="background: #FFFFFF; color: #15161A; padding: 20px 20px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7">
+<div style="font-weight: 600; letter-spacing: 0.1em">RECEIPT · #39</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div>Learn the whole project</div>
+<div style="color: #55585F">44-line description</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600"><span>TOTAL</span><span>$0.17</span></div>
+</div>
+<svg aria-hidden="true" width="250" height="10" viewBox="0 0 250 10" preserveAspectRatio="none" style="display: block; width: 100%"><path d="M0 0h250v2l-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8V0z" fill="#FFFFFF"></path></svg>
+</div>
+
+<div style="flex: 0 1 250px; min-width: 220px; transform: rotate(-1deg); margin-top: 8px">
+<div style="background: #FFFFFF; color: #15161A; padding: 20px 20px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7">
+<div style="font-weight: 600; letter-spacing: 0.1em">RECEIPT · #42</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div>Show the app version</div>
+<div style="color: #55585F">4 files · 41 lines</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600"><span>TOTAL</span><span>$0.21</span></div>
+</div>
+<svg aria-hidden="true" width="250" height="10" viewBox="0 0 250 10" preserveAspectRatio="none" style="display: block; width: 100%"><path d="M0 0h250v2l-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8V0z" fill="#FFFFFF"></path></svg>
+</div>
+
+<div style="flex: 0 1 250px; min-width: 220px; transform: rotate(2.5deg); margin-top: 36px">
+<div style="background: #FFFFFF; color: #15161A; padding: 20px 20px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.7">
+<div style="font-weight: 600; letter-spacing: 0.1em">RECEIPT · #44</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div>Add profile pictures</div>
+<div style="color: #55585F">10 files · 427 lines</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 8px 0"></div>
+<div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600"><span>TOTAL</span><span>$0.74</span></div>
+</div>
+<svg aria-hidden="true" width="250" height="10" viewBox="0 0 250 10" preserveAspectRatio="none" style="display: block; width: 100%"><path d="M0 0h250v2l-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8V0z" fill="#FFFFFF"></path></svg>
+</div>
+
+</div>
+<p style="margin: 0; text-align: center; font-family: 'Shantell Sans', cursive; font-size: 18px; font-weight: 500; color: #FFE45C">real runs on Idea HQ's own code. Claude runs show cost; OpenAI doesn't report it yet.</p>
+</div>
+</section>
+
+<section id="safety" aria-labelledby="safety-title" style="max-width: 1180px; margin: 0 auto; padding: 112px 24px; display: flex; flex-direction: column; gap: 48px">
+<div style="display: flex; flex-direction: column; gap: 14px; max-width: 720px">
+<h2 id="safety-title" style="margin: 0; font-weight: 700; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.03em">The AI can read your code. <span style="background: linear-gradient(transparent 58%, #FFE45C 58%, #FFE45C 92%, transparent 92%); padding: 0 4px">It can't write it.</span></h2>
+<p style="margin: 0; color: #3B3E45; font-size: 19px">Every build runs in your own GitHub, in two separate steps. The one with your key can't write. The one that writes never sees your key.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: stretch; gap: 12px">
+<div style="flex: 1 1 260px; min-width: 0; background: #FFFFFF; border: 2px solid #15161A; border-radius: 6px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.08em">STEP 1 · THE AI</span>
+<span style="font-size: 21px; font-weight: 700">Reads your repo, writes a patch</span>
+<span style="font-family: 'Shantell Sans', cursive; font-size: 16px; font-weight: 500; line-height: 1.4; color: #2446C8">has your key · read-only · can't open .env files</span>
+</div>
+<div aria-hidden="true" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 6px">
+<span style="font-family: 'Shantell Sans', cursive; font-size: 16px; font-weight: 500; color: #2446C8">patch</span>
+<svg width="56" height="18" viewBox="0 0 56 18" fill="none"><path d="M3 10c14-4 30-4 48-1" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path><path d="M42 3l10 6-11 6" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+<div style="flex: 1 1 260px; min-width: 0; background: #FFFFFF; border: 2px solid #15161A; border-radius: 6px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.08em">STEP 2 · THE BUILDER</span>
+<span style="font-size: 21px; font-weight: 700">Applies it, runs your tests</span>
+<span style="font-family: 'Shantell Sans', cursive; font-size: 16px; font-weight: 500; line-height: 1.4; color: #2446C8">can write a branch · never sees your key</span>
+</div>
+<div aria-hidden="true" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 6px">
+<span style="font-family: 'Shantell Sans', cursive; font-size: 16px; font-weight: 500; color: #2446C8">PR</span>
+<svg width="56" height="18" viewBox="0 0 56 18" fill="none"><path d="M3 9c14 3 30 3 48 0" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round"></path><path d="M42 3l10 6-11 6" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</div>
+<div style="flex: 1 1 260px; min-width: 0; background: #FFE45C; border: 2px solid #15161A; border-radius: 6px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.08em">STEP 3 · YOU</span>
+<span style="font-size: 21px; font-weight: 700">Read it. Merge it. Or don't.</span>
+<span style="font-size: 16px; color: #15161A">Tests must pass first. Any merge can be undone with one button.</span>
+</div>
+</div>
+
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 14px 48px; font-size: 17px">
+<li style="flex: 1 1 340px; min-width: 0; display: flex; gap: 12px"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex: 0 0 auto"><path d="M4 13c3 2 5 4 6 6 3-6 6-10 11-15" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span><strong style="font-weight: 700">Your code stays on GitHub.</strong> Idea HQ never hosts or copies your app.</span></li>
+<li style="flex: 1 1 340px; min-width: 0; display: flex; gap: 12px"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" style="flex: 0 0 auto"><path d="M4 13c3 2 5 4 6 6 3-6 6-10 11-15" stroke="#2446C8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span><strong style="font-weight: 700">Your key stays in GitHub.</strong> We check it once, save it as a repo secret, and forget it.</span></li>
+</ul>
+</section>
+
+<section aria-labelledby="bugs-title" style="max-width: 1180px; margin: 0 auto; padding: 0 24px 112px; display: flex; flex-wrap: wrap; gap: 56px; align-items: center">
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<h2 id="bugs-title" style="margin: 0; font-weight: 700; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.03em">Prove the bug. Then fix it.</h2>
+<p style="margin: 0; color: #3B3E45; font-size: 19px">Describe what goes wrong. The AI first writes a test that fails, then fixes the cause. If it can't reproduce the bug, it changes nothing and you get your run back.</p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; position: relative">
+<div style="background: #FFFFFF; border: 2px solid #15161A; border-radius: 6px; padding: 22px 24px; font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 2; overflow-x: auto">
+<div style="color: #B42318">✗ discount code is ignored at checkout</div>
+<div style="color: #55585F; padding-left: 20px">reproduced with a failing test</div>
+<div style="color: #1A7F37">✓ discount code is ignored at checkout</div>
+<div style="color: #55585F; padding-left: 20px">fixed in src/lib/cart.ts · 1 file</div>
+</div>
+<span style="display: block; font-family: 'Shantell Sans', cursive; font-size: 18px; font-weight: 500; color: #2446C8; transform: rotate(-2deg); margin-top: 14px; margin-left: 24px">no repro? no change, run refunded</span>
+</div>
+</section>
+
+<section aria-labelledby="more-title" style="max-width: 1180px; margin: 0 auto; padding: 0 24px 112px; display: flex; flex-direction: column; gap: 36px">
+<h2 id="more-title" style="margin: 0; font-weight: 700; font-size: 34px; letter-spacing: -0.02em">Also in the notebook</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 28px">
+<div style="flex: 1 1 230px; min-width: 0; background: #FFF4A8; padding: 22px 22px 28px; transform: rotate(-1.5deg); box-shadow: 0 8px 16px rgba(21,22,26,0.10); display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Project knowledge</h3>
+<p style="margin: 0; font-size: 16px; color: #2D2F34">See what the AI knows about your app, and correct it.</p>
+</div>
+<div style="flex: 1 1 230px; min-width: 0; background: #D9E6FF; padding: 22px 22px 28px; transform: rotate(1deg); box-shadow: 0 8px 16px rgba(21,22,26,0.10); display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Import your TODO list</h3>
+<p style="margin: 0; font-size: 16px; color: #2D2F34">From a TODO.md, Notion or any list. The AI splits it into ideas.</p>
+</div>
+<div style="flex: 1 1 230px; min-width: 0; background: #FFDCD6; padding: 22px 22px 28px; transform: rotate(-0.5deg); box-shadow: 0 8px 16px rgba(21,22,26,0.10); display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">A public What's new page</h3>
+<p style="margin: 0; font-size: 16px; color: #2D2F34">Every merge drafts an entry. You reword it and publish.</p>
+</div>
+<div style="flex: 1 1 230px; min-width: 0; background: #FFFFFF; border: 2px dashed #9A9DA5; padding: 20px 20px 26px; transform: rotate(1.5deg); display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'Shantell Sans', cursive; font-size: 16px; font-weight: 500; line-height: 1.2; color: #2446C8">coming soon</span>
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">A Help button for your site</h3>
+<p style="margin: 0; font-size: 16px; color: #2D2F34">Customer reports become bugs, and customers hear when they're fixed.</p>
+</div>
+</div>
+<p style="margin: 0; padding-top: 8px; font-size: 16px; color: #3B3E45"><strong style="color: #15161A">Works with</strong> JavaScript and TypeScript on GitHub, with npm. Builds on Claude or OpenAI, with your own key. Gemini is coming soon.</p>
+</section>
+
+<section id="pricing" aria-labelledby="pricing-title" style="max-width: 1180px; margin: 0 auto; padding: 0 24px 112px; display: flex; flex-wrap: wrap; gap: 56px; align-items: center">
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<h2 id="pricing-title" style="margin: 0; font-weight: 700; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.03em">The price list is short.</h2>
+<p style="margin: 0; color: #3B3E45; font-size: 19px">Free while we're in early access. Your AI usage is billed by Anthropic or OpenAI straight to your own key.</p>
+</div>
+<div style="flex: 1 1 460px; min-width: 0; transform: rotate(-1deg); filter: drop-shadow(0 12px 20px rgba(21,22,26,0.14))">
+<div style="background: #FFFFFF; padding: 28px 30px 22px; font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 1.6">
+<div style="text-align: center; font-weight: 600; letter-spacing: 0.14em; font-size: 16px">IDEA HQ · PRICE LIST</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 14px 0"></div>
+<div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 600; font-size: 17px"><span>FREE</span><span>€0</span></div>
+<div style="color: #55585F; font-size: 14px">unlimited ideas + projects, daily AI estimates and plans</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 14px 0"></div>
+<div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 600; font-size: 17px"><span><span style="background: linear-gradient(transparent 50%, #FFE45C 50%); padding: 0 3px">PRO</span></span><span>€9 / month</span></div>
+<div style="color: #55585F; font-size: 14px">unlimited AI builds, higher daily limits · 99 kr in Sweden</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 14px 0"></div>
+<div style="display: flex; justify-content: space-between; gap: 16px; font-weight: 600; font-size: 17px"><span>50 RUNS</span><span>€5 once</span></div>
+<div style="color: #55585F; font-size: 14px">no subscription, failed runs refunded</div>
+<div style="border-top: 1px dashed #9A9DA5; margin: 14px 0"></div>
+<div style="text-align: center; color: #55585F; font-size: 13px">revise, merge and undo are always free</div>
+</div>
+<svg aria-hidden="true" width="460" height="10" viewBox="0 0 460 10" preserveAspectRatio="none" style="display: block; width: 100%"><path d="M0 0h460v2l-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8-10 8-10-8V0z" fill="#FFFFFF"></path></svg>
+</div>
+</section>
+
+<section aria-labelledby="faq-title" style="max-width: 1180px; margin: 0 auto; padding: 0 24px 112px; display: flex; flex-direction: column; gap: 28px">
+<h2 id="faq-title" style="margin: 0; font-weight: 700; font-size: clamp(34px, 4.2vw, 54px); letter-spacing: -0.03em">Things people ask</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 36px 56px">
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<h3 style="margin: 0; font-family: 'Shantell Sans', cursive; font-size: 21px; font-weight: 600; color: #2446C8">Do I need to know how to code?</h3>
+<p style="margin: 0; color: #3B3E45">No. You need a GitHub account and an Anthropic or OpenAI API key. Setup takes about 10 minutes and the app walks you through it.</p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<h3 style="margin: 0; font-family: 'Shantell Sans', cursive; font-size: 21px; font-weight: 600; color: #2446C8">How is this different from Lovable?</h3>
+<p style="margin: 0; color: #3B3E45">Lovable is great for starting an app. Idea HQ is for after: your app lives on GitHub, and every change is a pull request you approve.</p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<h3 style="margin: 0; font-family: 'Shantell Sans', cursive; font-size: 21px; font-weight: 600; color: #2446C8">And from Claude Code?</h3>
+<p style="margin: 0; color: #3B3E45">Same models, different job. Claude Code is a developer tool for the terminal. Idea HQ is a notebook for ideas and bugs, with a review step anyone can use.</p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<h3 style="margin: 0; font-family: 'Shantell Sans', cursive; font-size: 21px; font-weight: 600; color: #2446C8">Can the AI break my app?</h3>
+<p style="margin: 0; color: #3B3E45">Only if you merge something broken. Every change is a proposal, your tests must pass, and any merge can be undone.</p>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<h3 style="margin: 0; font-family: 'Shantell Sans', cursive; font-size: 21px; font-weight: 600; color: #2446C8">Can I use ChatGPT instead?</h3>
+<p style="margin: 0; color: #3B3E45">Yes. Pick OpenAI in setup and add an OpenAI API key (a ChatGPT subscription doesn't include one). Gemini support is coming soon.</p>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="cta-title" style="border-top: 2px solid #15161A; background: #FFFFFF">
+<div style="max-width: 1180px; margin: 0 auto; padding: 96px 24px 104px; display: flex; flex-direction: column; gap: 28px">
+<h2 id="cta-title" style="margin: 0; font-weight: 700; font-size: clamp(38px, 5vw, 68px); line-height: 1; letter-spacing: -0.04em; max-width: 820px">What's the first thing you'd build?</h2>
+<form action="/auth/signin" method="get" style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; max-width: 900px">
+<input type="hidden" name="mode" value="register">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label for="first-idea" style="font-size: 15px; color: #55585F">Your first idea, in plain words</label>
+<input id="first-idea" name="idea" type="text" placeholder="add a dark mode switch to settings" style="min-height: 56px; border: 0; border-bottom: 2px solid #15161A; background: transparent; font-family: 'Shantell Sans', cursive; font-size: 22px; color: #2446C8; padding: 0 4px; outline-offset: 4px">
+</div>
+<button type="submit" style="min-height: 56px; padding: 0 28px; border: 0; border-radius: 4px; background: #15161A; color: #FAFAF7; font: inherit; font-size: 17px; font-weight: 600">Request early access</button>
+</form>
+<p style="margin: 0; font-size: 15px; color: #55585F">We're onboarding in small batches and read every idea.</p>
+</div>
+</section>
+
+</main>
+
+<footer style="position: relative; background: #FFFFFF; border-top: 1px solid #DADDE3">
+<div style="max-width: 1180px; margin: 0 auto; padding: 28px 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 15px; color: #55585F">
+<span>© 2026 Idea HQ</span>
+<div style="display: flex; flex-wrap: wrap; gap: 22px">
+<a href="/guide" style="color: #15161A; text-decoration: none">Guide</a>
+<a href="/guide#stuck" style="color: #15161A; text-decoration: none">Stuck?</a>
+<a href="/privacy" style="color: #15161A; text-decoration: none">Privacy</a>
+<a href="/terms" style="color: #15161A; text-decoration: none">Terms</a>
+</div>
+</div>
+</footer>
+
+</div>
+</body>
+</html>
