@@ -1,5 +1,21 @@
 # TODOS
 
+## Tomorrow (added 2026-10-21)
+
+### 1. Redesign the whole idea-to-merge flow, AI first
+**What:** Rethink the entire flow as one: write an idea, size it, break it into stories, write the plan, implement, review, merge. Today it is a row of separate buttons (Estimate the build, Break into stories, Generate build prompt, Implement, Approve and run, Approve and merge) that grew one at a time.
+**Why:** The flow was designed around a human developer working through stories. The product's point is that an AI builds it, so the flow should be shaped by how the AI works and what the owner needs to decide.
+**Context:** Recent pain points to design against: a README line was offered Opus at high effort; a run used its 15 turns and failed with a misleading message; a run took 10 minutes with no sign of life; ideas had to be sized by hand before the AI may build them (added 2026-10-21).
+
+### 2. Estimates in AI terms, not human hours
+**What:** Replace the human-development framing of sizes. Today S/M/L/XL are labelled in hours of human work ("S, a few hours", in `ideas-shared.ts`) and the estimate prompt says "S = a few hours, 1-2 files, no schema change" (`api/ideas/[id]/estimate/route.ts`). A small idea is minutes of AI time.
+**Why:** The size drives the model, effort and turn limit, so it should describe what the AI will do: expected minutes, turns and cost, plus how risky the change is. Hours of human work tell the owner nothing about that.
+**Needs:** decide the new scale and wording; change the estimate prompt, the labels, the Value / effort board and Focus ranking, the Guide, and how a size maps to a tier (src/lib/runs/policy.ts).
+
+### 3. Design and tech stack review
+**What:** A proper review of the product design (screens, the notebook theme, the first-run journey) and of the technology stack, before more is built on top.
+**Context:** Stack today: Next.js 15 and React 19, Prisma 7 on Neon Postgres, next-auth, Tailwind, Vercel, GitHub App plus Actions workflow for the AI runs. Run /plan-design-review and /plan-eng-review on the redesign in items 1 and 2.
+
 ## Multi-vendor AI run engines (Codex, Gemini, Grok CLIs)
 **What:** Adapters behind the run-engine interface for Codex, Gemini and Grok CLIs.
 **Why:** Friends may not have Anthropic keys; v1 ships Claude Code only (eng review 2026-10-17, D1).
