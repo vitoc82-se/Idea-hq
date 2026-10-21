@@ -31,13 +31,13 @@ export function PenNote({ children, rotate = 0, className = "" }: { children: Re
 }
 
 // The hand-drawn ring around a step number.
-export function HandCircle({ n, d }: { n: number; d: string }) {
+export function HandCircle({ n, d, size = 64 }: { n: number; d: string; size?: number }) {
   return (
-    <div className="relative flex h-16 w-16 items-center justify-center">
-      <svg aria-hidden="true" width="64" height="64" viewBox="0 0 64 64" fill="none" className="absolute inset-0">
-        <path d={d} stroke="#2446C8" strokeWidth="2.5" strokeLinecap="round" />
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg aria-hidden="true" width={size} height={size} viewBox="0 0 64 64" fill="none" className="absolute inset-0">
+        <path d={d} stroke="#2446C8" strokeWidth={size < 48 ? 3.5 : 2.5} strokeLinecap="round" />
       </svg>
-      <span className={`${PEN_FONT} text-[26px] font-semibold text-[#2446C8]`}>{n}</span>
+      <span className={`${PEN_FONT} font-semibold text-[#2446C8]`} style={{ fontSize: Math.round(size * 0.41) }}>{n}</span>
     </div>
   );
 }
