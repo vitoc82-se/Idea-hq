@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { repoAccessProblem } from "@/lib/github/access";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -51,7 +52,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
       read: { files: snap.files.map((f) => f.path), ecosystems: snap.ecosystems },
     });
   } catch (e) {
-    console.error("knowledge draft error", e);
+    logError("knowledge draft error", e);
     return errorResponse(e);
   }
 }

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(idea, { status: 201 });
   } catch (error) {
-    console.error("Create idea error:", error);
+    logError("Create idea error:", error);
     return NextResponse.json({ error: "Could not save the idea. Try again in a moment." }, { status: 500 });
   }
 }

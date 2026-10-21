@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { requireRepoAccess } from "@/lib/github/access";
 import { db } from "@/lib/db";
 import { github as realGithub, type GitHubApi } from "@/lib/github/client";
@@ -102,7 +103,7 @@ async function transition(run: { id: string; status: string }, to: string, data:
     where: { id: run.id, status: { in: froms } },
     data: { ...data, status: to },
   });
-  if (res.count > 0 && to === "failed") await refundBuildCredit(run.id).catch((err) => console.error("credit refund failed", err));
+  if (res.count > 0 && to === "failed") await refundBuildCredit(run.id).catch((err) => logError("credit refund failed", err));
   // Tell the person when something needs them. A first PR carries its number; a revision does not.
   if (res.count > 0 && to === "failed") await notifyRunEvent(run.id, "failed");
   if (res.count > 0 && to === "pr_open") await notifyRunEvent(run.id, "prNumber" in data ? "ready" : "updated");
@@ -193,7 +194,7 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, 
       where: { id: run.id, status: "dispatched" },
       data: { status: "failed", error: `Could not start the workflow: ${(e as Error).message}`, finishedAt: new Date() },
     });
-    await refundBuildCredit(run.id).catch((err) => console.error("credit refund failed", err));
+    await refundBuildCredit(run.id).catch((err) => logError("credit refund failed", err));
     throw new RunError(502, `Could not start the workflow: ${(e as Error).message}`);
   }
 }
@@ -267,7 +268,7 @@ async function remember(run: { userId: string; projectId: string; id: string }, 
   try {
     await addMemory(run.userId, run.projectId, { kind, text, runId: withRunId ? run.id : undefined });
   } catch (e) {
-    console.error("memory write failed", e);
+    logError("memory write failed", e);
   }
 }
 
@@ -330,7 +331,7 @@ async function ingestLearn(run: { userId: string; projectId: string; branch: str
     await saveKnowledge(run.userId, run.projectId, k);
     await db.project.update({ where: { id: run.projectId }, data: { knowledgeBehind: 0, freshnessCheckedAt: new Date() } }).catch(() => undefined);
   } catch (e) {
-    console.error("learn ingest failed", e);
+    logError("learn ingest failed", e);
   }
 }
 

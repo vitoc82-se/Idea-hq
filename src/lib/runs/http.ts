@@ -1,9 +1,11 @@
+import { logError } from "@/lib/log";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { canUse, consumeAiCallDetailed, AI_LIMIT_MESSAGE, AI_OFF_MESSAGE } from "@/lib/access";
 import { GitHubError, GitHubRateLimitError } from "@/lib/github/client";
 import { RunError } from "./engine";
 import { RepoAccessError } from "@/lib/github/access";
+import { secretFor } from "@/lib/secrets";
 import crypto from "crypto";
 
 // Session + approval gate used by the run routes. Returns the user id or a
@@ -43,28 +45,28 @@ export function errorResponse(e: unknown): NextResponse {
     return NextResponse.json({ error: e.message, retryAfterSec: e.retryAfterSec }, { status: 429, headers: { "Retry-After": String(e.retryAfterSec) } });
   }
   if (e instanceof GitHubError) return NextResponse.json({ error: e.message }, { status: 502 });
-  console.error("run route error", e);
+  logError("run route error", e);
   return NextResponse.json({ error: "Something failed on our side. Try again in a moment, and tell the owner if it keeps happening." }, { status: 500 });
 }
 
 // ---- install-flow state: ties the GitHub redirect back to the signed-in user.
-const secret = () => process.env.NEXTAUTH_SECRET || "";
+const secret = () => secretFor("state");
 
 export function signState(userId: string, now = Date.now()): string {
   const exp = now + 15 * 60 * 1000;
   const body = `${userId}.${exp}`;
-  const mac = crypto.createHmac("sha256", secret()).update(body).digest("hex");
+  const mac = crypto.createHmac("sha256", secret()).update("oauth-state:" + body).digest("hex");
   return Buffer.from(`${body}.${mac}`).toString("base64url");
 }
 
 export function verifyState(state: string | null, userId: string, now = Date.now()): boolean {
-  if (!state || !secret()) return false;
+  if (!state) return false;
   const raw = Buffer.from(state, "base64url").toString();
   const i = raw.lastIndexOf(".");
   if (i < 0) return false;
   const body = raw.slice(0, i);
   const mac = raw.slice(i + 1);
-  const want = crypto.createHmac("sha256", secret()).update(body).digest("hex");
+  const want = crypto.createHmac("sha256", secret()).update("oauth-state:" + body).digest("hex");
   const a = Buffer.from(mac);
   const b = Buffer.from(want);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;

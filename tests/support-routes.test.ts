@@ -185,6 +185,19 @@ describe("POST /api/support/space/[key]/tickets", () => {
     expect(toOwner.text).toContain("https://ideahq.cloud/support");
     expect(toOwner.text).not.toContain("/t/");
   });
+  it("the receipt says what to do if the person never wrote, and one address gets at most 3 a day", async () => {
+    await submit(req("/x", good()), P());
+    expect(resendCalls().find((m) => m.to[0] === "cust@example.com")!.text).toMatch(/If you did not contact us, you can ignore this email/);
+    // two more receipts are fine, the fourth ticket is created but sends no receipt (the owner is still told)
+    await submit(req("/x", good(), { "x-forwarded-for": "5.5.5.1" }), P());
+    await submit(req("/x", good(), { "x-forwarded-for": "5.5.5.2" }), P());
+    expect(resendCalls().filter((m) => m.to[0] === "cust@example.com")).toHaveLength(3);
+    const fourth = await submit(req("/x", good(), { "x-forwarded-for": "5.5.5.3" }), P());
+    expect(fourth.status).toBe(200);
+    expect(resendCalls().filter((m) => m.to[0] === "cust@example.com")).toHaveLength(3);
+    expect(resendCalls().filter((m) => m.to[0] === "owner@acme.test")).toHaveLength(4);
+    expect(store.created).toHaveLength(4);
+  });
   it("silently ignores a filled honeypot", async () => {
     const res = await submit(req("/x", good({ website: "http://spam.example" })), P());
     expect((await res.json()).ok).toBe(true);

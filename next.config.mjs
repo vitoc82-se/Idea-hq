@@ -1,5 +1,25 @@
 /** @type {import('next').NextConfig} */
+// What the app's own pages may load. Next.js puts small inline scripts and styles into every page, so those are
+// allowed ('unsafe-inline'); everything else is limited to this site, plus Cloudflare's "are you a person" check on
+// the sign-up form. No eval, no plugins, nobody may frame the app except itself. (The public help pages, the ticket
+// pages and the embed script set their own stricter policies in src/lib/support/page-shell.ts.)
+export const APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://ideahq.cloud https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://challenges.cloudflare.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const nextConfig = {
+  // Do not tell the world which framework (and so which advisories) to try.
+  poweredByHeader: false,
   env: {
     NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
   },
@@ -25,6 +45,8 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+          { key: "Content-Security-Policy", value: APP_CSP },
         ],
       },
     ];

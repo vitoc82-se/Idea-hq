@@ -1,4 +1,6 @@
 import { requireRepoAccess } from "@/lib/github/access";
+import { rateStore } from "@/lib/support/public-store";
+import { hashIdent } from "@/lib/support/tokens";
 import { db } from "@/lib/db";
 import { github as realGithub, SecretsPermissionError, type GitHubApi } from "@/lib/github/client";
 import { sealSecret } from "@/lib/github/seal";
@@ -17,24 +19,14 @@ type Deps = {
   fetchImpl?: typeof fetch;
   seal?: (publicKey: string, value: string) => Promise<string>;
   now?: () => number;
+  // Counts one attempt and returns how many there have been in the window (the real one is the database table).
+  hit?: (key: string, windowSec: number, nowMs: number) => Promise<number>;
 };
 
-// Per-user brake against someone using the relay to hammer a provider with guesses.
-const WINDOW_MS = 60 * 60 * 1000;
+// Per-user brake against someone using the relay to hammer a provider with guesses. The counter lives in the shared
+// database table (like the sign-in limits), so it holds across server instances and restarts.
+const WINDOW_SEC = 60 * 60;
 const MAX_PER_WINDOW = 12;
-const attempts = new Map<string, number[]>();
-export function clearRelayLimits() {
-  attempts.clear();
-}
-function underLimit(userId: string, now: number): boolean {
-  const recent = (attempts.get(userId) || []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) {
-    attempts.set(userId, recent);
-    return false;
-  }
-  attempts.set(userId, [...recent, now]);
-  return true;
-}
 
 // Defence in depth: whatever text leaves this module, the key is not in it.
 export function redact(text: string, key: string): string {
@@ -56,7 +48,8 @@ export async function relayProviderKey(
     if (!provider.enabled()) throw new RunError(400, `${provider.label} is not available yet.`);
     if (!key) throw new RunError(400, "Paste your API key first.");
     if (key.length > 400) throw new RunError(400, "That is too long to be an API key.");
-    if (!underLimit(userId, now)) throw new RunError(429, "Too many attempts. Try again in an hour.");
+    const hit = deps.hit ?? ((k: string, w: number) => rateStore.hit(k, w));
+    if ((await hit(`relay:user:${hashIdent(userId)}`, WINDOW_SEC, now)) > MAX_PER_WINDOW) throw new RunError(429, "Too many attempts. Try again in an hour.");
 
     const project = await db.project.findFirst({ where: { id: projectId, userId } });
     if (!project) throw new RunError(404, "Project not found");

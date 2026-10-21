@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { db } from "./db";
+import { secretFor } from "./secrets";
 import { baseUrl, sendEmail } from "./support/email";
 
 // Proving that a person owns the address they signed up with. Without it, anyone can register
@@ -13,13 +14,7 @@ import { baseUrl, sendEmail } from "./support/email";
 
 const TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
-function secret(): string {
-  const s = process.env.NEXTAUTH_SECRET;
-  if (!s) throw new Error("NEXTAUTH_SECRET is not set");
-  return s;
-}
-
-const mac = (body: string) => crypto.createHmac("sha256", secret()).update("verify-email:" + body).digest("base64url");
+const mac = (body: string) => crypto.createHmac("sha256", secretFor("email")).update("verify-email:" + body).digest("base64url");
 
 export function makeVerifyToken(userId: string, email: string, now = Date.now()): string {
   const body = Buffer.from(JSON.stringify({ u: userId, e: email.trim().toLowerCase(), x: now + TTL_MS })).toString("base64url");

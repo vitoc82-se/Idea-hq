@@ -53,6 +53,9 @@ export function customerReceiptEmail(p: { title: string; number: number; link: s
       "Follow this ticket and reply here (this link is private, keep it to yourself):",
       p.link,
       "",
+      // Anyone can type any address into a support form, so the person reading this may not have written anything.
+      "If you did not contact us, you can ignore this email. Nothing will happen and nobody can read your messages.",
+      "",
       SPAM_NOTE,
     ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n"),
   };

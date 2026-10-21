@@ -41,8 +41,8 @@ GitHub, Settings, Developer settings, GitHub Apps, New GitHub App:
 - **Homepage URL / Webhook URL:** `https://ideahq.cloud/api/github/webhook`
 - **Webhook secret:** a long random string (`GITHUB_WEBHOOK_SECRET`)
 - **Setup URL:** `https://ideahq.cloud/api/github/callback`, and tick **Request user authorization (OAuth) during installation**
-- **Repository permissions:** Contents: Read and write. Pull requests: Read and write. Workflows: Read and write. Actions: Read and write. Commit statuses: Read. Checks: Read. Secrets: Read (existence check only). Metadata: Read.
-- **Subscribe to events:** Workflow run, Pull request, Check suite, Check run, Status
+- **Repository permissions:** Contents: Read and write. Pull requests: Read and write. Workflows: Read and write. Actions: Read and write. Commit statuses: Read. Checks: Read. Secrets: Read and write (the "add my key to my repos" relay writes the API key as an Actions secret; it also reads whether the secret exists). Metadata: Read. This is the whole list and nothing more is needed (reviewed against every GitHub call in `src/lib/github/client.ts`, 2026-10-21); do not add Administration, Issues or Members.
+- **Subscribe to events:** Workflow run, Pull request, Check suite, Check run, Status (Push is not used; leave it off)
 - **Where can this app be installed:** Any account (or only you, for a private start)
 
 Then generate a private key and a client secret, and set these in Vercel:
@@ -127,3 +127,10 @@ Outside text (a customer's ticket, a pasted backlog, repository files, the owner
 
 ### "Check my site" (M5, server-side requests)
 `src/lib/support/site-check.ts` is the only place the server fetches an address a person typed. The name is resolved once; every address must be public (`isPrivateAddress`: IPv4 private/reserved/test ranges, and for IPv6 only global unicast outside the special blocks, with IPv4-in-IPv6 in any spelling judged by the IPv4 inside, including `::ffff:7f00:1`, NAT64, 6to4 and Teredo), and the request then connects to exactly those addresses (`pinnedGet`: Node `https` with a pinned `lookup`, the certificate still checked against the name), so DNS rebinding cannot swap in an internal address. https on the normal port only, no logins or raw addresses in the address, internal-looking names refused, every redirect re-checked (max 4), pages read up to 1.5 MB, only yes/no signals returned, 20 checks per hour per person. `tests/site-check.test.ts` includes a real TLS server on loopback to prove the pinning and certificate checks.
+
+### Smaller hardening (M3, M6, M9, M11, M12)
+- **Key relay limit (M3):** 12 attempts an hour per person, counted in the shared `RateBucket` table (`relay:user:<hash>`), not in server memory.
+- **Ticket receipts (M6):** the receipt email to a customer contains no customer-written text, says to ignore it if they never wrote, and one address gets at most 3 a day across all support forms (`RULES.receiptEmailDay`); past that the ticket is still created, only the receipt is skipped. A confirmation link was not added: the private ticket link is shown on the page and in the owner's replies.
+- **Per-purpose secrets (M9, `src/lib/secrets.ts`):** optional `TICKET_TOKEN_SECRET`, `RATE_LIMIT_SECRET`, `SIGNED_BLOB_SECRET`, `EMAIL_LINK_SECRET`, `OAUTH_STATE_SECRET` (each 32+ characters). Unset, a purpose uses `NEXTAUTH_SECRET` exactly as before. To make NEXTAUTH_SECRET rotatable without breaking customers' ticket links, first set `TICKET_TOKEN_SECRET` to the CURRENT value of `NEXTAUTH_SECRET`, then rotate. (Sessions are signed by next-auth with `NEXTAUTH_SECRET` itself, so a rotation signs everyone out.)
+- **Headers (M11, `next.config.mjs`):** every app page sends a Content-Security-Policy (`APP_CSP`: this site, Cloudflare's check, inline scripts/styles allowed because Next.js writes them, no eval, only this site may frame it), HSTS, and `x-powered-by` is off. The public help, ticket and widget pages keep their own stricter policies. `tests/security-headers.test.ts`.
+- **Logging (M12, `src/lib/log.ts`):** `logError` writes a label, the error's name and code/status only, never the message or details (a database error can contain the values being saved). A source scan test fails on any `console.error` that could print an error object.

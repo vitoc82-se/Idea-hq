@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { CAPS, tooLong, firstProblem, cleanColor, cleanHttpsUrl, projectRoom } from "@/lib/caps";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
-    console.error("Create project error:", error);
+    logError("Create project error:", error);
     return NextResponse.json({ error: "Could not create the project. Try again in a moment." }, { status: 500 });
   }
 }

@@ -7,14 +7,24 @@ import { sealSecret } from "@/lib/github/seal";
 const holder = vi.hoisted(() => ({ db: null as any })); // eslint-disable-line @typescript-eslint/no-explicit-any
 vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get: (_t, k) => holder.db[k as string] }) }));
 
-import { relayProviderKey, redact, clearRelayLimits } from "@/lib/provider-keys";
+import { relayProviderKey, redact } from "@/lib/provider-keys";
 import { clearSetupCache } from "@/lib/runs/setup-cache";
 import { openai } from "@/lib/providers";
 
+process.env.NEXTAUTH_SECRET = "test-secret-test-secret-test-secret";
 const KEY = "sk-test-SECRET-KEY-1234567890abcdef";
 let t: ReturnType<typeof makeFakeDb>;
 let writes: { repo: string; name: string; value: string; keyId: string }[];
 let logged: string[];
+
+// The real counter is a database table; this one works the same way, in memory, on the clock the test passes in.
+const buckets = new Map<string, { count: number; start: number }>();
+const hit = async (key: string, windowSec: number, nowMs: number) => {
+  const b = buckets.get(key);
+  if (!b || nowMs - b.start >= windowSec * 1000) { buckets.set(key, { count: 1, start: nowMs }); return 1; }
+  b.count += 1;
+  return b.count;
+};
 
 const okFetch = (async () => new Response("{}", { status: 200 })) as unknown as typeof fetch;
 const status = (n: number) => (async () => new Response("{}", { status: n })) as unknown as typeof fetch;
@@ -31,7 +41,7 @@ const proj = (id: string, repo: string, over: Record<string, unknown> = {}) => (
 
 beforeEach(() => {
   t = makeFakeDb(); holder.db = t.db; writes = []; logged = [];
-  clearRelayLimits(); clearSetupCache();
+  buckets.clear(); clearSetupCache();
   process.env.OPENAI_PROVIDER_ENABLED = "1";
   for (const m of ["log", "error", "warn", "info", "debug"] as const) vi.spyOn(console, m).mockImplementation((...a: unknown[]) => { logged.push(a.map(String).join(" ")); });
   t.tables.project.push(proj("p1", "app", { aiProvider: "openai" }), proj("p2", "other"), proj("pX", "theirs", { userId: "u2" }));
@@ -57,26 +67,26 @@ describe("sealed box", () => {
 
 describe("relayProviderKey", () => {
   it("validates the key, seals it, writes the secret with the right name, and marks the project's key as present", async () => {
-    const r = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal });
+    const r = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, hit });
     expect(r.results).toEqual([{ projectId: "p1", repo: "acme/app", ok: true, message: "Saved as OPENAI_API_KEY." }]);
     expect(writes).toEqual([{ repo: "acme/app", name: "OPENAI_API_KEY", value: "sealed(" + KEY.length + ")", keyId: "kid" }]);
     expect(t.tables.project.find((p) => p.id === "p1")!.secretConfirmed).toBe(true);
   });
 
   it("rejects a key the vendor refuses BEFORE writing anything", async () => {
-    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: status(401), seal })).rejects.toThrow(/rejected this key/);
+    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: status(401), seal, hit })).rejects.toThrow(/rejected this key/);
     expect(writes).toHaveLength(0);
   });
 
   it("covers the user's other projects too, but never someone else's, never duplicates a repo", async () => {
     t.tables.project.push(proj("p3", "app")); // same repo as p1
-    const r = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY, alsoProjectIds: ["p2", "p3", "pX", "nope"] }, { gh: gh(), fetchImpl: okFetch, seal });
+    const r = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY, alsoProjectIds: ["p2", "p3", "pX", "nope"] }, { gh: gh(), fetchImpl: okFetch, seal, hit });
     expect(writes.map((w) => w.repo).sort()).toEqual(["acme/app", "acme/other"]);
     expect(r.results).toHaveLength(2);
   });
 
   it("is not available for another user's project", async () => {
-    await expect(relayProviderKey("u2", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal })).rejects.toMatchObject({ status: 404 });
+    await expect(relayProviderKey("u2", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, hit })).rejects.toMatchObject({ status: 404 });
     expect(writes).toHaveLength(0);
   });
 
@@ -94,20 +104,20 @@ describe("relayProviderKey", () => {
   });
 
   it("refuses unknown or switched-off providers, empty and oversized keys", async () => {
-    await expect(relayProviderKey("u1", "p1", { provider: "gemini", key: KEY }, { gh: gh(), seal })).rejects.toMatchObject({ status: 400 });
+    await expect(relayProviderKey("u1", "p1", { provider: "gemini", key: KEY }, { gh: gh(), seal, hit })).rejects.toMatchObject({ status: 400 });
     delete process.env.OPENAI_PROVIDER_ENABLED;
-    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), seal })).rejects.toThrow(/not available yet/);
+    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), seal, hit })).rejects.toThrow(/not available yet/);
     process.env.OPENAI_PROVIDER_ENABLED = "1";
-    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: "  " }, { gh: gh(), seal })).rejects.toThrow(/Paste your API key/);
-    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: "x".repeat(500) }, { gh: gh(), seal })).rejects.toThrow(/too long/);
+    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: "  " }, { gh: gh(), seal, hit })).rejects.toThrow(/Paste your API key/);
+    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: "x".repeat(500) }, { gh: gh(), seal, hit })).rejects.toThrow(/too long/);
     expect(writes).toHaveLength(0);
   });
 
   it("rate limits repeated attempts per user", async () => {
-    for (let i = 0; i < 12; i++) await relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, now: () => 1000 + i }).catch(() => undefined);
-    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, now: () => 5000 })).rejects.toMatchObject({ status: 429 });
+    for (let i = 0; i < 12; i++) await relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, now: () => 1000 + i, hit }).catch(() => undefined);
+    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, now: () => 5000, hit })).rejects.toMatchObject({ status: 429 });
     // an hour later it works again
-    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, now: () => 1000 + 61 * 60 * 1000 })).resolves.toBeTruthy();
+    await expect(relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), fetchImpl: okFetch, seal, now: () => 1000 + 61 * 60 * 1000, hit })).resolves.toBeTruthy();
   });
 });
 
@@ -116,7 +126,7 @@ describe("the key never leaks (review D2)", () => {
     const leaky = gh({ putSecret: async () => { throw new Error(`GitHub said no for ${KEY}`); } });
     const r = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY, alsoProjectIds: ["p2"] }, { gh: leaky, fetchImpl: okFetch, seal });
     expect(JSON.stringify(r)).not.toContain(KEY);
-    const rejected = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), seal, fetchImpl: (async () => { throw new Error(`network down ${KEY}`); }) as unknown as typeof fetch }).catch((e: Error) => e.message);
+    const rejected = await relayProviderKey("u1", "p1", { provider: "openai", key: KEY }, { gh: gh(), seal, hit, fetchImpl: (async () => { throw new Error(`network down ${KEY}`); }) as unknown as typeof fetch }).catch((e: Error) => e.message);
     expect(String(rejected)).not.toContain(KEY);
     expect(logged.join("\n")).not.toContain(KEY);
     expect(JSON.stringify(t.tables)).not.toContain(KEY);

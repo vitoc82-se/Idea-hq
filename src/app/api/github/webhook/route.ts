@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/github/webhook";
 import { handleWebhook } from "@/lib/runs/engine";
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     const result = await handleWebhook(event, payload, delivery);
     return NextResponse.json({ result });
   } catch (e) {
-    console.error("webhook error", event, delivery, e);
+    logError("webhook error", e, event, delivery);
     // 500 makes GitHub redeliver; the delivery row was cleared by the engine.
     return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }

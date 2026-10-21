@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { aiErrorMessage } from "@/lib/ai-errors";
 import { repoAccessProblem } from "@/lib/github/access";
 import { intro as planIntro, ideaBlock, structure as planStructure } from "@/lib/runs/plan-prompt";
@@ -111,7 +112,7 @@ You can look at the real code before you write. Use the tools (list_dir, find_fi
         plan = r.text;
         looked = r.filesRead;
       } catch (e) {
-        console.error("plan with repo tools failed, falling back", e);
+        logError("plan with repo tools failed, falling back", e);
       }
     }
     if (!plan) {

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { CAPS, tooLong, firstProblem, cleanColor, cleanHttpsUrl } from "@/lib/caps";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -55,7 +56,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     const project = await db.project.update({ where: { id: params.id }, data });
     return NextResponse.json(project);
   } catch (error) {
-    console.error("Update project error:", error);
+    logError("Update project error:", error);
     return NextResponse.json({ error: "Could not update the project. Try again in a moment." }, { status: 500 });
   }
 }

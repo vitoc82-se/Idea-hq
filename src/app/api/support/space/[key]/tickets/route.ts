@@ -54,8 +54,11 @@ export async function POST(request: Request, props: { params: Promise<{ key: str
   const notify = ownerTo
     ? ownerNewTicketEmail({ title: space.title, number, subject, snippet: sub.message.slice(0, 300), inboxLink: `${baseUrl()}/support` })
     : null;
+  // The address was typed by whoever filled in the form, so a stranger's inbox must not be filled through it: past a few
+  // receipts a day for one address (across all support forms) the ticket is still created, just without the receipt.
+  const sendReceipt = !(await firstExceeded(rateStore, [RULES.receiptEmailDay(hashIdent(sub.email))]));
   await Promise.allSettled([
-    sendEmail({ to: sub.email, fromName: space.title, ...receipt }),
+    sendReceipt ? sendEmail({ to: sub.email, fromName: space.title, ...receipt }) : Promise.resolve(false),
     notify && ownerTo ? sendEmail({ to: ownerTo, fromName: "Idea HQ", ...notify }) : Promise.resolve(false),
   ]);
 

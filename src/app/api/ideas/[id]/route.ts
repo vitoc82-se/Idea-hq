@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -130,7 +131,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
     return NextResponse.json(idea);
   } catch (error) {
-    console.error("Update idea error:", error);
+    logError("Update idea error:", error);
     return NextResponse.json({ error: "Could not update the idea. Try again in a moment." }, { status: 500 });
   }
 }
