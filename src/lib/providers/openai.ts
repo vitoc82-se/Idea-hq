@@ -30,13 +30,13 @@ export const openai: ProviderAdapter = {
     { id: "gpt-5.5", label: "GPT-5.5", note: "strongest, for bigger changes" },
   ],
   tiers: [
-    { model: "gpt-5.4-mini", effort: "low", maxTurns: 15 },
-    { model: "gpt-5.4", effort: "medium", maxTurns: 30 },
-    { model: "gpt-5.5", effort: "high", maxTurns: 50 },
+    { model: "gpt-5.4-mini", effort: "low", maxTurns: 30 },
+    { model: "gpt-5.4", effort: "medium", maxTurns: 50 },
     { model: "gpt-5.5", effort: "high", maxTurns: 80 },
+    { model: "gpt-5.5", effort: "high", maxTurns: 100 },
   ],
   efforts: ["low", "medium", "high"],
-  learnTier: { model: "gpt-5.4", effort: "high", maxTurns: 40 },
+  learnTier: { model: "gpt-5.4", effort: "high", maxTurns: 60 },
   // The Codex action exposes no step cap and returns only the final message.
   supportsTurnCap: false,
   reportsCost: false,

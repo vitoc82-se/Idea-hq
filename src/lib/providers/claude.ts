@@ -29,13 +29,15 @@ export const claude: ProviderAdapter = {
     { id: "claude-fable-5-1", label: "Fable 5.1", note: "strongest, for the hardest work" },
   ],
   tiers: [
-    { model: "claude-haiku-5-5", effort: "low", maxTurns: 15 },
-    { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 30 },
-    { model: "claude-opus-5-5", effort: "high", maxTurns: 50 },
-    { model: "claude-fable-5-1", effort: "high", maxTurns: 80 },
+    // maxTurns is a ceiling against a run that goes round in circles, not a forecast: reading the code, editing and
+    // running the checks takes more turns than it looks, and a run that hits the ceiling throws its work away.
+    { model: "claude-haiku-5-5", effort: "low", maxTurns: 30 },
+    { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 50 },
+    { model: "claude-opus-5-5", effort: "high", maxTurns: 80 },
+    { model: "claude-fable-5-1", effort: "high", maxTurns: 100 },
   ],
   efforts: ["low", "medium", "high", "max"],
-  learnTier: { model: "claude-sonnet-5-5", effort: "high", maxTurns: 40 },
+  learnTier: { model: "claude-sonnet-5-5", effort: "high", maxTurns: 60 },
   supportsTurnCap: true,
   reportsCost: true,
   timeoutMinutes: () => 30,

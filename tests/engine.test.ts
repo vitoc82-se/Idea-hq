@@ -218,19 +218,19 @@ describe("model and effort tiers", () => {
   it("small idea: cheapest model, lowest effort, few turns", async () => {
     t.tables.idea[0].complexity = "S";
     await dispatchedRun();
-    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "15" });
-    expect(t.tables.run[0]).toMatchObject({ model: "claude-haiku-5-5", effort: "low", maxTurns: 15 });
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
+    expect(t.tables.run[0]).toMatchObject({ model: "claude-haiku-5-5", effort: "low", maxTurns: 30 });
   });
 
   it("big idea: strong model, high effort, many turns", async () => {
     t.tables.idea[0].complexity = "L";
     await dispatchedRun();
-    expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "high", max_turns: "50" });
+    expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "high", max_turns: "80" });
   });
 
   it("unknown size falls back to the middle tier", async () => {
     await dispatchedRun();
-    expect(inputs()).toMatchObject({ model: "claude-sonnet-5-5", effort: "medium", max_turns: "30" });
+    expect(inputs()).toMatchObject({ model: "claude-sonnet-5-5", effort: "medium", max_turns: "50" });
   });
 
   it("project bias shifts the tier", async () => {
@@ -248,6 +248,29 @@ describe("model and effort tiers", () => {
     expect(inputs().model).toBe("claude-sonnet-5-5");
   });
 
+  it("after a run that used all its turns, the next try keeps the model and gets more turns", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    t.tables.run.push({ id: "old", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", turns: 31, maxTurns: 30, createdAt: new Date("2026-01-01") });
+    await approveRun("u1", "RUN1", deps());
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "51" });
+  });
+
+  it("another kind of failure still steps the model up, even next to one that ran out", async () => {
+    t.tables.idea[0].complexity = "S";
+    await startedRun();
+    t.tables.run.push({ id: "old1", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", turns: 31, maxTurns: 30, createdAt: new Date("2026-01-01") });
+    t.tables.run.push({ id: "old2", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", turns: 4, maxTurns: 30, createdAt: new Date("2026-01-02") });
+    await approveRun("u1", "RUN1", deps());
+    expect(inputs().model).toBe("claude-sonnet-5-5");
+  });
+
+  it("tells the AI how many turns it has", async () => {
+    t.tables.idea[0].complexity = "S";
+    await dispatchedRun();
+    expect(String(inputs().prompt)).toContain("You have at most 30 turns");
+  });
+
   it("applies the user's override, but only from the allow-list", async () => {
     t.tables.idea[0].complexity = "S";
     await startedRun();
@@ -259,7 +282,7 @@ describe("model and effort tiers", () => {
     t.tables.idea[0].complexity = "S";
     await startedRun();
     await approveRun("u1", "RUN1", deps(), { model: "x --dangerously-skip-permissions", effort: "ultra", maxTurns: 99999 });
-    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "15" });
+    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
   });
 
   it("a revision keeps the tier the run started with", async () => {
@@ -299,12 +322,12 @@ describe("learn the project", () => {
   it("dispatches a learn run with the strong learn tier and the knowledge prompt", async () => {
     await startLearnRun("u1", "p1", deps());
     const run = t.tables.run[0];
-    expect(run).toMatchObject({ kind: "learn", status: "dispatched", ideaId: null, model: "claude-sonnet-5-5", effort: "high", maxTurns: 40 });
+    expect(run).toMatchObject({ kind: "learn", status: "dispatched", ideaId: null, model: "claude-sonnet-5-5", effort: "high", maxTurns: 60 });
     expect(run.branch).toBe(`idea-hq/${run.id}`);
     expect(gh.state.lastInputs.prompt).toContain(".idea-hq/KNOWLEDGE.md");
     expect(gh.state.lastInputs.prompt).toContain("## Technology");
     expect(gh.state.lastInputs.prompt).toContain("Do NOT run git commit");
-    expect(gh.state.lastInputs).toMatchObject({ model: "claude-sonnet-5-5", effort: "high", max_turns: "40" });
+    expect(gh.state.lastInputs).toMatchObject({ model: "claude-sonnet-5-5", effort: "high", max_turns: "60" });
   });
 
   it("shares the one-run-at-a-time lock with implementations", async () => {
@@ -1100,6 +1123,37 @@ describe("workflow failure message", () => {
     const err = String(t.tables.run[0].error);
     expect(err).toMatch(/The workflow failed at the step "Install dependencies"/);
     expect(err).toMatch(/package-lock\.json/);
+    expect(err).toContain("https://github.com/acme/app/actions/runs/9");
+  });
+  it("says the AI ran out of turns, not that the key is wrong, when it used every turn it was given", async () => {
+    await dispatchedRun();
+    const cap = t.tables.run[0].maxTurns as number;
+    t.tables.run[0].turns = cap + 1; // what the last status line reported
+    gh.state.failedStep = "Run Claude Code";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure", html_url: "https://github.com/acme/app/actions/runs/9" }), "f-turns", deps());
+    const err = String(t.tables.run[0].error);
+    expect(err).toContain(`used all ${cap} turns`);
+    expect(err).toMatch(/no pull request was opened/);
+    expect(err).toMatch(/Press Implement again: the next try starts with up to \d+ turns/);
+    expect(err).not.toMatch(/ANTHROPIC_API_KEY/);
+    expect(err).toContain("https://github.com/acme/app/actions/runs/9");
+  });
+  it("a failed AI step that did not use all its turns still points at the key", async () => {
+    await dispatchedRun();
+    t.tables.run[0].turns = 3;
+    gh.state.failedStep = "Run Claude Code";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "f-few", deps());
+    expect(String(t.tables.run[0].error)).toMatch(/ANTHROPIC_API_KEY/);
+  });
+  it("fixes the message when the turn count arrives after the failure", async () => {
+    await dispatchedRun();
+    gh.state.failedStep = "Run Claude Code";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure", html_url: "https://github.com/acme/app/actions/runs/9" }), "f-late1", deps());
+    expect(String(t.tables.run[0].error)).toMatch(/ANTHROPIC_API_KEY/);
+    const cap = t.tables.run[0].maxTurns as number;
+    await handleWebhook("status", { context: "idea-hq/run", description: `run=RUN1 cost=0.02 turns=${cap + 1} failed=none`, repository: { full_name: "acme/app" } }, "f-late2", deps());
+    const err = String(t.tables.run[0].error);
+    expect(err).toContain(`used all ${cap} turns`);
     expect(err).toContain("https://github.com/acme/app/actions/runs/9");
   });
   it("points at the API key when the AI step fails", async () => {

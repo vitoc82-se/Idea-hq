@@ -10,10 +10,10 @@ import { TIERS, MODELS, recommendTier, resolveTier, LEARN_TIER, planModel, PLANN
 describe("golden: Claude tier table", () => {
   it("S to XL map to these exact models, efforts and turn caps", () => {
     expect(TIERS).toEqual([
-      { model: "claude-haiku-5-5", effort: "low", maxTurns: 15 },
-      { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 30 },
-      { model: "claude-opus-5-5", effort: "high", maxTurns: 50 },
-      { model: "claude-fable-5-1", effort: "high", maxTurns: 80 },
+      { model: "claude-haiku-5-5", effort: "low", maxTurns: 30 },
+      { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 50 },
+      { model: "claude-opus-5-5", effort: "high", maxTurns: 80 },
+      { model: "claude-fable-5-1", effort: "high", maxTurns: 100 },
     ]);
   });
   it("offers exactly these models", () => {
@@ -32,7 +32,7 @@ describe("golden: Claude tier table", () => {
     expect(resolveTier(rec, { model: "evil", effort: "ultra", maxTurns: 1 }).overridden).toBe(false);
   });
   it("learn runs and planning calls use the same models as before", () => {
-    expect(LEARN_TIER).toEqual({ model: "claude-sonnet-5-5", effort: "high", maxTurns: 40 });
+    expect(LEARN_TIER).toEqual({ model: "claude-sonnet-5-5", effort: "high", maxTurns: 60 });
     expect(PLANNING_MODEL).toEqual({ estimate: "claude-sonnet-5-5", context: "claude-sonnet-5-5", breakdown: "claude-opus-5-5" });
     expect(planModel("S")).toBe("claude-sonnet-5-5");
     expect(planModel("XL")).toBe("claude-opus-5-5");

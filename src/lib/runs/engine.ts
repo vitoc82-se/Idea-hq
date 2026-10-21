@@ -11,7 +11,7 @@ import {
   runBranch,
 } from "./state";
 import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion, WORKFLOW_VERSION } from "./workflow";
-import { recommendTier, resolveTier, timeoutFor, type Override, type Tier } from "./policy";
+import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, timeoutFor, type Override, type Tier } from "./policy";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
@@ -202,10 +202,19 @@ async function dispatch(run: RunRow, p: ProjectRow, prompt: string, tier: Tier, 
 // The tier we would pick for this run: from the idea's size and the project's
 // bias, one step up for every earlier failed attempt on the same idea.
 export async function recommendForRun(run: { ideaId: string | null; userId: string; id: string; project: { aiBias: string; aiProvider?: string | null }; idea: { complexity: string | null } | null }) {
-  const failed = run.ideaId
-    ? await db.run.count({ where: { ideaId: run.ideaId, userId: run.userId, kind: "implement", status: "failed" } })
-    : 0;
-  return recommendTier(run.idea?.complexity, run.project.aiBias, failed, run.project.aiProvider);
+  const failedRuns = run.ideaId
+    ? await db.run.findMany({ where: { ideaId: run.ideaId, userId: run.userId, kind: "implement", status: "failed" }, orderBy: { createdAt: "desc" }, select: { turns: true, maxTurns: true } })
+    : [];
+  // A run that ran out of turns was not too weak for the job, it was given too little room: it does not step the
+  // model up, it gets more turns. Any other failure still steps up a tier.
+  const ranOut = failedRuns.filter(ranOutOfTurns);
+  const rec = recommendTier(run.idea?.complexity, run.project.aiBias, failedRuns.length - ranOut.length, run.project.aiProvider);
+  const last = ranOut[0];
+  const next = last ? moreTurns(last.maxTurns!) : 0;
+  if (last && next > rec.maxTurns) {
+    return { ...rec, maxTurns: next, reason: `${rec.reason}; more turns because the last try used all ${last.maxTurns}` };
+  }
+  return rec;
 }
 
 export async function approveRun(userId: string, runId: string, deps?: Deps, override: Override = {}) {
@@ -230,7 +239,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
   });
   const fresh = (await db.run.findUnique({ where: { id: run.id } }))!;
   if (run.ideaId) await db.idea.updateMany({ where: { id: run.ideaId, userId }, data: { status: "building" } });
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", kind: run.idea?.kind, plan: run.plan || "", testCommand: p.testCommand }), tier, gh, wfVersion);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", kind: run.idea?.kind, plan: run.plan || "", testCommand: p.testCommand, maxTurns: tier.maxTurns }), tier, gh, wfVersion);
   return fresh;
 }
 
@@ -257,7 +266,7 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
   // A revision keeps the tier the run started with.
   const rec = await recommendForRun(run);
   const { tier } = resolveTier(rec, { model: run.model, effort: run.effort, maxTurns: run.maxTurns }, run.provider ?? p.aiProvider);
-  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", kind: run.idea?.kind, plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand }), tier, gh, wfVersion);
+  await dispatch(fresh, p, buildPrompt({ ideaTitle: run.idea?.title || "idea", kind: run.idea?.kind, plan: run.plan || "", revision: instruction.trim(), testCommand: p.testCommand, maxTurns: tier.maxTurns }), tier, gh, wfVersion);
   return fresh;
 }
 
@@ -310,7 +319,7 @@ export async function startLearnRun(userId: string, projectId: string, deps?: De
     return row.id;
   });
   const fresh = (await db.run.findUnique({ where: { id: runId } }))!;
-  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }), learnTier, gh, wfVersion);
+  await dispatch(fresh, p, buildLearnPrompt(p.name, loaded?.knowledge ?? { sections: {} }, learnTier.maxTurns), learnTier, gh, wfVersion);
   return fresh;
 }
 
@@ -567,6 +576,13 @@ async function processEvent(event: string, payload: Payload, gh: GitHubApi): Pro
       where: { id: run.id },
       data: { costUsd: cost ? Number(cost[1]) : undefined, turns: turns ? Number(turns[1]) : undefined },
     });
+    // This line normally comes before the workflow's "completed" event. If it came after, the failure message was
+    // written without knowing the turns were used up: say so now.
+    const step = /at the step "(Run (?:Claude Code|Codex))"/.exec(run.error || "")?.[1];
+    if (run.status === "failed" && step && turns && ranOutOfTurns({ turns: Number(turns[1]), maxTurns: run.maxTurns })) {
+      const url = /Details: (\S+)/.exec(run.error || "")?.[1] ?? null;
+      await db.run.update({ where: { id: run.id }, data: { error: workflowFailureMessage("failure", step, url, { cap: run.maxTurns!, next: moreTurns(run.maxTurns!) }) } });
+    }
     await recomputeChecks(run, gh);
     return "status";
   }
@@ -601,9 +617,12 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   if (!ok) {
     // Name the step that broke, so the person is told what to fix instead of "it failed".
     const step = await gh.failedStep(i, owner, repo, String(wr.id)).catch(() => null);
+    // The turns used arrive with the run's last status line, which GitHub sends before the workflow completes.
+    const used = await db.run.findUnique({ where: { id: run.id }, select: { turns: true, maxTurns: true } }).catch(() => null);
+    const outOfTurns = used && ranOutOfTurns(used) ? { cap: used.maxTurns!, next: moreTurns(used.maxTurns!) } : null;
     await transition(run, "failed", {
       ghRunId: String(wr.id),
-      error: workflowFailureMessage(wr.conclusion, step, wr.html_url),
+      error: workflowFailureMessage(wr.conclusion, step, wr.html_url, outOfTurns),
       agentNote: note,
       finishedAt: new Date(),
     });
