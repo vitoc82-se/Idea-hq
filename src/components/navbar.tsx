@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, Lightbulb, FolderKanban, LogOut, Rocket, KeyRound, Users, BookOpen, LifeBuoy, CreditCard, Settings } from "lucide-react";
+import { Menu, X, Lightbulb, FolderKanban, LogOut, KeyRound, Users, BookOpen, LifeBuoy, CreditCard, Settings } from "lucide-react";
 import { Button } from "./ui/button";
+import { ThemeSwitcher } from "./theme-switcher";
+import { Wordmark } from "./wordmark";
 import { APP_VERSION } from "@/lib/version";
 
 const navLinks = [
@@ -65,14 +67,9 @@ export function Navbar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-30">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 light:border-r-2 light:border-gray-900 z-30">
         <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-            <Rocket className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white">
-            Idea HQ
-          </span>
+          <Wordmark />
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -107,6 +104,7 @@ export function Navbar() {
               </p>
             </div>
           </div>
+          <ThemeSwitcher className="mb-2" />
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"
@@ -133,15 +131,10 @@ export function Navbar() {
       </aside>
 
       {/* Mobile header */}
-      <header className="lg:hidden fixed top-0 inset-x-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 z-30">
+      <header className="lg:hidden fixed top-0 inset-x-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 light:border-b-2 light:border-gray-900 z-30">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <Rocket className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">
-              Idea HQ
-            </span>
+            <Wordmark />
           </div>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -169,6 +162,7 @@ export function Navbar() {
                 )}
               </Link>
             ))}
+            <ThemeSwitcher className="my-2" />
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 text-gray-600 dark:text-gray-400"

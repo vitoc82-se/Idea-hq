@@ -10,8 +10,8 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/components/landing/fonts", () => ({
   notebookSans: { variable: "nb-sans" },
   notebookPen: { variable: "nb-pen" },
-  notebookMono: { variable: "nb-mono" },
 }));
+vi.mock("@/components/landing/mono-font", () => ({ notebookMono: { variable: "nb-mono" } }));
 
 import HomePage from "@/app/page";
 import GuidePage from "@/app/guide/page";

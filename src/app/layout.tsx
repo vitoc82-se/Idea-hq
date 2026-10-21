@@ -4,6 +4,8 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PWARegister } from "@/components/pwa-register";
 import { HelpWidget } from "@/components/help-widget";
+import { notebookSans, notebookPen } from "@/components/landing/fonts";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -39,7 +41,10 @@ export const metadata: Metadata = {
 
 // Pinch-zoom stays on: people who need larger text rely on it.
 export const viewport: Viewport = {
-  themeColor: "#047857",
+  themeColor: [
+    { color: "#fafaf7", media: "(prefers-color-scheme: light)" },
+    { color: "#0f172a", media: "(prefers-color-scheme: dark)" },
+  ],
   width: "device-width",
   initialScale: 1,
 };
@@ -50,8 +55,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} font-sans antialiased`}>
+    // suppressHydrationWarning: the theme script below sets data-theme on <html> before React starts.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
+      <body className={`${geistSans.variable} ${notebookSans.variable} ${notebookPen.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <PWARegister />
         <HelpWidget />

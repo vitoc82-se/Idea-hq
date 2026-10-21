@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Rocket } from "lucide-react";
+import { Wordmark } from "@/components/wordmark";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 // Header and footer shared by the public pages (landing page, guide).
 export function SiteHeader({ signedIn, wide = false }: { signedIn: boolean; wide?: boolean }) {
@@ -7,12 +8,10 @@ export function SiteHeader({ signedIn, wide = false }: { signedIn: boolean; wide
     <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-20">
       <div className={`${wide ? "max-w-6xl" : "max-w-3xl"} mx-auto px-4 h-14 flex items-center justify-between`}>
         <Link href="/" className="flex items-center gap-2">
-          <span className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center">
-            <Rocket className="w-5 h-5 text-white" />
-          </span>
-          <span className="font-bold text-gray-900 dark:text-white">Idea HQ</span>
+          <Wordmark />
         </Link>
         <nav className="flex items-center gap-4 text-sm">
+          <ThemeSwitcher compact className="hidden min-[560px]:flex" />
           <Link href="/guide" className="hidden min-[420px]:inline py-3 text-gray-700 dark:text-gray-300 hover:text-emerald-700 dark:hover:text-emerald-400">Guide</Link>
           {signedIn ? (
             <Link href="/ideas" className="px-3 py-3 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800">Open the app</Link>

@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import type { Metadata, Viewport } from "next";
 import { authOptions } from "@/lib/auth";
-import { notebookSans, notebookPen, notebookMono } from "@/components/landing/fonts";
+import { notebookSans, notebookPen } from "@/components/landing/fonts";
+import { notebookMono } from "@/components/landing/mono-font";
 import { CheckMark, CurvedArrow, FOCUS, FlowArrow, HandCircle, Highlight, MONO_FONT, PEN_FONT, PenNote, StickyNote, Underline } from "@/components/landing/notebook";
 import { Receipt, Row, Rule } from "@/components/landing/receipt";
 

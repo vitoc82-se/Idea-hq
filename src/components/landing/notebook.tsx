@@ -54,9 +54,9 @@ export function StickyNote({ children, color, rotate = 0, dashed = false }: { ch
   );
 }
 
-export function Underline() {
+export function Underline({ className }: { className?: string }) {
   return (
-    <svg aria-hidden="true" width="86" height="8" viewBox="0 0 86 8" fill="none">
+    <svg aria-hidden="true" width="86" height="8" viewBox="0 0 86 8" fill="none" className={className}>
       <path d="M2 5c18-3 40-4 82-2" stroke="#2446C8" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );

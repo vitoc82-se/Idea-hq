@@ -4,10 +4,21 @@ Idea HQ keeps one small visual language. This file records it so new screens, es
 public support widget, stay consistent. Calibrated to the code in `src/components/ui/*`.
 
 ## Foundations
-- Font: Geist (variable). Widget and ticket page use the system UI stack so they load with no
-  font request inside a customer's site.
-- Colour: Tailwind gray scale plus emerald. Cards are white on gray-50; dark mode uses gray-800 on slate-900.
-- Radius: 8px controls (`rounded-lg`), 12px cards and the widget panel.
+- Two themes, light and dark, chosen with the Light / Dark switch in the menu (stored in the browser as
+  `ideahq-theme`; the first visit follows the device). `<html data-theme>` is set by a script in the page head
+  before first paint (`src/lib/theme.ts`). Tailwind's `dark:` variant keys on `data-theme="dark"`; `light:` keys on
+  everything else.
+- Colour comes from CSS variables (`src/app/globals.css`): the `gray` and `emerald` scales are variable-backed in
+  `tailwind.config.ts`. Dark = the original Tailwind palette (cards gray-800 on slate-900). Light = the notebook look of
+  the start page: paper `#FAFAF7` with graph-paper lines, ink `#15161A` (filled buttons, outlines), pen blue `#2446C8`
+  (links, accents), highlighter yellow tints. Inside `.nb-skin` (the signed-in app, the Guide) the light theme also
+  gives ink buttons, 4px controls, 6px ink-outlined boxes and the notebook typeface.
+- Sign-in screens (sign in, change password, confirm email) and the start page are always light: they write their
+  colours out and use `AuthShell` / the landing components in `src/components/landing/`.
+- Font: dark = system UI stack. Light and public pages = Familjen Grotesk (text) and Shantell Sans (handwritten
+  notes), loaded with `next/font/google` in the root layout. Widget and ticket page use the system UI stack so they
+  load with no font request inside a customer's site.
+- Radius: dark 8px controls (`rounded-lg`) and 12px cards; light 4px controls and 6px boxes.
 - Focus: every control shows a 2px ring (`focus-visible:ring-2 ring-emerald-500`, offset 2px).
 - Spacing: 4px base; page gutters 16px (phones) to 32px.
 

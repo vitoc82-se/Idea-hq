@@ -2,16 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Two themes. The page carries data-theme="light" or "dark" (set before first paint by the script in layout.tsx,
+   changed by the switcher in the menu). Light is the notebook look of the start page; dark is the original palette.
+   Colours are "R G B" triplets so Tailwind's opacity classes (bg-gray-800/60) keep working. */
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
+  --background: #fafaf7;
+  --foreground: #15161a;
+
+  --gray-50: 250 250 247;
+  --gray-100: 240 240 234;
+  --gray-200: 218 221 227;
+  --gray-300: 140 143 151;
+  --gray-400: 100 103 111;
+  --gray-500: 85 88 95;
+  --gray-600: 59 62 69;
+  --gray-700: 45 47 52;
+  --gray-800: 31 32 36;
+  --gray-900: 21 22 26;
+  --gray-950: 12 12 15;
+
+  --emerald-50: 255 249 214;
+  --emerald-100: 255 244 168;
+  --emerald-200: 255 228 92;
+  --emerald-300: 169 186 240;
+  --emerald-400: 108 134 221;
+  --emerald-500: 59 95 219;
+  --emerald-600: 45 82 224;
+  --emerald-700: 36 70 200;
+  --emerald-800: 27 54 153;
+  --emerald-900: 20 42 120;
+  --emerald-950: 12 26 80;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f172a;
-    --foreground: #f1f5f9;
-  }
+:root[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+
+  --gray-50: 249 250 251;
+  --gray-100: 243 244 246;
+  --gray-200: 229 231 235;
+  --gray-300: 209 213 219;
+  --gray-400: 156 163 175;
+  --gray-500: 107 114 128;
+  --gray-600: 75 85 99;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-900: 17 24 39;
+  --gray-950: 3 7 18;
+
+  --emerald-50: 236 253 245;
+  --emerald-100: 209 250 229;
+  --emerald-200: 167 243 208;
+  --emerald-300: 110 231 183;
+  --emerald-400: 52 211 153;
+  --emerald-500: 16 185 129;
+  --emerald-600: 5 150 105;
+  --emerald-700: 4 120 87;
+  --emerald-800: 6 95 70;
+  --emerald-900: 6 78 59;
+  --emerald-950: 2 44 34;
 }
 
 html, body {
@@ -27,4 +76,46 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* The light theme's notebook skin: ink buttons, small corners, flat boxes, graph paper behind the app, the
+   notebook typeface. It applies inside .nb-skin (the signed-in app, the Guide) and only in the light theme, so the
+   dark theme is untouched. The start page and the sign-in screens style themselves and sit outside it. */
+:root:not([data-theme="dark"]) .nb-skin {
+  font-family: var(--nb-sans), ui-sans-serif, system-ui, sans-serif;
+}
+:root:not([data-theme="dark"]) .nb-skin :is(h1, h2, h3) {
+  letter-spacing: -0.02em;
+}
+:root:not([data-theme="dark"]) .nb-skin.nb-grid {
+  background-image: linear-gradient(#e8ebf2 1px, transparent 1px), linear-gradient(90deg, #e8ebf2 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+/* Filled green buttons and badges become ink, as on the start page. */
+:root:not([data-theme="dark"]) .nb-skin .bg-emerald-600,
+:root:not([data-theme="dark"]) .nb-skin .bg-emerald-700 {
+  background-color: #15161a;
+}
+:root:not([data-theme="dark"]) .nb-skin .bg-emerald-800,
+:root:not([data-theme="dark"]) .nb-skin .hover\:bg-emerald-700:hover,
+:root:not([data-theme="dark"]) .nb-skin .hover\:bg-emerald-800:hover {
+  background-color: #2d2f34;
+}
+/* Corners: 4px controls, 6px boxes. */
+:root:not([data-theme="dark"]) .nb-skin .rounded-md,
+:root:not([data-theme="dark"]) .nb-skin .rounded-lg {
+  border-radius: 4px;
+}
+:root:not([data-theme="dark"]) .nb-skin .rounded-xl,
+:root:not([data-theme="dark"]) .nb-skin .rounded-2xl {
+  border-radius: 6px;
+}
+/* White boxes get the ink outline; soft shadows go. */
+:root:not([data-theme="dark"]) .nb-skin .rounded-xl.border.bg-white,
+:root:not([data-theme="dark"]) .nb-skin .rounded-2xl.border.bg-white {
+  border-width: 2px;
+  border-color: #15161a;
+}
+:root:not([data-theme="dark"]) .nb-skin .shadow-sm {
+  box-shadow: none;
 }

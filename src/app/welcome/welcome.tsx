@@ -170,7 +170,7 @@ export function Welcome({ name }: { name: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+    <div className="nb-skin nb-grid min-h-screen bg-gray-50 dark:bg-slate-900">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
