@@ -35,6 +35,10 @@ export type CheckSummary = {
 // comments are the only ones trusted for preview links.
 export type PrComment = { author: string; bot: boolean; body: string };
 
+// One job of a workflow run and its steps, as GitHub reports them while the run is going.
+export type GhStep = { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null };
+export type GhJob = { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null; steps: GhStep[] };
+
 export interface GitHubApi {
   repoBranch(i: number, owner: string, repo: string, branch: string): Promise<{ sha: string; protected: boolean } | null>;
   secretExists(i: number, owner: string, repo: string, name: string): Promise<boolean>;
@@ -52,6 +56,7 @@ export interface GitHubApi {
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
   listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
   failedStep(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
+  runJobs(i: number, owner: string, repo: string, ghRunId: string): Promise<GhJob[]>;
   runNote(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
   getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
   putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
@@ -281,6 +286,16 @@ export const github: GitHubApi = {
       if (note) return note;
     }
     return null;
+  },
+  async runJobs(i, owner, repo, ghRunId) {
+    type Step = { name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null };
+    const j = await call<{ jobs: { name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null; steps?: Step[] }[] }>(
+      i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=10`, undefined, [404]
+    );
+    return (j?.jobs ?? []).map((job) => ({
+      name: job.name, status: job.status, conclusion: job.conclusion, startedAt: job.started_at, completedAt: job.completed_at,
+      steps: (job.steps ?? []).map((s) => ({ name: s.name, status: s.status, conclusion: s.conclusion, startedAt: s.started_at, completedAt: s.completed_at })),
+    }));
   },
   async failedStep(i, owner, repo, ghRunId) {
     const j = await call<{ jobs: { steps?: { name: string; conclusion: string | null }[] }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=10`, undefined, [404]);

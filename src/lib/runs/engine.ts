@@ -257,7 +257,8 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
     await lockAndCheckIdle(tx as unknown as typeof db, p.id);
     const ok = await tx.run.updateMany({
       where: { id: run.id, status: "pr_open" },
-      data: { status: "dispatched", checksState: "pending", error: null },
+      // A new clock and no GitHub run yet: the progress view must not show the earlier workflow run.
+      data: { status: "dispatched", checksState: "pending", error: null, startedAt: deps?.now?.() ?? new Date(), ghRunId: null },
     });
     if (ok.count === 0) throw new RunError(409, "Run changed, try again.");
   });

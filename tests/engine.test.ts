@@ -48,6 +48,7 @@ function fakeGh(): typeof gh {
     listPrFiles: async () => [],
     listPrComments: async () => state.comments ?? [],
     failedStep: async () => state.failedStep ?? null,
+    runJobs: async () => state.jobs ?? [],
     runNote: async () => state.note ?? null,
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
@@ -598,6 +599,15 @@ describe("mergeRun (manual)", () => {
 });
 
 describe("reviseRun", () => {
+  it("starts a new clock and forgets the earlier workflow run, so the progress view shows this revision", async () => {
+    await prOpenRun();
+    t.tables.run[0].startedAt = new Date("2026-01-01T00:00:00Z");
+    expect(t.tables.run[0].ghRunId).toBe("99");
+    const now = new Date("2026-10-22T12:00:00Z");
+    await reviseRun("u1", "RUN1", "Use a darker blue", { ...deps(), now: () => now });
+    expect(t.tables.run[0].ghRunId).toBeNull();
+    expect(t.tables.run[0].startedAt).toEqual(now);
+  });
   it("re-dispatches on the same branch and keeps the same PR", async () => {
     await prOpenRun();
     await reviseRun("u1", "RUN1", "Use a darker blue", deps());

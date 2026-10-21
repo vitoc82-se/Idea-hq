@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { RunProgress } from "./run-progress";
 
 type Run = {
   id: string;
@@ -28,6 +29,7 @@ type Run = {
   maxTurns: number | null;
   error: string | null;
   createdAt: string;
+  startedAt?: string | null;
   project: { repoOwner: string | null; repoName: string | null; autoMerge: boolean };
 };
 
@@ -225,6 +227,8 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
                 </span>
               )}
             </div>
+
+            {BUSY.includes(run.status) && <RunProgress key={run.id + (run.startedAt ?? "")} runId={run.id} startedAt={run.startedAt ?? run.createdAt} />}
 
             {aiBuild && !needsPlan && !capReached && run.status === "awaiting_approval" && plan && (
               <div className="space-y-2">
