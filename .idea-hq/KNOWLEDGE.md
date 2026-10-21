@@ -1,7 +1,7 @@
 # Idea HQ: project knowledge
 
 ## What it is and who it is for
-Idea HQ is one backlog for all of a person's software projects. You capture an idea under a project, and the AI estimates its size and value, writes a build plan grounded in that project's own description, and can then implement it as a GitHub pull request. It is used by its owner and by friends the owner approves (access is invite-only).
+Idea HQ is one backlog for all of a person's software projects. You capture an idea under a project, and the AI estimates its size and value, writes a build plan grounded in that project's own description, and can then implement it as a GitHub pull request. It is used by its owner and by friends the owner approves (access is invite-only). The top planned work is support for AI vendors other than Anthropic.
 
 ## Technology
 - TypeScript, Next.js 14 (App Router), React 18, Tailwind CSS.
@@ -12,17 +12,19 @@ Idea HQ is one backlog for all of a person's software projects. You capture an i
 
 ## How it is organised
 - `src/app/(app)/`: signed-in pages: `ideas` (board, kanban, detail, run panel), `projects` (admin, repo, `[id]/setup`, `[id]/knowledge`), `users`.
-- `src/app/api/`: server routes for ideas, projects, runs, onboarding, admin users and `github` (install, callback, webhook).
+- `src/app/api/`: server routes for ideas, projects, runs, onboarding, admin users and `github` (install, callback, webhook). Other route folders exist too (`billing`, `cron`, `settings`, `support`, `tickets`).
 - `src/app/`: public pages `page.tsx`, `guide`, `welcome`, `auth`.
 - `src/lib/`: logic: `access.ts` (approval, daily AI limit), `knowledge*.ts`, `repo-snapshot.ts`, `repo-tools.ts`, `github/`, and `runs/` (engine, state, policy, workflow).
 - `prisma/schema.prisma`: models User, Project, Idea, Run, ProjectMemory, GithubInstallation, WebhookDelivery, plus the NextAuth tables.
 - `tests/`: Vitest tests with a fake database (`fakedb.ts`).
+- Other docs: `README.md`, `DESIGN.md`, `SECURITY.md`, `BACKLOG.md`, `TODOS.md`.
 
 ## How to run, test and ship
-- Setup: `npm install`, copy `.env.example` to `.env` (`DATABASE_URL`, `NEXTAUTH_SECRET`, `ANTHROPIC_API_KEY`, `OWNER_EMAIL`), then `npx prisma db push`.
+- Setup: `npm install`, copy `.env.example` to `.env` (`DATABASE_URL`, `NEXTAUTH_SECRET`, `ANTHROPIC_API_KEY`, `OWNER_EMAIL`), then `npx prisma db push`. The owner's local `.env` points at the live database, so local runs and `db push` act on live data.
 - Start: `npm run dev` (http://localhost:3000).
 - Check: `npm run typecheck`, `npm run lint`, `npm test`. CI (`.github/workflows/ci.yml`) runs `prisma generate`, then these three, on pull requests and pushes to `main`.
-- Build: `npm run build` runs `prisma generate`, `prisma db push --accept-data-loss`, then `next build`.
+- Build: `npm run build` runs `prisma generate`, `prisma db push --accept-data-loss`, then `next build`. Note: the current `scripts/build.mjs` only runs `db push` on a Vercel production deploy, and adds `--accept-data-loss` only when `ALLOW_DATA_LOSS=1`.
+- GitHub features (connecting a repo, pull requests, webhooks) are tested only on the live site, not locally.
 - Ship: the README says to push to `main` and let Vercel deploy. I could not see the Vercel settings themselves.
 
 ## Rules and things not to touch
@@ -32,10 +34,13 @@ Idea HQ is one backlog for all of a person's software projects. You capture an i
 - Build and test commands must be one line (`safeCommand`).
 - `src/generated/prisma` is generated and git-ignored. Never commit `.env`, keys or secrets.
 - `.idea-hq/KNOWLEDGE.md` has fixed headings (`src/lib/knowledge.ts`). Keep them.
+- Whether the AI agent pushes to `main` or opens a pull request is the user's choice. Do not assume either.
+- Always write tests for new features.
 
 ## Known quirks and lessons
-- `npm run build` uses `prisma db push --accept-data-loss`, but the README calls the schema changes "additive only". Avoid removing or renaming columns.
+- The build can run `prisma db push` against the live database, but the README calls schema changes "additive only". Avoid removing or renaming columns.
 - The README says Claude Opus 5; the real models are set in `src/lib/runs/policy.ts` (Haiku, Sonnet, Opus, Fable tiers).
 - Only one AI run per project may be active at once, and server-paid AI calls are capped per user per day (`AI_DAILY_LIMIT`, default 20; the owner is exempt).
 - Webhooks can arrive twice or out of order, which is why `WebhookDelivery` exists.
-- `TODOS.md` lists planned work: other AI vendors and spend caps. I found no other recorded lessons.
+- Onboarding and project setup are a bit wonky. Expect rough edges and recheck them after changes.
+- `TODOS.md` lists planned work: other AI vendors and spend caps.
