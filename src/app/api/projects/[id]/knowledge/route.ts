@@ -10,7 +10,8 @@ import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
 import { SECTION_DEFS, completeness, confirmAll, isSectionId, setSection, type SectionId } from "@/lib/knowledge";
 
 // Everything the Project knowledge page shows.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
@@ -64,7 +65,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Edit one section (an edit counts as confirming it), confirm one, or confirm all.
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

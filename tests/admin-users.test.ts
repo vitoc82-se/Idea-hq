@@ -21,7 +21,7 @@ const FRIEND = { id: "friend", email: "friend@x.se" };
 const today = new Date().toISOString().slice(0, 10);
 
 const patch = (id: string, body: unknown) =>
-  PATCH(new Request("https://ideahq.cloud/api/admin/users/" + id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }), { params: { id } });
+  PATCH(new Request("https://ideahq.cloud/api/admin/users/" + id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
 
 beforeEach(async () => {
   await resetDb();

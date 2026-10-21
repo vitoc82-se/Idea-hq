@@ -68,7 +68,7 @@ describe("capState and cleanCap", () => {
 });
 
 describe("project routes", () => {
-  const patch = (id: string, body: unknown) => patchProject(new Request("https://x/api/projects/" + id, { method: "PATCH", body: JSON.stringify(body) }), { params: { id } });
+  const patch = (id: string, body: unknown) => patchProject(new Request("https://x/api/projects/" + id, { method: "PATCH", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
   it("the list carries each project's spend, and only the signed-in person's projects", async () => {
     await run({ kind: "implement", status: "merged", costUsd: 3, createdAt: new Date() });
     const rows = await (await listProjects()).json();

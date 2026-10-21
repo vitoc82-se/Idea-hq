@@ -10,7 +10,8 @@ const refOf = (p: { envBranches: unknown; defaultEnv: string | null }) => {
 };
 
 // Files in the connected repo that look like a backlog (TODO.md and friends).
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId } });
@@ -25,7 +26,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Creates the ideas the owner ticked. Skips titles the project already has.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true } });

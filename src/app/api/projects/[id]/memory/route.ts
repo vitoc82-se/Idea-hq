@@ -5,7 +5,8 @@ import { addMemory, loadKnowledge } from "@/lib/knowledge-store";
 const KINDS = ["change", "lesson", "gotcha", "decision", "user"];
 
 // Add a fact by hand. Pinned facts are always handed to the AI.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

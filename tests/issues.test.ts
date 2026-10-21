@@ -193,35 +193,35 @@ describe("routes", () => {
   const req = (url: string, body?: unknown) => new Request(url, { method: body === undefined ? "GET" : "POST", body: body === undefined ? undefined : JSON.stringify(body) });
   it("a ticket route needs the support feature and the owner's own tickets", async () => {
     sess.user = { id: "u2", email: "other@x.se" }; // not the owner, no "tickets" feature
-    expect((await ticketIssueGet(req("https://x"), { params: { id: "t3" } })).status).toBe(403);
+    expect((await ticketIssueGet(req("https://x"), { params: Promise.resolve({ id: "t3" }) })).status).toBe(403);
     await db.user.update({ where: { id: "u2" }, data: { features: ["tickets"] } });
-    expect((await ticketIssueGet(req("https://x"), { params: { id: "t1" } })).status).toBe(404); // t1 belongs to u1
-    expect((await ticketIssueGet(req("https://x"), { params: { id: "t3" } })).status).toBe(200);
+    expect((await ticketIssueGet(req("https://x"), { params: Promise.resolve({ id: "t1" }) })).status).toBe(404); // t1 belongs to u1
+    expect((await ticketIssueGet(req("https://x"), { params: Promise.resolve({ id: "t3" }) })).status).toBe(200);
     sess.user = null;
-    expect((await ticketIssuePost(req("https://x", { action: "unlink" }), { params: { id: "t1" } })).status).toBe(401);
+    expect((await ticketIssuePost(req("https://x", { action: "unlink" }), { params: Promise.resolve({ id: "t1" }) })).status).toBe(401);
   });
   it("create, link and unlink through the route, with plain error messages", async () => {
-    const res = await ticketIssuePost(req("https://x", { action: "create", kind: "bug", title: "Login", severity: "low" }), { params: { id: "t1" } });
+    const res = await ticketIssuePost(req("https://x", { action: "create", kind: "bug", title: "Login", severity: "low" }), { params: Promise.resolve({ id: "t1" }) });
     expect(res.status).toBe(201);
     const { idea } = await res.json();
-    expect((await ticketIssuePost(req("https://x", { action: "link", ideaId: idea.id }), { params: { id: "t2" } })).status).toBe(200);
-    const again = await ticketIssuePost(req("https://x", { action: "create", kind: "bug", title: "Login" }), { params: { id: "t2" } });
+    expect((await ticketIssuePost(req("https://x", { action: "link", ideaId: idea.id }), { params: Promise.resolve({ id: "t2" }) })).status).toBe(200);
+    const again = await ticketIssuePost(req("https://x", { action: "create", kind: "bug", title: "Login" }), { params: Promise.resolve({ id: "t2" }) });
     expect(again.status).toBe(409);
     expect((await again.json()).error).toMatch(/already linked/);
-    expect((await ticketIssuePost(req("https://x", { action: "nope" }), { params: { id: "t1" } })).status).toBe(400);
-    expect((await ticketIssuePost(req("https://x", { action: "unlink" }), { params: { id: "t2" } })).status).toBe(200);
-    const detail = await (await ticketGet(req("https://x"), { params: { id: "t1" } })).json();
+    expect((await ticketIssuePost(req("https://x", { action: "nope" }), { params: Promise.resolve({ id: "t1" }) })).status).toBe(400);
+    expect((await ticketIssuePost(req("https://x", { action: "unlink" }), { params: Promise.resolve({ id: "t2" }) })).status).toBe(200);
+    const detail = await (await ticketGet(req("https://x"), { params: Promise.resolve({ id: "t1" }) })).json();
     expect(detail.ticket.idea).toMatchObject({ id: idea.id, kind: "bug" });
   });
   it("reports and notify routes work end to end", async () => {
-    const { idea } = await (await ticketIssuePost(req("https://x", { action: "create", kind: "bug", title: "Login" }), { params: { id: "t1" } })).json();
+    const { idea } = await (await ticketIssuePost(req("https://x", { action: "create", kind: "bug", title: "Login" }), { params: Promise.resolve({ id: "t1" }) })).json();
     await db.idea.update({ where: { id: idea.id }, data: { status: "done" } });
-    const r = await (await reportsGet(req("https://x"), { params: { id: idea.id } })).json();
+    const r = await (await reportsGet(req("https://x"), { params: Promise.resolve({ id: idea.id }) })).json();
     expect(r.canNotify).toBe(true);
-    const ok = await reportsPost(req("https://x", { message: "Fixed!" }), { params: { id: idea.id } });
+    const ok = await reportsPost(req("https://x", { message: "Fixed!" }), { params: Promise.resolve({ id: idea.id }) });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({ notified: 1, emailed: 1 });
-    const second = await reportsPost(req("https://x", { message: "Fixed!" }), { params: { id: idea.id } });
+    const second = await reportsPost(req("https://x", { message: "Fixed!" }), { params: Promise.resolve({ id: idea.id }) });
     expect(second.status).toBe(409);
   });
 });
@@ -239,7 +239,7 @@ describe("bugs on the idea routes", () => {
   });
   it("switches between idea and bug and validates severity", async () => {
     const { id } = await (await createIdea(json("https://x/api/ideas", "POST", { title: "Maybe a bug", projectId: "p1" }))).json();
-    const p = (body: unknown) => patchIdea(json("https://x", "PATCH", body), { params: { id } });
+    const p = (body: unknown) => patchIdea(json("https://x", "PATCH", body), { params: Promise.resolve({ id }) });
     expect(await (await p({ kind: "bug" })).json()).toMatchObject({ kind: "bug", severity: "medium" });
     expect(await (await p({ severity: "high", repro: "Steps" })).json()).toMatchObject({ severity: "high", repro: "Steps" });
     expect(await (await p({ severity: "banana" })).json()).toMatchObject({ severity: "high" });

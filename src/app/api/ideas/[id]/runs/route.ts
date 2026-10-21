@@ -11,7 +11,8 @@ const PUBLIC = {
   checksState: true, agentNote: true, previewUrl: true, costUsd: true, turns: true, provider: true, model: true, effort: true, maxTurns: true, error: true, createdAt: true, finishedAt: true, parentRunId: true,
 } as const;
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
@@ -74,7 +75,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // "Implement": creates a run that waits for plan approval.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

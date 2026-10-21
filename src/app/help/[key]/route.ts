@@ -4,7 +4,8 @@ import { renderWidget } from "@/lib/support/widget-html";
 import { notFoundPage } from "@/lib/support/page-shell";
 
 // PUBLIC page: the same support form as a plain link (cannot be framed).
-export async function GET(_req: Request, { params }: { params: { key: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const space = await loadPublicSpace(params.key);
   if (!space) {
     const nf = notFoundPage("Support is not available here.");

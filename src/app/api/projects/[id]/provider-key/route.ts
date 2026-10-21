@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 // Paste a provider key once; it is checked, written to the chosen repos as an
 // Actions secret, and forgotten. Nothing about the key is stored or logged, and
 // the response never contains it.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const noStore = { "Cache-Control": "no-store" };

@@ -9,7 +9,8 @@ export const metadata = { title: "Project knowledge" };
 
 export const dynamic = "force-dynamic";
 
-export default async function KnowledgePage({ params }: { params: { id: string } }) {
+export default async function KnowledgePage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {

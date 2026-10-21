@@ -56,44 +56,44 @@ describe("keys and entry checks", () => {
 describe("owner routes", () => {
   it("shows the page as off at first, makes a stable address when switched on, and keeps it when switched off", async () => {
     await db.project.update({ where: { id: "p1" }, data: { changelogKey: null, changelogOn: false } });
-    const off = await (await getSettings(req(undefined, "GET"), { params: { id: "p1" } })).json();
+    const off = await (await getSettings(req(undefined, "GET"), { params: Promise.resolve({ id: "p1" }) })).json();
     expect(off).toMatchObject({ enabled: false, url: null, entries: [] });
-    const on = await (await patchSettings(req({ enabled: true }, "PATCH"), { params: { id: "p1" } })).json();
+    const on = await (await patchSettings(req({ enabled: true }, "PATCH"), { params: Promise.resolve({ id: "p1" }) })).json();
     expect(on.enabled).toBe(true);
     expect(on.url).toMatch(/\/changes\/ihq_c_[A-Za-z0-9_-]{16}$/);
-    await patchSettings(req({ enabled: false }, "PATCH"), { params: { id: "p1" } });
-    const again = await (await patchSettings(req({ enabled: true }, "PATCH"), { params: { id: "p1" } })).json();
+    await patchSettings(req({ enabled: false }, "PATCH"), { params: Promise.resolve({ id: "p1" }) });
+    const again = await (await patchSettings(req({ enabled: true }, "PATCH"), { params: Promise.resolve({ id: "p1" }) })).json();
     expect(again.url).toBe(on.url);
   });
   it("only the owner of the project, and only valid bodies", async () => {
-    expect((await patchSettings(req({ enabled: true }, "PATCH"), { params: { id: "p2" } })).status).toBe(404);
-    expect((await patchSettings(req({ enabled: "yes" }, "PATCH"), { params: { id: "p1" } })).status).toBe(400);
-    expect((await patchSettings(req({ enabled: true, extra: 1 }, "PATCH"), { params: { id: "p1" } })).status).toBe(400);
-    expect((await getSettings(req(undefined, "GET"), { params: { id: "p2" } })).status).toBe(404);
+    expect((await patchSettings(req({ enabled: true }, "PATCH"), { params: Promise.resolve({ id: "p2" }) })).status).toBe(404);
+    expect((await patchSettings(req({ enabled: "yes" }, "PATCH"), { params: Promise.resolve({ id: "p1" }) })).status).toBe(400);
+    expect((await patchSettings(req({ enabled: true, extra: 1 }, "PATCH"), { params: Promise.resolve({ id: "p1" }) })).status).toBe(400);
+    expect((await getSettings(req(undefined, "GET"), { params: Promise.resolve({ id: "p2" }) })).status).toBe(404);
     sess.user = null;
-    expect((await getSettings(req(undefined, "GET"), { params: { id: "p1" } })).status).toBe(401);
+    expect((await getSettings(req(undefined, "GET"), { params: Promise.resolve({ id: "p1" }) })).status).toBe(401);
   });
   it("writes, edits, publishes, unpublishes and deletes entries", async () => {
-    const created = await createEntry(req({ title: "Search is faster", body: "Twice as fast", kind: "improved" }), { params: { id: "p1" } });
+    const created = await createEntry(req({ title: "Search is faster", body: "Twice as fast", kind: "improved" }), { params: Promise.resolve({ id: "p1" }) });
     expect(created.status).toBe(201);
     const { entry } = await created.json();
     expect(entry.publishedAt).toBeNull();
-    const pub = await (await patchEntry(req({ published: true }, "PATCH"), { params: { id: "p1", entryId: entry.id } })).json();
+    const pub = await (await patchEntry(req({ published: true }, "PATCH"), { params: Promise.resolve({ id: "p1", entryId: entry.id }) })).json();
     expect(pub.entry.publishedAt).not.toBeNull();
     const firstTime = pub.entry.publishedAt;
-    const edited = await (await patchEntry(req({ title: "Search is much faster", published: true }, "PATCH"), { params: { id: "p1", entryId: entry.id } })).json();
+    const edited = await (await patchEntry(req({ title: "Search is much faster", published: true }, "PATCH"), { params: Promise.resolve({ id: "p1", entryId: entry.id }) })).json();
     expect(edited.entry).toMatchObject({ title: "Search is much faster", publishedAt: firstTime }); // re-publishing keeps the original date
-    expect((await (await patchEntry(req({ published: false }, "PATCH"), { params: { id: "p1", entryId: entry.id } })).json()).entry.publishedAt).toBeNull();
-    expect((await patchEntry(req({ kind: "huge" }, "PATCH"), { params: { id: "p1", entryId: entry.id } })).status).toBe(400);
-    expect((await deleteEntry(req(undefined, "DELETE"), { params: { id: "p1", entryId: entry.id } })).status).toBe(200);
+    expect((await (await patchEntry(req({ published: false }, "PATCH"), { params: Promise.resolve({ id: "p1", entryId: entry.id }) })).json()).entry.publishedAt).toBeNull();
+    expect((await patchEntry(req({ kind: "huge" }, "PATCH"), { params: Promise.resolve({ id: "p1", entryId: entry.id }) })).status).toBe(400);
+    expect((await deleteEntry(req(undefined, "DELETE"), { params: Promise.resolve({ id: "p1", entryId: entry.id }) })).status).toBe(200);
     expect(await db.changelogEntry.count()).toBe(0);
   });
   it("cannot touch another person's project or entries", async () => {
     const theirs = await db.changelogEntry.create({ data: { projectId: "p2", title: "Theirs" } });
-    expect((await createEntry(req({ title: "x" }), { params: { id: "p2" } })).status).toBe(404);
-    expect((await patchEntry(req({ published: true }, "PATCH"), { params: { id: "p2", entryId: theirs.id } })).status).toBe(404);
+    expect((await createEntry(req({ title: "x" }), { params: Promise.resolve({ id: "p2" }) })).status).toBe(404);
+    expect((await patchEntry(req({ published: true }, "PATCH"), { params: Promise.resolve({ id: "p2", entryId: theirs.id }) })).status).toBe(404);
     const mine = await db.changelogEntry.create({ data: { projectId: "p1", title: "Mine" } });
-    expect((await deleteEntry(req(undefined, "DELETE"), { params: { id: "p2", entryId: mine.id } })).status).toBe(404); // right entry, wrong project
+    expect((await deleteEntry(req(undefined, "DELETE"), { params: Promise.resolve({ id: "p2", entryId: mine.id }) })).status).toBe(404); // right entry, wrong project
     expect(await db.changelogEntry.count()).toBe(2);
   });
 });
@@ -125,7 +125,7 @@ describe("what the public sees", () => {
   it("the page lists entries by month with their type and date, and escapes everything", async () => {
     await entry({ title: "<script>alert(1)</script> Fix", body: "Line one\nLine <b>two</b>", kind: "fix", publishedAt: new Date("2026-10-05T10:00:00Z") });
     await entry({ title: "Dark mode", kind: "new", publishedAt: new Date("2026-09-20T10:00:00Z") });
-    const html = renderToStaticMarkup(await ChangesPage({ params: { key: KEY } }));
+    const html = renderToStaticMarkup(await ChangesPage({ params: Promise.resolve({ key: KEY }) }));
     expect(html).toContain("What&#x27;s new in Shop");
     expect(html).toMatch(/October 2026[^]*September 2026/);
     expect(html).toContain("Fixed");
@@ -138,18 +138,18 @@ describe("what the public sees", () => {
     expect(html.match(/<h1/g)).toHaveLength(1);
   });
   it("says so when nothing is published, and is a 404 when the page is off or the key is wrong", async () => {
-    expect(renderToStaticMarkup(await ChangesPage({ params: { key: KEY } }))).toContain("Nothing has been published yet");
-    await expect(ChangesPage({ params: { key: "ihq_c_BBBBBBBBBBBBBBBB" } })).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(renderToStaticMarkup(await ChangesPage({ params: Promise.resolve({ key: KEY }) }))).toContain("Nothing has been published yet");
+    await expect(ChangesPage({ params: Promise.resolve({ key: "ihq_c_BBBBBBBBBBBBBBBB" }) })).rejects.toThrow("NEXT_NOT_FOUND");
     await db.project.update({ where: { id: "p1" }, data: { changelogOn: false } });
-    await expect(ChangesPage({ params: { key: KEY } })).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(ChangesPage({ params: Promise.resolve({ key: KEY }) })).rejects.toThrow("NEXT_NOT_FOUND");
   });
   it("has its own title, description and canonical address; a missing page is kept out of search", async () => {
     await entry({ title: "Dark mode", publishedAt: new Date() });
-    const m = await generateMetadata({ params: { key: KEY } });
+    const m = await generateMetadata({ params: Promise.resolve({ key: KEY }) });
     expect(m.title).toEqual({ absolute: "What's new in Shop" });
     expect(String(m.description)).toContain("Dark mode");
     expect(m.alternates?.canonical).toBe(`/changes/${KEY}`);
-    const missing = await generateMetadata({ params: { key: "nope" } });
+    const missing = await generateMetadata({ params: Promise.resolve({ key: "nope" }) });
     expect(missing.robots).toMatchObject({ index: false });
   });
 });

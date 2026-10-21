@@ -96,7 +96,7 @@ vi.mock("@anthropic-ai/sdk", () => ({ default: class { messages = { create: asyn
 import { GET as candidates, POST as commit } from "@/app/api/projects/[id]/import/route";
 import { POST as preview } from "@/app/api/projects/[id]/import/preview/route";
 
-const P = { params: { id: "p1" } };
+const P = { params: Promise.resolve({ id: "p1" }) };
 const post = (body: unknown) => new Request("https://ideahq.cloud/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 beforeEach(() => {

@@ -11,11 +11,12 @@ export const metadata = { title: "Idea" };
 
 export const dynamic = "force-dynamic";
 
-export default async function IdeaDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function IdeaDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
 

@@ -4,10 +4,8 @@ import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
 import { cleanCap } from "@/lib/spend";
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {
@@ -55,10 +53,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {

@@ -10,7 +10,8 @@ import { json, readJson, sameOriginOk } from "@/lib/support/http";
 
 // PUBLIC route (no login): a customer asks a question and gets an answer from
 // the owner's confirmed help notes, or is sent to a person.
-export async function POST(request: Request, { params }: { params: { key: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   if (!sameOriginOk(request)) return json({ error: "Forbidden" }, 403);
   const body = await readJson(request, 8_000);
   if (!body) return json({ error: "Invalid request" }, 400);

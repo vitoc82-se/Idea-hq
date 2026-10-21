@@ -4,7 +4,8 @@ import { getSetupStatus } from "@/lib/runs/setup";
 
 // Progress of the guided setup. `?quick=1` makes no GitHub calls (cheap polling, list chips);
 // the default shares a 30s cached full check; `?fresh=1` forces a new one ("Check again").
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

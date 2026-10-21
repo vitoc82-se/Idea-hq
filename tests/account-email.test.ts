@@ -154,7 +154,7 @@ describe("Admin shows and removes lookalikes", () => {
     await db.user.create({ data: { id: "padded", email: " bob@x.se", approved: false, createdAt: new Date("2026-06-02") } });
     await db.user.create({ data: { id: "fine", email: "fine@x.se", approved: true, createdAt: new Date("2026-06-03") } });
   });
-  const call = (id: string, body?: unknown) => removeUser(new Request("https://x", { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) }), { params: { id } });
+  const call = (id: string, body?: unknown) => removeUser(new Request("https://x", { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) }), { params: Promise.resolve({ id }) });
 
   it("marks the lookalike (and the real account is still the owner), and the padded one", async () => {
     const d = await (await listUsers()).json();

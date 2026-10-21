@@ -4,7 +4,8 @@ import { requireTickets } from "@/lib/support/owner";
 import { emailReply, isStatus } from "@/lib/support/owner-tickets";
 
 // Owner: try again to email the latest reply that did not go out.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const t = await db.ticket.findFirst({

@@ -12,7 +12,8 @@ import { requireUser, requireAi, errorResponse } from "@/lib/runs/http";
 // Quick draft: reads the repo (full file list, the files that explain it) and
 // fills the knowledge sections. Never overwrites what the owner wrote or
 // confirmed, unless `force` is sent. Saved straight away so the AI can use it.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const loaded = await loadKnowledge(auth.userId, params.id);

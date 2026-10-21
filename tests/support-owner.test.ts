@@ -126,7 +126,7 @@ let mailOk = true;
 function req(method: string, body?: unknown, url = "https://ideahq.cloud/api/x") {
   return new Request(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
 }
-const ID = (id: string) => ({ params: { id } });
+const ID = (id: string) => ({ params: Promise.resolve({ id }) });
 const as = (u: { id: string; email: string } | null) => { st.session = u; };
 
 function seed() {

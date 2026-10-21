@@ -75,7 +75,7 @@ function req(url: string, body?: unknown, headers: Record<string, string> = {}) 
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
-const P = (key = KEY) => ({ params: { key } });
+const P = (key = KEY) => ({ params: Promise.resolve({ key }) });
 
 beforeEach(() => {
   process.env.NEXTAUTH_SECRET = "test-secret-test-secret-test-secret";
@@ -257,7 +257,7 @@ describe("customer ticket route", () => {
     messages: [{ author: "customer", body: "hi", createdAt: new Date().toISOString() }, { author: "owner", body: "we are on it", createdAt: new Date().toISOString() }],
     space: space(), ...over,
   });
-  const T = (token = tok) => ({ params: { token } });
+  const T = (token = tok) => ({ params: Promise.resolve({ token }) });
   it("returns the conversation and nothing internal", async () => {
     store.ticket = ticket();
     const d = await (await getTicket(req("/x"), T())).json();
@@ -320,12 +320,12 @@ describe("public pages and embed script", () => {
       expect(res.status).toBe(404);
       expect(res.headers.get("content-security-policy")).toBeTruthy();
     }
-    expect((await embedJs(req("/embed/x.js"), { params: { file: KEY + ".js" } })).status).toBe(404);
+    expect((await embedJs(req("/embed/x.js"), { params: Promise.resolve({ file: KEY + ".js" }) })).status).toBe(404);
   });
   it("the ticket page is private: no referrer, no store, not indexed, not framable", async () => {
     store.ticket = { token: deriveTicketToken("x"), id: "t1", number: 5, status: "open", subject: "<img src=x onerror=alert(1)>", customerEmail: "c@example.com", messages: [{ author: "customer", body: "</script><script>alert(1)</script>", createdAt: new Date().toISOString() }], space: space() };
     const token = (store.ticket as { token: string }).token;
-    const res = await ticketPage(req("/t/" + token), { params: { token } });
+    const res = await ticketPage(req("/t/" + token), { params: Promise.resolve({ token }) });
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toContain("noindex");
@@ -334,21 +334,21 @@ describe("public pages and embed script", () => {
     const html = await res.text();
     expect(html).not.toContain("<img src=x");
     expect(html).not.toMatch(/<\/script><script>alert/);
-    expect((await ticketPage(req("/t/x"), { params: { token: "bad" } })).status).toBe(404);
+    expect((await ticketPage(req("/t/x"), { params: Promise.resolve({ token: "bad" }) })).status).toBe(404);
   });
   it("serves the embed script for a live space only", async () => {
-    const res = await embedJs(req("/embed/" + KEY + ".js"), { params: { file: KEY + ".js" } });
+    const res = await embedJs(req("/embed/" + KEY + ".js"), { params: Promise.resolve({ file: KEY + ".js" }) });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("javascript");
     const js = await res.text();
     expect(js).toContain(KEY);
     expect(js).toContain('"https://ideahq.cloud"');
-    const blocked = await embedJs(req("/embed/" + KEY + ".js", undefined, { referer: "https://not-allowed.example/page" }), { params: { file: KEY + ".js" } });
+    const blocked = await embedJs(req("/embed/" + KEY + ".js", undefined, { referer: "https://not-allowed.example/page" }), { params: Promise.resolve({ file: KEY + ".js" }) });
     expect(await blocked.text()).toContain("not available");
-    const allowed = await embedJs(req("/embed/" + KEY + ".js", undefined, { referer: "https://shop.example.com/page" }), { params: { file: KEY + ".js" } });
+    const allowed = await embedJs(req("/embed/" + KEY + ".js", undefined, { referer: "https://shop.example.com/page" }), { params: Promise.resolve({ file: KEY + ".js" }) });
     expect(await allowed.text()).toContain("ORIGIN");
-    expect((await embedJs(req("/embed/x"), { params: { file: KEY } })).status).toBe(404);
-    expect((await embedJs(req("/embed/x"), { params: { file: "../../etc/passwd.js" } })).status).toBe(404);
+    expect((await embedJs(req("/embed/x"), { params: Promise.resolve({ file: KEY }) })).status).toBe(404);
+    expect((await embedJs(req("/embed/x"), { params: Promise.resolve({ file: "../../etc/passwd.js" }) })).status).toBe(404);
   });
 });
 

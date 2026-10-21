@@ -10,10 +10,8 @@ import { github } from "@/lib/github/client";
 import { createToolExecutor, runWithRepoTools } from "@/lib/repo-tools";
 import { projectPromptContext } from "@/lib/project-context";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {

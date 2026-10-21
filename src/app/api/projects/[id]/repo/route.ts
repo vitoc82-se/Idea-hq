@@ -12,7 +12,8 @@ const BRANCH = /^[A-Za-z0-9._\/-]{1,100}$/;
 
 // The project's repo link plus what the user can pick from. Also refreshes
 // `workflowInstalled` so the UI notices when the setup PR was merged.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
@@ -66,7 +67,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

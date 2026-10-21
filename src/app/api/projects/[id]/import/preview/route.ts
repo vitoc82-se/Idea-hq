@@ -8,7 +8,8 @@ import { buildImportPrompt, parseImportItems, findBacklogFiles, MAX_SOURCE_CHARS
 
 // Reads a backlog (a file in the repo, or pasted text) and lists the ideas in it.
 // Nothing is saved here: the owner ticks what to import first.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId } });

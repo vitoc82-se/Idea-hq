@@ -9,7 +9,8 @@ function fail(e: unknown) {
 }
 
 // Owner: the support tickets that reported this bug or idea, and whether the customers can be told it shipped.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   try {
@@ -20,7 +21,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Owner: tell those customers it shipped. Once per idea.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const body = await request.json().catch(() => null);

@@ -14,10 +14,8 @@ M = ~1 day, a handful of files, maybe a small additive schema field.
 L = multi-day, a new model/endpoint + UI, or non-trivial logic.
 XL = major effort (new platform, big rework, external integration, native app).`;
 
-export async function POST(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {

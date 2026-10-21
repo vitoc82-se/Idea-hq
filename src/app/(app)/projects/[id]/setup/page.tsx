@@ -9,7 +9,8 @@ export const metadata = { title: "Repo and AI setup" };
 
 export const dynamic = "force-dynamic";
 
-export default async function SetupPage({ params }: { params: { id: string } }) {
+export default async function SetupPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {

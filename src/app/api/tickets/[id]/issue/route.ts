@@ -9,7 +9,8 @@ function fail(e: unknown) {
 }
 
 // Owner: what a ticket would become (a pre-filled draft) and which open bugs or ideas it could join.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   try {
@@ -21,7 +22,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Owner: turn the ticket into a new bug or idea, add it to an existing one, or unlink it.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const body = await request.json().catch(() => null);

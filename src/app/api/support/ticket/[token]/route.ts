@@ -7,7 +7,8 @@ import { baseUrl, ownerNewTicketEmail, sendEmail } from "@/lib/support/email";
 import { json, readJson, sameOriginOk } from "@/lib/support/http";
 
 // PUBLIC routes (no login; the private link token is the credential).
-export async function GET(request: Request, { params }: { params: { token: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   if (!isTokenShape(params.token)) return json({ error: "Not found" }, 404);
   const ipKey = hashIdent(clientIp(request.headers));
   if (await firstExceeded(rateStore, [RULES.readIp(ipKey)])) return json({ error: "Too many requests" }, 429);
@@ -16,7 +17,8 @@ export async function GET(request: Request, { params }: { params: { token: strin
   return json({ number: t.number, status: t.status, subject: t.subject, title: t.space.title, messages: t.messages });
 }
 
-export async function POST(request: Request, { params }: { params: { token: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   if (!sameOriginOk(request)) return json({ error: "Forbidden" }, 403);
   if (!isTokenShape(params.token)) return json({ error: "Not found" }, 404);
   const body = await readJson(request, 12_000);

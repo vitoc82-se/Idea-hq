@@ -4,7 +4,8 @@ import { requireTickets } from "@/lib/support/owner";
 import { checkSite } from "@/lib/support/site-check";
 
 // Owner: "Check my site". Looks for the embed code on a page of the owner's site.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const project = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true } });

@@ -3,7 +3,8 @@ import { requireUser, errorResponse } from "@/lib/runs/http";
 import { exportKnowledgeToRepo } from "@/lib/knowledge-export";
 
 // Opens a pull request that saves the knowledge into the repo.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

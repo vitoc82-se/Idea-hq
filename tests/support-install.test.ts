@@ -114,7 +114,7 @@ describe("Add it for me", () => {
 });
 
 describe("POST /api/projects/[id]/support/install", () => {
-  const call = () => POST(new Request("https://ideahq.cloud/x", { method: "POST" }), { params: { id: "p1" } });
+  const call = () => POST(new Request("https://ideahq.cloud/x", { method: "POST" }), { params: Promise.resolve({ id: "p1" }) });
   it("starts the run and returns the idea to follow", async () => {
     const res = await call();
     expect(res.status).toBe(200);

@@ -6,7 +6,8 @@ import { askQuestions } from "@/lib/knowledge-ai";
 import { PLANNING_MODEL } from "@/lib/runs/policy";
 
 // Optional interview: a few plain questions about the gaps.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const loaded = await loadKnowledge(auth.userId, params.id);

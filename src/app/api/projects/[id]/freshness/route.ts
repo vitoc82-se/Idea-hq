@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 // How current the AI's knowledge of this project and its installed workflow are. Cached for an
 // hour per project; ?force=1 checks again now.
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const force = new URL(request.url).searchParams.get("force") === "1";

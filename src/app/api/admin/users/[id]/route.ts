@@ -8,10 +8,8 @@ import { isVerified } from "@/lib/email-verification";
 
 // Owner-only: change one account's settings: approval, optional features
 // (Support tickets), AI build and the daily helper-AI call limit.
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await isOwner(userId, session?.user?.email))) {
@@ -46,7 +44,8 @@ export async function PATCH(
 // Owner: remove an account (for example a lookalike of an existing address). The owner's own
 // account can never be removed. An account that already has projects or ideas is only removed
 // when the request says `force`, so a real person's work is not lost by a stray click.
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await isOwner(userId, session?.user?.email))) {

@@ -7,7 +7,8 @@ import { baseUrl } from "@/lib/support/email";
 
 // Owner: "Add it for me". Starts an Idea HQ run that adds the Help button to the
 // project's own repo as a pull request.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const project = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true } });

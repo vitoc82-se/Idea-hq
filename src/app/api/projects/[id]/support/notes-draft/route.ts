@@ -11,7 +11,8 @@ import { LIMITS } from "@/lib/support/constants";
 
 // Owner: draft customer-facing help notes from the project's internal knowledge.
 // Drafts always need the owner's review; only confirmed notes ever reach customers.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const loaded = await loadKnowledge(auth.userId, params.id);

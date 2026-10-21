@@ -4,7 +4,8 @@ import { requireUser } from "@/lib/runs/http";
 import { cleanEntryPatch } from "@/lib/changelog";
 
 // Write an entry by hand (for a change that did not go through Idea HQ).
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true } });

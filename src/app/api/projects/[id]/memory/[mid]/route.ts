@@ -9,7 +9,8 @@ async function refresh(userId: string, projectId: string) {
 }
 
 // Pin, unpin or reword a remembered fact.
-export async function PATCH(request: Request, { params }: { params: { id: string; mid: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string; mid: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
@@ -28,7 +29,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; mid: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; mid: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {

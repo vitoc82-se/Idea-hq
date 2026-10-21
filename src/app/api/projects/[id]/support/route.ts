@@ -26,7 +26,8 @@ function dto(s: SpaceRow) {
 }
 
 // Owner: read this project's support settings (null until support is first turned on).
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const project = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, name: true } });
@@ -39,7 +40,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Owner: create or update the settings.
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const project = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, name: true } });

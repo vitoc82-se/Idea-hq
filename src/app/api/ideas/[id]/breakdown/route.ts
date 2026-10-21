@@ -42,10 +42,8 @@ function cleanStory(s: StoryIn) {
   };
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId || !(await canUse(userId, session?.user?.email))) {

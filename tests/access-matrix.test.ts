@@ -32,13 +32,13 @@ const routes = routeFiles().filter(
 async function handlers(file: string) {
   const mod = await import(/* @vite-ignore */ file);
   return METHODS.filter((m) => typeof mod[m] === "function").map(
-    (m) => [m, mod[m] as (r: Request, c: { params: Record<string, string> }) => Promise<Response>] as const
+    (m) => [m, mod[m] as (r: Request, c: { params: Promise<Record<string, string>> }) => Promise<Response>] as const
   );
 }
 
-async function call(h: (r: Request, c: { params: Record<string, string> }) => Promise<Response>, method: string) {
+async function call(h: (r: Request, c: { params: Promise<Record<string, string>> }) => Promise<Response>, method: string) {
   try {
-    return await h(jsonRequest(method), { params: { id: "target-id" } });
+    return await h(jsonRequest(method), { params: Promise.resolve({ id: "target-id" }) });
   } catch {
     return null; // a throw after the guard is irrelevant to access control
   }

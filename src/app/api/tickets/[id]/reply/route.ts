@@ -6,7 +6,8 @@ import { cleanText } from "@/lib/support/sanitize";
 import { LIMITS } from "@/lib/support/constants";
 
 // Owner: reply to the customer. Saved first, then emailed with the private link.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const body = await request.json().catch(() => null);

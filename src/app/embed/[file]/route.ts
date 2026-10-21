@@ -3,7 +3,8 @@ import { embedScript, EMBED_NOT_AVAILABLE } from "@/lib/support/embed-script";
 import { publicOrigin } from "@/lib/support/http";
 
 // PUBLIC script: /embed/KEY.js adds the Help button to the owner's site.
-export async function GET(request: Request, { params }: { params: { file: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ file: string }> }) {
+  const params = await props.params;
   const key = params.file.endsWith(".js") ? params.file.slice(0, -3) : "";
   const space = await loadPublicSpace(key);
   const headers = { "Content-Type": "application/javascript; charset=utf-8", "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=300", Vary: "Referer" };

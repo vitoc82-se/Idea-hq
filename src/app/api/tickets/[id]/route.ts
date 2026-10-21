@@ -6,7 +6,8 @@ import { isStatus, statusPatch } from "@/lib/support/owner-tickets";
 const owned = (id: string, userId: string) => ({ id, project: { userId } });
 
 // Owner: one ticket with its conversation. Opening it marks it read.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const t = await db.ticket.findFirst({
@@ -25,7 +26,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Owner: change the status.
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const body = await request.json().catch(() => null);
@@ -37,7 +39,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 // Owner: delete one ticket and its messages for good.
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireTickets();
   if ("res" in auth) return auth.res;
   const t = await db.ticket.findFirst({ where: owned(params.id, auth.userId), select: { id: true } });

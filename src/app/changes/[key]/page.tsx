@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 const monthOf = (d: Date) => d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 const dayOf = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
-export async function generateMetadata({ params }: { params: { key: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ key: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const c = await loadChangelog(params.key);
   if (!c) return { title: "Page not found", robots: { index: false, follow: false } };
   const title = `What's new in ${c.name}`;
@@ -24,7 +25,8 @@ export async function generateMetadata({ params }: { params: { key: string } }):
 }
 
 // A project's public "What's new" page: only what the owner chose to publish.
-export default async function ChangesPage({ params }: { params: { key: string } }) {
+export default async function ChangesPage(props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const c = await loadChangelog(params.key);
   if (!c) notFound();
 

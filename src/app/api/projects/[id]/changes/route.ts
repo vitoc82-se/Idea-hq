@@ -11,7 +11,8 @@ async function owned(id: string, userId: string) {
 }
 
 // The project's What's new page: is it on, its address, and every entry (drafts first).
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const p = await owned(params.id, auth.userId);
@@ -31,7 +32,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 // Switch the public page on or off. The address is made the first time and then stays the same.
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const body = await request.json().catch(() => null);

@@ -8,7 +8,8 @@ import { PLANNING_MODEL } from "@/lib/runs/policy";
 
 // Folds the owner's answers into the knowledge. Answers are the owner's own
 // words, so the sections they touch count as confirmed.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const loaded = await loadKnowledge(auth.userId, params.id);

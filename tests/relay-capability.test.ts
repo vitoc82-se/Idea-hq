@@ -20,7 +20,7 @@ const { privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, 
 function githubSays(status: number, permissions: Record<string, string> | null) {
   globalThis.fetch = (async () => new Response(JSON.stringify(permissions ? { permissions } : {}), { status })) as unknown as typeof fetch;
 }
-const ask = async (id = "p1") => (await GET(new Request("https://x"), { params: { id } })).json();
+const ask = async (id = "p1") => (await GET(new Request("https://x"), { params: Promise.resolve({ id }) })).json();
 
 beforeEach(async () => {
   await resetDb();
@@ -73,6 +73,6 @@ describe("GET /api/projects/[id]/relay-capability", () => {
   it("only for the person's own project", async () => {
     await db.user.create({ data: { id: "u2", email: "bob@x.se", approved: true } });
     sess.user = { id: "u2", email: "bob@x.se" };
-    expect((await GET(new Request("https://x"), { params: { id: "p1" } })).status).toBe(404);
+    expect((await GET(new Request("https://x"), { params: Promise.resolve({ id: "p1" }) })).status).toBe(404);
   });
 });

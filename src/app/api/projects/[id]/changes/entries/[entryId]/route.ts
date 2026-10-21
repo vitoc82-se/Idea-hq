@@ -8,7 +8,11 @@ async function owned(entryId: string, projectId: string, userId: string) {
 }
 
 // Edit the words, change the type, publish or unpublish.
-export async function PATCH(request: Request, { params }: { params: { id: string; entryId: string } }) {
+export async function PATCH(
+  request: Request,
+  props: { params: Promise<{ id: string; entryId: string }> }
+) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const e = await owned(params.entryId, params.id, auth.userId);
@@ -24,7 +28,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   return NextResponse.json({ entry });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; entryId: string } }) {
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string; entryId: string }> }) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   const e = await owned(params.entryId, params.id, auth.userId);

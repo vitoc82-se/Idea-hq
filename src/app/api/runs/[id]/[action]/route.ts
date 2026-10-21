@@ -3,7 +3,11 @@ import { requireUser, errorResponse } from "@/lib/runs/http";
 import { approveRun, reviseRun, mergeRun, revertRun, cancelRun } from "@/lib/runs/engine";
 
 // POST /api/runs/:id/{approve|revise|merge|revert|cancel}
-export async function POST(request: Request, { params }: { params: { id: string; action: string } }) {
+export async function POST(
+  request: Request,
+  props: { params: Promise<{ id: string; action: string }> }
+) {
+  const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
