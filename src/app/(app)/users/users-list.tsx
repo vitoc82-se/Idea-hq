@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 
 type U = {
   id: string; name: string | null; email: string | null; approved: boolean; features: string[]; aiBuild: boolean;
-  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; emailWarning?: "duplicate" | "padded" | null; emailVerified?: boolean; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
+  aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number; pro: boolean; proRevoked: boolean; lsSubscriptionId: string | null; emailWarning?: "duplicate" | "padded" | "invalid" | null; emailVerified?: boolean; subStatus: string | null; subEndsAt: string | null; aiCallsToday: number; createdAt: string; owner: boolean; projects: number; ideas: number; runs: number;
 };
 type Patch = Partial<{ approved: boolean; features: string[]; aiBuild: boolean; aiDailyLimit: number | null; freeAccess: boolean; aiCredits: number }>;
 
@@ -255,8 +255,15 @@ function Row({ u, defaultLimit, paywall, onChanged }: { u: U; defaultLimit: numb
           <p className="mt-1">
             {u.emailWarning === "duplicate"
               ? "Another account has this email in different letters. Someone may be pretending to be that person. If you did not create both, remove this one."
-              : "This email has spaces around it, which a normal sign-up does not produce. If you do not recognise this person, remove the account."}
+              : u.emailWarning === "invalid"
+                ? "This is not a valid email address, so it cannot be a real sign-up (it is probably a test or an attempt). If you do not recognise it, remove the account."
+                : "This email has spaces around it, which a normal sign-up does not produce. If you do not recognise this person, remove the account."}
           </p>
+          <RemoveAccount user={u} onDone={onChanged} />
+        </div>
+      )}
+      {!u.owner && !u.emailWarning && (
+        <div className="mt-2 border-t border-gray-200 pt-2 text-sm text-gray-900 dark:border-gray-700 dark:text-white">
           <RemoveAccount user={u} onDone={onChanged} />
         </div>
       )}

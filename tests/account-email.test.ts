@@ -164,6 +164,22 @@ describe("Admin shows and removes lookalikes", () => {
     expect(by("padded")).toMatchObject({ owner: false, emailWarning: "padded" });
     expect(by("fine")).toMatchObject({ owner: false, emailWarning: null });
   });
+  it("flags an address that is not a valid email (a test or junk sign-up), and removes it like any other account", async () => {
+    await db.user.create({ data: { id: "junk", email: "not-an-email", approved: false, createdAt: new Date("2026-06-04") } });
+    const d = await (await listUsers()).json();
+    expect(d.users.find((u: { id: string }) => u.id === "junk")).toMatchObject({ owner: false, emailWarning: "invalid" });
+    expect(d.users.find((u: { id: string }) => u.id === "fine").emailWarning).toBeNull();
+    expect((await call("junk")).status).toBe(200);
+    expect(await db.user.findUnique({ where: { id: "junk" } })).toBeNull();
+  });
+  it("any ordinary account can be removed too (it asks again when there is work in it)", async () => {
+    await db.project.create({ data: { id: "pf", userId: "fine", name: "Work", slug: "work", context: "" } });
+    const first = await call("fine");
+    expect(first.status).toBe(409); // has work: needs the stronger confirmation
+    expect(await db.user.findUnique({ where: { id: "fine" } })).not.toBeNull();
+    expect((await call("fine", { force: true })).status).toBe(200);
+    expect(await db.project.count({ where: { userId: "fine" } })).toBe(0);
+  });
   it("removes an empty lookalike, but never the owner or yourself, and only for the owner", async () => {
     expect((await call("owner")).status).toBe(400);
     expect((await call("evil1")).status).toBe(200);

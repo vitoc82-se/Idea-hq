@@ -1,3 +1,4 @@
+import { normalizeEmail } from "@/lib/support/sanitize";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -43,7 +44,7 @@ export async function GET() {
       aiDailyLimit: u.aiDailyLimit, freeAccess: u.freeAccess, aiCredits: u.aiCredits, pro: isPro(u), proRevoked: !!u.proRevokedAt, lsSubscriptionId: u.lsSubscriptionId, subStatus: u.subStatus, subEndsAt: u.subEndsAt, aiCallsToday: u.aiCallsDay === today ? u.aiCallsToday : 0, createdAt: u.createdAt,
       owner: u.id === ownerId,
       emailVerified: u.emailVerified !== null || u.accounts.some((a) => a.provider === "google"),
-      emailWarning: !u.email ? null : (seen.get(u.email.trim().toLowerCase()) ?? 0) > 1 ? "duplicate" : u.email !== u.email.trim() ? "padded" : null, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
+      emailWarning: !u.email ? null : (seen.get(u.email.trim().toLowerCase()) ?? 0) > 1 ? "duplicate" : u.email !== u.email.trim() ? "padded" : !normalizeEmail(u.email) ? "invalid" : null, projects: pc.get(u.id) ?? 0, ideas: ic.get(u.id) ?? 0, runs: rc.get(u.id) ?? 0,
     });
   }
   // The exact build that is running (owner only; it is deliberately not in the public page code).
