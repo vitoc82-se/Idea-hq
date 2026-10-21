@@ -63,7 +63,7 @@ function seed(over: Record<string, any> = {}) { // eslint-disable-line @typescri
     envBranches: { live: "main" }, defaultEnv: "live", autoMerge: false, workflowInstalled: true,
     buildCommand: null, testCommand: "npm test", ...over,
   });
-  t.tables.idea.push({ id: "i1", userId: "u1", projectId: "p1", title: "Add dark mode", plan: "PLAN TEXT", status: "new", blockedBy: [] });
+  t.tables.idea.push({ id: "i1", userId: "u1", projectId: "p1", title: "Add dark mode", plan: "PLAN TEXT", status: "new", blockedBy: [], complexity: "S" });
 }
 
 const deps = () => ({ gh });
@@ -183,7 +183,7 @@ describe("approveRun", () => {
 
   it("allows one executing run per project", async () => {
     await dispatchedRun();
-    t.tables.idea.push({ id: "i2", userId: "u1", projectId: "p1", title: "Other", plan: "P2", status: "new", blockedBy: [] });
+    t.tables.idea.push({ id: "i2", userId: "u1", projectId: "p1", title: "Other", plan: "P2", status: "new", blockedBy: [], complexity: "S" });
     const second = await startRun("u1", "i2", deps());
     await expect(approveRun("u1", second.id, deps())).rejects.toThrow(/already executing/);
   });
@@ -229,9 +229,18 @@ describe("model and effort tiers", () => {
     expect(inputs()).toMatchObject({ model: "claude-opus-5-5", effort: "high", max_turns: "80" });
   });
 
-  it("unknown size starts on the cheapest tier", async () => {
-    await dispatchedRun();
-    expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
+  it("an idea with no size is not implemented: start and approve both ask for a size first", async () => {
+    t.tables.idea[0].complexity = null;
+    await expect(startRun("u1", "i1", deps())).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/Size this idea first/) });
+    expect(t.tables.run).toHaveLength(0);
+    // A run prepared before the rule existed is not started either.
+    t.tables.run.push({ id: "RUN1", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "awaiting_approval", env: "live", baseBranch: "main", plan: "PLAN TEXT" });
+    await expect(approveRun("u1", "RUN1", deps())).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/Size this idea first/) });
+    expect(gh.state.lastInputs).toBeUndefined();
+    // Once it has a size (the AI estimate, or the person setting the Effort) it goes ahead.
+    t.tables.idea[0].complexity = "M";
+    await approveRun("u1", "RUN1", deps());
+    expect(inputs().model).toBe("claude-sonnet-5-5");
   });
 
   it("project bias shifts the tier", async () => {
@@ -264,14 +273,6 @@ describe("model and effort tiers", () => {
     t.tables.idea[0].complexity = null;
     await dispatchedRun();
     expect(inputs()).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
-  });
-
-  it("an idea of unknown size steps up one level after a run that changed nothing, not two", async () => {
-    t.tables.idea[0].complexity = null;
-    await startedRun();
-    t.tables.run.push({ id: "old", userId: "u1", projectId: "p1", ideaId: "i1", kind: "implement", status: "failed", error: "The AI made no changes." });
-    await approveRun("u1", "RUN1", deps());
-    expect(inputs().model).toBe("claude-sonnet-5-5");
   });
 
   it("after a run that used all its turns, the next try keeps the model and gets more turns", async () => {

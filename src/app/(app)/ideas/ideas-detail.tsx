@@ -46,6 +46,7 @@ import { Notice } from "@/components/notice";
 import { KindBadge } from "./kind-badge";
 import { ReportsPanel } from "./reports-panel";
 import { RunPanel } from "./run-panel";
+import { effectiveSize } from "@/lib/runs/size";
 
 export function IdeaDetail({
   initial,
@@ -802,7 +803,7 @@ export function IdeaDetail({
       </Card>
 
       {/* Implement with AI (GitHub Actions) */}
-      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} />
+      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} onEstimate={runEstimate} estimating={estimating} />
 
       {/* Danger zone */}
       <div className="flex justify-end">

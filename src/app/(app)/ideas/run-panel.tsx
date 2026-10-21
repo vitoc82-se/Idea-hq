@@ -51,7 +51,13 @@ const STATUS_LABEL: Record<string, string> = {
 
 const BUSY = ["dispatched", "running"];
 
-export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectId: string; plan: string | null }) {
+export function RunPanel({
+  ideaId, projectId, plan, sized, onEstimate, estimating = false,
+}: {
+  ideaId: string; projectId: string; plan: string | null;
+  // sized: the idea has an Effort (from the estimate or set by hand). The AI only implements a sized idea.
+  sized: boolean; onEstimate?: () => void; estimating?: boolean;
+}) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -129,7 +135,9 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
   };
 
   const prUrl = run?.prNumber && run.project.repoOwner ? `https://github.com/${run.project.repoOwner}/${run.project.repoName}/pull/${run.prNumber}` : null;
-  const canStart = aiBuild && !needsPlan && !capReached && !epic && (!run || ["merged", "closed", "failed", "cancelled"].includes(run.status));
+  const ended = !run || ["merged", "closed", "failed", "cancelled"].includes(run.status);
+  const canStart = aiBuild && !needsPlan && !capReached && !epic && sized && ended;
+  const needsSize = !!plan && !sized && !epic && ended;
   const tier = pick ?? (rec ? { model: rec.model, effort: rec.effort, maxTurns: rec.maxTurns } : null);
   const label = (id: string) => models.find((m) => m.id === id)?.label ?? id;
 
@@ -185,7 +193,19 @@ export function RunPanel({ ideaId, projectId, plan }: { ideaId: string; projectI
         )}
 
         {!plan && !epic && <p className="text-sm text-gray-400">Generate the build prompt first. It becomes the plan the AI follows.</p>}
-        {loaded && !run && plan && !epic && (
+        {loaded && aiBuild && needsSize && (
+          <div role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
+            <p>
+              <b>Size this idea first.</b> The AI picks its model and its number of turns from the size, so a small change does not run on an expensive setup. Press <b>Estimate the build</b>, or set the <b>Effort</b> above yourself.
+            </p>
+            {onEstimate && (
+              <Button size="sm" variant="outline" className="mt-2" disabled={estimating} onClick={onEstimate}>
+                {estimating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Estimate the build
+              </Button>
+            )}
+          </div>
+        )}
+        {loaded && !run && plan && !epic && sized && (
           <p className="text-sm text-gray-400">
             The AI follows your build prompt in the project&apos;s GitHub repo and opens a pull request.{" "}
             <Link href={`/projects/${projectId}/setup`} className="text-emerald-600 hover:underline">Open the setup guide</Link> if this project is not connected yet.

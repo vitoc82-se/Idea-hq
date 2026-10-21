@@ -182,7 +182,7 @@ export default async function GuidePage() {
         <H id="first">Your first AI change</H>
         <P>Start tiny, so you learn the loop cheaply. The practice idea (add one line to the README) is perfect.</P>
         <ol className="mt-3 space-y-2 text-gray-700 dark:text-gray-300 list-decimal pl-5">
-          <li>Add the idea, then click <b>Generate build prompt</b>. Read the plan it writes.</li>
+          <li>Add the idea. The AI needs to know how big it is before it may build it, so press <b>Estimate the build</b> (or set the <b>Effort</b> yourself). Then click <b>Generate build prompt</b> and read the plan it writes.</li>
           <li>Click <b>Implement</b>. You will see which AI model and effort it picked, and why. Leave it as it is for now.</li>
           <li>Click <b>Approve and run</b>. It takes a few minutes. The status moves from &quot;Starting&quot; to &quot;AI is working&quot; to &quot;PR ready for review&quot;, and you can watch a clock and the stage it is in.</li>
           <li>When it says <b>Build and tests passed</b>, open the pull request link and look at what changed.</li>
@@ -194,7 +194,7 @@ export default async function GuidePage() {
           <li><b>Big ideas:</b> click Break into stories. The AI splits it into small steps that build on each other. You build them one at a time, in order, and merge each before the next.</li>
           <li><b>Not quite right?</b> Use Request changes on the pull request and say what to adjust, in plain words. The AI updates the same proposal.</li>
           <li><b>Changed your mind after merging?</b> Use Revert this change. It creates a new proposal that undoes it, which you approve like any other.</li>
-          <li><b>AI model:</b> chosen automatically from the size of the idea. Small ideas use a cheap, fast model, big ones a stronger one, and an idea that has not been sized yet starts on the cheap one. You can change it before each run, and set a project to lean cheaper or stronger.</li>
+          <li><b>AI model:</b> chosen automatically from the size of the idea. Small ideas use a cheap, fast model, big ones a stronger one, and the AI will not build an idea until it has a size, so a small idea never starts on an expensive model by accident. You can change it before each run, and set a project to lean cheaper or stronger.</li>
           <li><b>Imported many ideas?</b> Press <b>Estimate them all</b> at the top of the board. Each idea gets its size one by one, and you can still estimate a single idea with its own button.</li>
           <li><b>Bugs:</b> when you add something, choose <b>A bug</b>. Say what happens, give the steps to reproduce it and how bad it is. The AI first tries to reproduce the problem with a test that fails, then fixes the cause. If it cannot reproduce it, it changes nothing and says so, and you get your run back. The more exact your steps, the better the fix. Use the type filter on the board to see only bugs, and <b>Most reported</b> to see which ones customers hit most.</li>
           <li><b>See it running:</b> if your hosting builds a preview of every pull request (Vercel, Netlify and Cloudflare Pages do), a <b>See it running</b> button appears next to the PR a minute or two after it opens. Open it to try the change before you merge. If it says &quot;No preview link yet&quot;, your host has not posted one (yet).</li>
