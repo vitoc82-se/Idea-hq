@@ -11,8 +11,21 @@ const HINTS: [RegExp, string][] = [
   [/check out/i, "GitHub could not check out the repo. Check that the Idea HQ app can still see it."],
 ];
 
-export function workflowFailureMessage(conclusion: string | null | undefined, step: string | null, url: string | null | undefined): string {
+const AI_STEP = /run claude code|run codex/i;
+
+// `outOfTurns`: the AI step failed and the run had used every turn it was given. That is not a key or credit
+// problem, so it gets its own message, with the number the next try will start with.
+export function workflowFailureMessage(
+  conclusion: string | null | undefined,
+  step: string | null,
+  url: string | null | undefined,
+  outOfTurns?: { cap: number; next: number } | null
+): string {
   const link = url || "the Actions tab";
+  if (outOfTurns && step && AI_STEP.test(step)) {
+    const more = outOfTurns.next > outOfTurns.cap ? ` Press Implement again: the next try starts with up to ${outOfTurns.next} turns.` : " This is already the most turns a run can have, so try a smaller idea or split it into stories.";
+    return `The AI used all ${outOfTurns.cap} turns it was given before it finished, so no pull request was opened.${more} Details: ${link}`;
+  }
   const what = conclusion === "cancelled" ? "was cancelled" : conclusion === "timed_out" ? "took too long and was stopped" : conclusion === "failure" || !conclusion ? "failed" : `ended as ${conclusion}`;
   const hint = step ? HINTS.find(([re]) => re.test(step))?.[1] : undefined;
   const where = step ? ` at the step "${step}"` : "";

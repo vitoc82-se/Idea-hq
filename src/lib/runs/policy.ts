@@ -52,6 +52,17 @@ export function recommendTier(
   return { ...tiers[index], index, reason: parts.join(", ") };
 }
 
+// A run that used every turn it was given did not break, it ran out. (Claude Code counts the closing turn too, so
+// "used as many as allowed or more".) Only meaningful for a run that failed.
+export function ranOutOfTurns(run: { turns?: number | null; maxTurns?: number | null }): boolean {
+  return typeof run.turns === "number" && typeof run.maxTurns === "number" && run.maxTurns > 0 && run.turns >= run.maxTurns;
+}
+
+// What the next try gets after a run ran out: about 70% more, up to the most a run may have.
+export function moreTurns(maxTurns: number): number {
+  return Math.min(MAX_TURNS_RANGE.max, Math.ceil(maxTurns * 1.7));
+}
+
 export type Override = { model?: unknown; effort?: unknown; maxTurns?: unknown };
 
 // Validate user choices against the allow-lists; anything missing or invalid

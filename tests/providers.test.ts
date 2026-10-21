@@ -184,7 +184,7 @@ describe("engine with the OpenAI provider", () => {
     const r = await startRun("u1", "i1", { gh });
     await approveRun("u1", r.id, { gh });
     expect(askedSecret).toBe("ANTHROPIC_API_KEY");
-    expect(inputs).toMatchObject({ provider: "claude", model: "claude-haiku-5-5", effort: "low", max_turns: "15", timeout_minutes: "30" });
+    expect(inputs).toMatchObject({ provider: "claude", model: "claude-haiku-5-5", effort: "low", max_turns: "30", timeout_minutes: "30" });
   });
 
   it("learn runs use the project's provider and its learn tier", async () => {
@@ -210,7 +210,7 @@ describe("rollout: repos still on workflow v3", () => {
     const r = await startRun("u1", "i1", { gh });
     await approveRun("u1", r.id, { gh });
     expect(Object.keys(inputs!).sort()).toEqual(["base", "branch", "effort", "max_turns", "model", "prompt", "run_id"]);
-    expect(inputs).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "15" });
+    expect(inputs).toMatchObject({ model: "claude-haiku-5-5", effort: "low", max_turns: "30" });
   });
 
   it("OpenAI on a v3 repo is refused with a clear 'update the workflow' message, nothing dispatched", async () => {
