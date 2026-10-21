@@ -112,3 +112,6 @@ Two jobs: `implement` (AI key, read-only repo token, shell sandbox via `CLAUDE_C
 
 ### Sessions (M1)
 Sessions are signed JWT cookies. `User.sessionVersion` is copied into the token at sign-in and checked on every session read (`assertSessionCurrent` in `src/lib/sessions.ts`, called from the `session` callback; a mismatch throws, so next-auth answers "no session" and clears the cookie). A password change and `POST /api/auth/revoke-sessions` ("Sign out on all devices" in Settings) bump it, which signs out every device. Older cookies without a number count as version 0 and keep working until the first bump. Change-password is rate limited (8 attempts per person and 30 per address per 15 minutes) and caps passwords at 72 bytes. `tests/session-revocation.test.ts`.
+
+### Service worker (M2)
+`public/sw.js` caches only public files (`/_next/static/`, `/icons/`, the manifest, `/offline.html`) and never pages or API data; a page request goes to the network and shows `/offline.html` when there is none. The cache name was bumped to `idea-hq-v2`, so the activate step deletes the old `idea-hq-v1` cache, which held signed-in pages. `tests/service-worker.test.ts` runs the worker against a fake browser.
