@@ -177,3 +177,46 @@ export function journeyFor(i: JourneyInput): JourneyView {
   };
 }
 
+
+// One line per idea on the board: which of the five stages it is in and what happens next. The same rules as the card
+// on the idea page (journeyFor), with the things the board does not load (the model, the plan limits) left out.
+export type BoardNext = {
+  stage: JourneyStage | null; // null: parked, not on the journey
+  stageLabel: string;
+  number: number; // 1 to 5, 0 when parked
+  next: string; // what comes next, in the card's own words
+  action: PrimaryAction | null; // the button the idea page would show; null while the AI or the checks are working
+};
+
+export type BoardInput = {
+  idea: { title?: string | null; complexity?: string | null; plan?: string | null; status: string };
+  run: { id?: string; status: string; kind?: string; checksState?: string | null } | null;
+  epic: { children: { id: string; status: string }[]; nextId: string | null } | null;
+  blockedBy?: string[];
+};
+
+export function boardNext(i: BoardInput): BoardNext {
+  if (i.idea.status === "parked") return { stage: null, stageLabel: "Parked", number: 0, next: "Not planned for now", action: null };
+  const view = journeyFor({
+    idea: i.idea,
+    run: i.run ? { id: i.run.id ?? "", kind: i.run.kind ?? "implement", ...i.run } : null,
+    epic: i.epic,
+    access: { aiBuild: true, needsPlan: false, capReached: null },
+    recommended: null, reportsCost: false, blockedBy: i.blockedBy,
+  });
+  const idx = JOURNEY_STAGES.findIndex((s) => s.id === view.stage);
+  const base = { stage: view.stage, stageLabel: JOURNEY_STAGES[idx].label, number: idx + 1 };
+  const labels: Partial<Record<PrimaryAction, string>> = { home: "Done" };
+  if (view.stage === "ship") return { ...base, next: "Done: merged", action: null };
+  // The AI cannot build it yet: say what it waits for, the way the card does.
+  if (view.blocked && /^Blocked by/.test(view.blocked)) return { ...base, next: view.blocked, action: null };
+  if (view.primary) return { ...base, next: labels[view.primary.action] ?? view.primary.label, action: view.primary.action };
+  if (view.stage === "build") return { ...base, next: "The AI is working on it", action: null };
+  if (view.stage === "review") return { ...base, next: "Your project's checks are running", action: null };
+  return { ...base, next: "Waiting for the other steps", action: null };
+}
+
+// An idea the AI can plan right now: sized and planned is what Build needs, and Plan it does both.
+export function wantsPlan(i: BoardInput): boolean {
+  return i.idea.status !== "parked" && boardNext({ ...i, blockedBy: [] }).action === "plan";
+}

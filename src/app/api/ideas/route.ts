@@ -38,7 +38,32 @@ export async function GET(request: Request) {
     orderBy: [{ createdAt: "desc" }],
     ...withProject,
   });
-  return NextResponse.json(ideas);
+  // Where each idea stands on the journey (see lib/runs/journey.ts): its latest build and, for one split into steps, the steps.
+  const ids = ideas.map((i) => i.id);
+  const [runs, kids] = ids.length
+    ? await Promise.all([
+        db.run.findMany({
+          where: { userId, ideaId: { in: ids }, kind: "implement" },
+          orderBy: { createdAt: "desc" },
+          distinct: ["ideaId"],
+          select: { ideaId: true, id: true, status: true, kind: true, checksState: true },
+        }),
+        db.idea.findMany({ where: { userId, parentId: { in: ids } }, orderBy: { createdAt: "asc" }, select: { id: true, parentId: true, status: true, blockedBy: true } }),
+      ])
+    : [[], []];
+  const runOf = new Map(runs.map((r) => [r.ideaId, { id: r.id, status: r.status, kind: r.kind, checksState: r.checksState }]));
+  return NextResponse.json(
+    ideas.map((i) => {
+      const own = kids.filter((k) => k.parentId === i.id);
+      const done = new Set(own.filter((k) => k.status === "done").map((k) => k.id));
+      const next = own.find((k) => k.status !== "done" && k.blockedBy.every((b) => done.has(b)));
+      return {
+        ...i,
+        latestRun: runOf.get(i.id) ?? null,
+        epic: own.length ? { children: own.map((k) => ({ id: k.id, status: k.status })), nextId: next?.id ?? null } : null,
+      };
+    })
+  );
 }
 
 export async function POST(request: Request) {
