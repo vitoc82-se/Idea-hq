@@ -47,6 +47,7 @@ import { KindBadge } from "./kind-badge";
 import { ReportsPanel } from "./reports-panel";
 import { RunPanel } from "./run-panel";
 import { effectiveSize } from "@/lib/runs/size";
+import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 
 export function IdeaDetail({
   initial,
@@ -386,8 +387,9 @@ export function IdeaDetail({
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           COMPLEXITY_STYLES[idea.complexity] || COMPLEXITY_STYLES.M
                         }`}
+                        title={`${sizeName(idea.complexity)}: ${sizeExpectation(idea.complexity)}`}
                       >
-                        {idea.complexity} effort
+                        {sizeName(idea.complexity)}
                       </span>
                     )}
                   </div>
@@ -714,6 +716,12 @@ export function IdeaDetail({
               </p>
             ) : idea.scope ? (
               <>
+                {idea.complexity && (
+                  <p className="mb-2 text-sm text-gray-900 dark:text-white">
+                    <b>{sizeName(idea.complexity)}</b>
+                    <span className="text-gray-700 dark:text-gray-300">: {sizeExpectation(idea.complexity)}</span>
+                  </p>
+                )}
                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {idea.scope}
                 </p>
@@ -725,8 +733,8 @@ export function IdeaDetail({
               </>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                No estimate yet. Run one to get complexity, value and a build
-                breakdown.
+                No estimate yet. Run one to get the size (turns, minutes and cost
+                for the AI), the value and what the build involves.
               </p>
             ))}
         </CardContent>
@@ -787,23 +795,23 @@ export function IdeaDetail({
                   {idea.plan}
                 </pre>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                  Copy this and paste it to Claude Code (or this chat) to build the
-                  feature — no edits needed.
+                  This is the brief Implement gives the AI. You can also paste it into
+                  Claude Code yourself; it has no git steps, so you handle those.
                   {idea.plannedAt &&
                     ` · Generated ${new Date(idea.plannedAt).toLocaleDateString()}`}
                 </p>
               </>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                Turn this idea (and its scope) into a self-contained prompt you can
-                paste straight into the coding agent to build it.
+                Turn this idea (and its scope) into a short brief for the AI that
+                builds it: the files to change, the checks to run and what done looks like.
               </p>
             ))}
         </CardContent>
       </Card>
 
       {/* Implement with AI (GitHub Actions) */}
-      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} onEstimate={runEstimate} estimating={estimating} />
+      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} size={effectiveSize(idea)} onEstimate={runEstimate} estimating={estimating} />
 
       {/* Danger zone */}
       <div className="flex justify-end">

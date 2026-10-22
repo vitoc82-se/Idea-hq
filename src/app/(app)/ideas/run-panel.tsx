@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RunProgress } from "./run-progress";
+import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 
 type Run = {
   id: string;
@@ -52,11 +53,11 @@ const STATUS_LABEL: Record<string, string> = {
 const BUSY = ["dispatched", "running"];
 
 export function RunPanel({
-  ideaId, projectId, plan, sized, onEstimate, estimating = false,
+  ideaId, projectId, plan, sized, size = null, onEstimate, estimating = false,
 }: {
   ideaId: string; projectId: string; plan: string | null;
   // sized: the idea has an Effort (from the estimate or set by hand). The AI only implements a sized idea.
-  sized: boolean; onEstimate?: () => void; estimating?: boolean;
+  sized: boolean; size?: string | null; onEstimate?: () => void; estimating?: boolean;
 }) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[]>([]);
@@ -183,7 +184,7 @@ export function RunPanel({
                 <li key={c.id} className="flex items-center gap-2">
                   <span className="w-5 text-xs text-gray-400">{i + 1}.</span>
                   <Link href={`/ideas/${c.id}`} className="text-emerald-600 hover:underline truncate">{c.title}</Link>
-                  <span className="text-xs text-gray-500 shrink-0">{c.complexity || ""} {c.status === "done" ? "done" : c.hasPlan ? "ready" : "needs build prompt"}</span>
+                  <span className="text-xs text-gray-500 shrink-0">{sizeName(c.complexity)} {c.status === "done" ? "done" : c.hasPlan ? "ready" : "needs build prompt"}</span>
                   {epic.nextId === c.id && <span className="text-xs px-1.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">next</span>}
                 </li>
               ))}
@@ -262,6 +263,11 @@ export function RunPanel({
                       <b>{label(tier.model)}</b>, {EFFORT_LABEL[tier.effort]} effort{prov?.supportsTurnCap === false ? "" : `, up to ${tier.maxTurns} turns`}
                       <span className="text-xs text-gray-500"> · chosen automatically: {rec.reason}</span>
                     </p>
+                    {size && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        A {sizeName(size)} idea is {sizeExpectation(size, { withCost: prov?.reportsCost !== false })}. The limit above is a safety ceiling, not what it should take.
+                      </p>
+                    )}
                     <button type="button" className="text-xs text-emerald-600 hover:underline" onClick={() => setChanging(!changing)}>
                       {changing ? "Hide options" : "Change model and effort"}
                     </button>

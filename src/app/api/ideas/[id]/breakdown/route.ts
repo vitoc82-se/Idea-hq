@@ -11,6 +11,7 @@ import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { projectPromptContext } from "@/lib/project-context";
 import type { Idea as IdeaRecord } from "@/generated/prisma/client";
 import { CAPS, ideaRoom } from "@/lib/caps";
+import { SIZE_GUIDE } from "@/lib/runs/size-guide";
 
 const COMPLEXITIES = ["S", "M", "L", "XL"];
 const IMPACTS = ["low", "medium", "high"];
@@ -162,6 +163,9 @@ Notes:
 ${fenced("idea-notes", idea.notes || "(none)")}
 AI scope estimate: ${idea.scope || "(not estimated)"}
 Overall effort: ${idea.complexity || "?"} · value: ${idea.impact || "?"}
+
+${SIZE_GUIDE}
+Size every story with that scale. A story should come out Quick or Standard; none should be an Epic.
 
 Return ONLY valid JSON, no other text:
 {

@@ -1,4 +1,5 @@
 // Shared constants + helpers for the Ideas board and detail pages.
+import { sizeOptionLabel } from "@/lib/runs/sizes";
 
 export interface Idea {
   id: string;
@@ -79,12 +80,8 @@ export const IMPACTS = [
   { value: "high", label: "High" },
 ];
 
-export const COMPLEXITIES = [
-  { value: "S", label: "S — a few hours" },
-  { value: "M", label: "M — about a day" },
-  { value: "L", label: "L — multi-day" },
-  { value: "XL", label: "XL — major effort" },
-];
+// What a size means for the AI (turns, minutes), not hours of human work. See lib/runs/sizes.ts.
+export const COMPLEXITIES = (["S", "M", "L", "XL"] as const).map((value) => ({ value, label: sizeOptionLabel(value) }));
 
 export const STATUS_STYLES: Record<string, string> = {
   new: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",

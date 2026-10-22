@@ -44,6 +44,7 @@ import {
   blockingIdeas,
   tagStyle,
 } from "./ideas-shared";
+import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 
 type SortKey = "newest" | "priority" | "effort" | "quickwins" | "reports";
 
@@ -483,8 +484,8 @@ export function IdeasBoard() {
                 {submitting ? "Saving..." : form.kind === "bug" ? "Save bug" : "Save idea"}
               </Button>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                After you save, the AI estimates complexity, value and
-                implementation scope in the background.
+                After you save, the AI sizes the idea (turns, minutes, cost),
+                judges its value and outlines the scope in the background.
               </p>
             </form>
           </CardContent>
@@ -665,10 +666,10 @@ export function IdeasBoard() {
               aria-label="Filter by effort"
             >
               <option value="all">Any effort</option>
-              <option value="S">S</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-              <option value="XL">XL</option>
+              <option value="S">{sizeName("S")}</option>
+              <option value="M">{sizeName("M")}</option>
+              <option value="L">{sizeName("L")}</option>
+              <option value="XL">{sizeName("XL")}</option>
             </Select>
             {allTags.length > 0 && (
               <Select
@@ -880,9 +881,9 @@ function IdeaRow({
                 className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   COMPLEXITY_STYLES[idea.complexity] || COMPLEXITY_STYLES.M
                 }`}
-                title="AI effort estimate"
+                title={`${sizeName(idea.complexity)}: ${sizeExpectation(idea.complexity)}`}
               >
-                {idea.complexity}
+                {sizeName(idea.complexity)}
               </span>
             )}
             {idea.tags.map((t) => (
@@ -1045,7 +1046,7 @@ function ValueEffortMatrix({ ideas }: { ideas: Idea[] }) {
                       className="block text-sm text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 truncate"
                     >
                       {i.title}{" "}
-                      <span className="text-xs text-gray-400">({i.complexity})</span>
+                      <span className="text-xs text-gray-400">({sizeName(i.complexity)})</span>
                     </Link>
                   ))
                 )}
