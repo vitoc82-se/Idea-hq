@@ -13,6 +13,7 @@ import {
 import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion, WORKFLOW_VERSION } from "./workflow";
 import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, suggestsStrongerModel, timeoutFor, type Override, type Tier } from "./policy";
 import { effectiveSize, SIZE_FIRST_MESSAGE } from "./size";
+import { closureNoteFor } from "./journey";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
@@ -417,7 +418,7 @@ async function finishMerged(
       data: {
         status: "done",
         closedAt: new Date(),
-        closureNote: `Shipped by Idea HQ in PR #${run.prNumber} (run ${run.id}).`,
+        closureNote: closureNoteFor((run as { agentNote?: string | null }).agentNote, run.prNumber, run.id),
       },
     });
   }

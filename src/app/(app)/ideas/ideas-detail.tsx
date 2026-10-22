@@ -46,6 +46,7 @@ import { Notice } from "@/components/notice";
 import { KindBadge } from "./kind-badge";
 import { ReportsPanel } from "./reports-panel";
 import { RunPanel } from "./run-panel";
+import { IdeaJourney } from "./idea-journey";
 import { effectiveSize } from "@/lib/runs/size";
 import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 
@@ -82,6 +83,8 @@ export function IdeaDetail({
   const [tagInput, setTagInput] = useState("");
   const [copied, setCopied] = useState(false);
   const [closureDraft, setClosureDraft] = useState(initial.closureNote || "");
+  // The journey card asks the stories section to propose a split (an Epic): each press counts up.
+  const [splitSignal, setSplitSignal] = useState(0);
 
   const saveClosure = () => {
     const v = closureDraft.trim();
@@ -126,40 +129,53 @@ export function IdeaDetail({
     [initial.id]
   );
 
-  const runEstimate = useCallback(async () => {
+  // Returns the updated idea, or the message to show when it did not work. `quiet`: the caller shows that message itself.
+  const runEstimate = useCallback(async (quiet = false): Promise<Idea | string> => {
     setEstimating(true);
+    let result: Idea | string;
     try {
       const res = await fetch(`/api/ideas/${initial.id}/estimate`, {
         method: "POST",
       });
-      if (res.ok) setIdea(await res.json());
-      else {
+      if (res.ok) {
+        const updated = await res.json();
+        setIdea(updated);
+        result = updated;
+      } else {
         const d = await res.json().catch(() => null);
-        setNotice(d?.error || "The estimate could not be made. Try again in a moment.");
+        result = d?.error || "The estimate could not be made. Try again in a moment.";
       }
     } catch {
-      setNotice("Could not reach Idea HQ to estimate this idea. Check your connection and try again.");
+      result = "Could not reach Idea HQ to estimate this idea. Check your connection and try again.";
     } finally {
       setEstimating(false);
     }
+    if (typeof result === "string" && !quiet) setNotice(result);
+    return result;
   }, [initial.id]);
 
-  const runPlan = useCallback(async () => {
+  const runPlan = useCallback(async (quiet = false): Promise<Idea | string> => {
     setPlanning(true);
+    let result: Idea | string;
     try {
       const res = await fetch(`/api/ideas/${initial.id}/plan`, {
         method: "POST",
       });
-      if (res.ok) setIdea(await res.json());
-      else {
+      if (res.ok) {
+        const updated = await res.json();
+        setIdea(updated);
+        result = updated;
+      } else {
         const d = await res.json().catch(() => null);
-        setNotice(d?.error || "The plan could not be made. Try again in a moment.");
+        result = d?.error || "The plan could not be made. Try again in a moment.";
       }
     } catch {
-      setNotice("Could not reach Idea HQ to make the plan. Check your connection and try again.");
+      result = "Could not reach Idea HQ to make the plan. Check your connection and try again.";
     } finally {
       setPlanning(false);
     }
+    if (typeof result === "string" && !quiet) setNotice(result);
+    return result;
   }, [initial.id]);
 
   const startEdit = () => {
@@ -487,6 +503,18 @@ export function IdeaDetail({
         </CardContent>
       </Card>
 
+      {/* The whole idea as one journey, with one button for the next step. The cards below still do everything it does. */}
+      <IdeaJourney
+        idea={idea}
+        onEstimate={() => runEstimate(true)}
+        onPlan={() => runPlan(true)}
+        onSplit={() => {
+          setSplitSignal((n) => n + 1);
+          document.getElementById("stories")?.scrollIntoView({ block: "center" });
+        }}
+        onSaveClosure={(text) => patch({ closureNote: text || null })}
+      />
+
       {/* Triage controls */}
       <Card>
         <CardContent className="p-5">
@@ -676,6 +704,7 @@ export function IdeaDetail({
           ideaId={initial.id}
           complexity={idea.complexity}
           initialChildren={childStories}
+          startSignal={splitSignal}
         />
       )}
 
@@ -695,7 +724,7 @@ export function IdeaDetail({
             <Button
               variant="ghost"
               size="sm"
-              onClick={runEstimate}
+              onClick={() => void runEstimate()}
               disabled={estimating}
             >
               {estimating ? (
@@ -763,7 +792,7 @@ export function IdeaDetail({
               <Button
                 variant={idea.plan ? "ghost" : "default"}
                 size="sm"
-                onClick={runPlan}
+                onClick={() => void runPlan()}
                 disabled={planning}
               >
                 {planning ? (
@@ -811,7 +840,7 @@ export function IdeaDetail({
       </Card>
 
       {/* Implement with AI (GitHub Actions) */}
-      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} size={effectiveSize(idea)} onEstimate={runEstimate} estimating={estimating} />
+      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} size={effectiveSize(idea)} onEstimate={() => void runEstimate()} estimating={estimating} />
 
       {/* Danger zone */}
       <div className="flex justify-end">

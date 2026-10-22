@@ -6,6 +6,8 @@ import { getProvider } from "@/lib/providers";
 import { buildAccess } from "@/lib/billing";
 import { capState, capMessage } from "@/lib/spend";
 import { effectiveSize } from "@/lib/runs/size";
+import { github } from "@/lib/github/client";
+import { requireRepoAccess } from "@/lib/github/access";
 
 const PUBLIC = {
   id: true, kind: true, status: true, env: true, baseBranch: true, branch: true, prNumber: true,
@@ -17,7 +19,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
-    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, title: true, complexity: true, project: { select: { aiProvider: true, name: true } } } });
+    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, title: true, complexity: true, project: { select: { aiProvider: true, aiBias: true, name: true } } } });
     if (!idea) return NextResponse.json({ error: "Idea not found" }, { status: 404 });
 
     // Epic: when the idea is split into stories, show them and which one is next.
@@ -58,12 +60,31 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       });
       if (full) recommended = await recommendForRun(full);
     }
+    // With no run waiting, the journey card still shows what a new run would use, so its Build button can say what it costs.
+    if (!recommended && idea.project) {
+      recommended = await recommendForRun({ ideaId: idea.id, userId: auth.userId, id: "preview", project: { aiBias: idea.project.aiBias, aiProvider: idea.project.aiProvider }, idea: { complexity: idea.complexity, title: idea.title } });
+    }
+    // When a pull request's checks failed: which ones, so the "fix it" request can name them.
+    let failingChecks: string[] = [];
+    const red = runs.find((r) => r.status === "pr_open" && r.checksState === "red" && r.kind === "implement");
+    if (red) {
+      try {
+        const full = await db.run.findFirst({ where: { id: red.id, userId: auth.userId }, include: { project: true } });
+        const p = full?.project;
+        if (p) await requireRepoAccess(p); // same rule as every other use of the project's repository
+        if (full?.headSha && p?.installationId && p.repoOwner && p.repoName) {
+          failingChecks = (await github.checkSummary(p.installationId, p.repoOwner, p.repoName, full.headSha, true)).failing.slice(0, 8).map((n) => n.slice(0, 80));
+        }
+      } catch {
+        failingChecks = [];
+      }
+    }
     const prov = getProvider(idea.project?.aiProvider);
     const access = await buildAccess(auth.userId);
     const cap = await capState(idea.projectId);
     return NextResponse.json({
       capReached: cap.reached ? capMessage(idea.project?.name ?? "this project", cap) : null, // a plain sentence when the monthly cap is used up
-      runs, recommended, epic,
+      runs, recommended, epic, failingChecks,
       aiBuild: access.ok || access.reason !== "off", // false: show a notice instead of the AI build buttons
       needsPlan: !access.ok && access.reason === "needs_plan", // paywall: no Pro and no credits left
       sized: !!effectiveSize(idea), // the AI only implements an idea that has a size

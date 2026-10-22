@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RunProgress } from "./run-progress";
+import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
 import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 
 type Run = {
@@ -101,6 +102,12 @@ export function RunPanel({
     load();
   }, [load]);
 
+  // The journey card above started, approved or cancelled something: look again.
+  useEffect(() => {
+    window.addEventListener(RUNS_CHANGED, load);
+    return () => window.removeEventListener(RUNS_CHANGED, load);
+  }, [load]);
+
   const run = runs[0];
   const needsPolling =
     !!run && (BUSY.includes(run.status) || (run.status === "pr_open" && run.checksState !== "green" && run.checksState !== "red"));
@@ -132,6 +139,7 @@ export function RunPanel({
     } finally {
       setBusy(null);
       load();
+      announceRunsChanged();
     }
   };
 
@@ -143,7 +151,7 @@ export function RunPanel({
   const label = (id: string) => models.find((m) => m.id === id)?.label ?? id;
 
   return (
-    <Card>
+    <Card id="implement-with-ai">
       <CardContent className="p-5 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
