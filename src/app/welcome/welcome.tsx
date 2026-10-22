@@ -12,18 +12,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SetupJourney } from "@/app/(app)/projects/[id]/setup/setup-journey";
-import { RunPanel } from "@/app/(app)/ideas/run-panel";
+import { IdeaJourney, type JourneyIdea } from "@/app/(app)/ideas/idea-journey";
+import { RUNS_CHANGED } from "@/app/(app)/ideas/run-events";
+import type { OnboardIdea } from "@/lib/onboarding";
 import { BacklogImport } from "@/components/backlog-import";
 import { Select } from "@/components/ui/select";
 import { PRACTICE_TITLE } from "@/lib/runs/practice";
-import { effectiveSize } from "@/lib/runs/size";
 
 type Step = { id: string; title: string; status: "done" | "todo" | "blocked" | "warn"; phase: string; detail?: string };
 type Onboarding = {
   approved: boolean; steps: Step[]; done: number; total: number; currentId: string | null;
   projectId: string | null; projectName: string | null;
-  idea: { id: string; title: string; plan: string | null; complexity: string | null } | null;
-  ideas: { id: string; title: string; plan: string | null; complexity: string | null }[];
+  idea: OnboardIdea | null;
+  ideas: OnboardIdea[];
   contextLength: number; shipped: boolean;
 };
 
@@ -116,6 +117,12 @@ export function Welcome({ name }: { name: string }) {
     if (res.ok) setOb(await res.json());
   }, []);
 
+  // The journey card started, approved or merged something: look at the whole journey again.
+  useEffect(() => {
+    window.addEventListener(RUNS_CHANGED, load);
+    return () => window.removeEventListener(RUNS_CHANGED, load);
+  }, [load]);
+
   useEffect(() => {
     load();
     const t = setInterval(load, 8000);
@@ -165,16 +172,20 @@ export function Welcome({ name }: { name: string }) {
     const j = await post("idea", "/api/ideas", { projectId: ob.projectId, title: ideaTitle, notes: ideaNotes });
     if (j) { setIdeaTitle(""); setIdeaNotes(""); load(); }
   };
-  const estimate = async () => {
-    if (!cur) return;
-    const j = await post("estimate", `/api/ideas/${cur.id}/estimate`);
-    if (j) load();
+  // The journey card asks for these. Each returns the updated idea, or the message to show, and refreshes the page's state.
+  const callIdea = async (url: string, method: string, body: unknown, fallback: string): Promise<JourneyIdea | string> => {
+    try {
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) return (j && typeof j.error === "string" && j.error) || fallback;
+      await load();
+      return j as JourneyIdea;
+    } catch {
+      return "Could not reach Idea HQ. Check your connection and try again.";
+    }
   };
-  const makePlan = async () => {
-    if (!cur) return;
-    const j = await post("plan", `/api/ideas/${cur.id}/plan`);
-    if (j) load();
-  };
+  const estimateIdea = () => callIdea(`/api/ideas/${cur!.id}/estimate`, "POST", undefined, "The estimate could not be made. Try again in a moment.");
+  const planIdea = () => callIdea(`/api/ideas/${cur!.id}/plan`, "POST", undefined, "The plan could not be made. Try again in a moment.");
 
   return (
     <div className="nb-skin nb-grid min-h-screen bg-gray-50 dark:bg-slate-900">
@@ -321,20 +332,22 @@ export function Welcome({ name }: { name: string }) {
                   ) : (
                     <p className="text-sm text-gray-700 dark:text-gray-200">Idea: <b>{cur.title}</b></p>
                   )}
-                  {!cur.plan ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-600 dark:text-gray-300">Next the AI writes a build prompt: a precise plan for this idea, using your project context. You read and approve it before anything runs.</p>
-                      <Button size="sm" onClick={makePlan} disabled={busy !== null}>
-                        {busy === "plan" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Generate the build prompt
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <details className="text-sm"><summary className="cursor-pointer text-gray-600 dark:text-gray-300">Read the build prompt</summary>
-                        <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-auto">{cur.plan}</pre>
-                      </details>
-                      <RunPanel key={cur.id} ideaId={cur.id} projectId={ob.projectId!} plan={cur.plan} sized={!!effectiveSize(cur)} size={effectiveSize(cur)} onEstimate={estimate} estimating={busy === "estimate"} />
-                    </>
+                  {/* The same journey card as on every idea page: Plan it, Build it, Merge. The setup steps above are unchanged. */}
+                  <IdeaJourney
+                    key={cur.id}
+                    idea={cur}
+                    allowAdjust={false}
+                    onEstimate={estimateIdea}
+                    onPlan={planIdea}
+                    onSplit={() => router.push(`/ideas/${cur.id}`)}
+                    onReveal={() => undefined}
+                    onSetSize={(value) => void callIdea(`/api/ideas/${cur.id}`, "PATCH", { complexity: value }, "Could not save the size.")}
+                    onSaveClosure={(text) => void callIdea(`/api/ideas/${cur.id}`, "PATCH", { closureNote: text || null }, "Could not save the note.")}
+                  />
+                  {cur.plan && (
+                    <details className="text-sm"><summary className="cursor-pointer text-gray-600 dark:text-gray-300">Read the build prompt</summary>
+                      <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-auto">{cur.plan}</pre>
+                    </details>
                   )}
                 </div>
               )}
@@ -344,7 +357,7 @@ export function Welcome({ name }: { name: string }) {
               <Card className="border-emerald-500/60">
                 <CardContent className="p-5 space-y-3">
                   <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><PartyPopper className="w-5 h-5 text-emerald-600" /> You shipped your first AI change</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">From here, the loop is: add an idea, let the AI estimate it, generate the build prompt, implement, review, merge. Each project has its own setup guide, and you can connect more projects any time.</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">From here, the loop is: add an idea, press Plan it, press Build it, review, merge. Each project has its own setup guide, and you can connect more projects any time.</p>
                   <Button onClick={finish} disabled={busy !== null}>Go to my ideas</Button>
                 </CardContent>
               </Card>

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Rocket, Loader2, GitPullRequest, ExternalLink, Check, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RunProgress } from "./run-progress";
 import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
@@ -53,22 +52,20 @@ const STATUS_LABEL: Record<string, string> = {
 
 const BUSY = ["dispatched", "running"];
 
+// Run options and history, folded into "Details and overrides" on the idea page. The journey card above starts runs,
+// shows their progress and merges them. This panel keeps what only it does: approving with a changed model or turn
+// limit, the latest run's status and the AI's note, revert, and the merge and progress of a revert (which the journey
+// card does not follow).
 export function RunPanel({
-  ideaId, projectId, plan, sized, size = null, onEstimate, estimating = false, compact = false,
+  ideaId, projectId, plan, size = null,
 }: {
-  ideaId: string; projectId: string; plan: string | null;
-  // sized: the idea has an Effort (from the estimate or set by hand). The AI only implements a sized idea.
-  sized: boolean; size?: string | null; onEstimate?: () => void; estimating?: boolean;
-  // compact: on the idea page, where the journey card above already starts runs, shows progress and merges. This panel
-  // then keeps what only it does: approving with changed model or turns, run history, the AI's note, and revert.
-  compact?: boolean;
+  ideaId: string; projectId: string; plan: string | null; size?: string | null;
 }) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [instruction, setInstruction] = useState("");
   const [rec, setRec] = useState<Rec | null>(null);
   const [models, setModels] = useState<ModelChoice[]>([]);
   const [efforts, setEfforts] = useState<string[]>(Object.keys(EFFORT_LABEL));
@@ -138,7 +135,6 @@ export function RunPanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) setError(data.error || "That step did not finish. Try again in a moment.");
-      else if (label === "revise") setInstruction("");
     } finally {
       setBusy(null);
       load();
@@ -147,9 +143,6 @@ export function RunPanel({
   };
 
   const prUrl = run?.prNumber && run.project.repoOwner ? `https://github.com/${run.project.repoOwner}/${run.project.repoName}/pull/${run.prNumber}` : null;
-  const ended = !run || ["merged", "closed", "failed", "cancelled"].includes(run.status);
-  const canStart = aiBuild && !needsPlan && !capReached && !epic && sized && ended;
-  const needsSize = !!plan && !sized && !epic && ended;
   const tier = pick ?? (rec ? { model: rec.model, effort: rec.effort, maxTurns: rec.maxTurns } : null);
   const label = (id: string) => models.find((m) => m.id === id)?.label ?? id;
 
@@ -159,32 +152,11 @@ export function RunPanel({
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
             <Rocket className="w-4 h-4 text-emerald-600" />
-            {compact ? "Run options and history" : "Implement with AI"}
+            Run options and history
           </span>
-          {canStart && !compact && (
-            <Button size="sm" disabled={!plan || busy !== null} onClick={() => act("start", `/api/ideas/${ideaId}/runs`)}>
-              {busy === "start" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
-              {run ? "Implement again" : "Implement"}
-            </Button>
-          )}
         </div>
 
-        {compact && loaded && !run && <p className="text-sm text-gray-600 dark:text-gray-400">No runs yet. Use the journey card above to build this idea.</p>}
-        {!compact && loaded && !aiBuild && (
-          <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
-            AI build is switched off for your account. Ask the owner.
-          </p>
-        )}
-        {!compact && loaded && aiBuild && capReached && (
-          <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
-            {capReached} <Link href="/projects" className="font-semibold text-emerald-800 underline dark:text-emerald-300">Open Projects</Link>
-          </p>
-        )}
-        {!compact && loaded && aiBuild && needsPlan && (
-          <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
-            AI build needs Pro or a runs pack. <Link href="/billing" className="font-semibold text-emerald-800 underline dark:text-emerald-300">Open Billing</Link>
-          </p>
-        )}
+        {loaded && !run && <p className="text-sm text-gray-600 dark:text-gray-400">No runs yet. Use the journey card above to build this idea.</p>}
 
         {epic && (
           <div className="space-y-2 text-sm">
@@ -205,26 +177,7 @@ export function RunPanel({
           </div>
         )}
 
-        {!plan && !epic && <p className="text-sm text-gray-400">Generate the build prompt first. It becomes the plan the AI follows.</p>}
-        {!compact && loaded && aiBuild && needsSize && (
-          <div role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
-            <p>
-              <b>Size this idea first.</b> The AI picks its model and its number of turns from the size, so a small change does not run on an expensive setup. Press <b>Estimate the build</b>, or set the <b>Effort</b> above yourself.
-            </p>
-            {onEstimate && (
-              <Button size="sm" variant="outline" className="mt-2" disabled={estimating} onClick={onEstimate}>
-                {estimating ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Estimate the build
-              </Button>
-            )}
-          </div>
-        )}
-        {!compact && loaded && !run && plan && !epic && sized && (
-          <p className="text-sm text-gray-400">
-            The AI follows your build prompt in the project&apos;s GitHub repo and opens a pull request.{" "}
-            <Link href={`/projects/${projectId}/setup`} className="text-emerald-600 hover:underline">Open the setup guide</Link> if this project is not connected yet.
-          </p>
-        )}
-
+        {!plan && !epic && <p className="text-sm text-gray-400">There is no plan yet. Press Plan it in the journey card above.</p>}
         {run && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -261,7 +214,7 @@ export function RunPanel({
               )}
             </div>
 
-            {!compact && BUSY.includes(run.status) && <RunProgress key={run.id + (run.startedAt ?? "")} runId={run.id} startedAt={run.startedAt ?? run.createdAt} />}
+            {run.kind === "revert" && BUSY.includes(run.status) && <RunProgress key={run.id + (run.startedAt ?? "")} runId={run.id} startedAt={run.startedAt ?? run.createdAt} />}
 
             {aiBuild && !needsPlan && !capReached && run.status === "awaiting_approval" && plan && (
               <div className="space-y-2">
@@ -328,43 +281,29 @@ export function RunPanel({
               </Button>
             )}
 
-            {!compact && run.status === "pr_open" && (
+            {run.kind === "revert" && run.status === "pr_open" && (
               <div className="space-y-3">
                 <p className="text-sm flex items-center gap-1.5">
                   {run.checksState === "green" ? (
                     <><Check className="w-4 h-4 text-emerald-600" /> Build and tests passed</>
                   ) : run.checksState === "red" ? (
-                    <><AlertTriangle className="w-4 h-4 text-red-500" /> Checks failed. Request a change or close the PR.</>
+                    <><AlertTriangle className="w-4 h-4 text-red-500" /> The revert&apos;s checks failed. Close the PR.</>
                   ) : (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Waiting for checks…</>
                   )}
-                  {run.project.autoMerge && run.kind === "implement" && <span className="text-xs text-gray-500">· auto-merges when green</span>}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
-                    disabled={busy !== null || (run.kind !== "revert" && run.checksState !== "green") || run.checksState === "red"}
+                    disabled={busy !== null || run.checksState === "red"}
                     onClick={() => act("merge", `/api/runs/${run.id}/merge`)}
                   >
-                    {busy === "merge" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Approve and merge
+                    {busy === "merge" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Merge the revert
                   </Button>
                   <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => act("cancel", `/api/runs/${run.id}/cancel`)}>
                     Close PR
                   </Button>
                 </div>
-                {aiBuild && run.kind !== "revert" && (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={instruction}
-                      onChange={(e) => setInstruction(e.target.value)}
-                      placeholder="Request a change, e.g. use the existing Button component and add a test for the empty state"
-                      className="min-h-[70px] text-sm"
-                    />
-                    <Button size="sm" variant="outline" disabled={busy !== null || !instruction.trim()} onClick={() => act("revise", `/api/runs/${run.id}/revise`, { instruction })}>
-                      {busy === "revise" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Request changes
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
 

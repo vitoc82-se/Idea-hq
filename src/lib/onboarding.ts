@@ -7,6 +7,17 @@ import { type GitHubApi } from "@/lib/github/client";
 // 1 approval -> 2 project -> 3-7 repo setup -> 8 context -> 9 idea -> 10 plan
 // -> 11 run -> 12 shipped.
 
+
+// What the journey card on the welcome page needs to know about an idea (see app/(app)/ideas/idea-journey.tsx).
+export type OnboardIdea = {
+  id: string; title: string; plan: string | null; complexity: string | null;
+  scope: string | null; status: string; closureNote: string | null; closedAt: string | null;
+};
+const toOnboardIdea = (i: { id: string; title: string; plan: string | null; complexity: string | null; scope: string | null; status: string; closureNote: string | null; closedAt: Date | null }): OnboardIdea => ({
+  id: i.id, title: i.title, plan: i.plan ?? null, complexity: i.complexity ?? null,
+  scope: i.scope ?? null, status: i.status, closureNote: i.closureNote ?? null, closedAt: i.closedAt ? i.closedAt.toISOString() : null,
+});
+
 export type OnboardStatus = "done" | "todo" | "blocked" | "warn";
 export type OnboardStep = { id: string; title: string; status: OnboardStatus; phase: string; detail?: string };
 
@@ -20,9 +31,9 @@ export type Onboarding = {
   projectId: string | null;
   projectName: string | null;
   ideaId: string | null;
-  idea: { id: string; title: string; plan: string | null; complexity: string | null } | null;
+  idea: OnboardIdea | null;
   // Every idea of the project (newest first), so a user who imported a backlog can pick where to start.
-  ideas: { id: string; title: string; plan: string | null; complexity: string | null }[];
+  ideas: OnboardIdea[];
   contextLength: number;
   shipped: boolean;
 };
@@ -84,26 +95,26 @@ export async function getOnboarding(
   add("context", "Teach the AI about your project", "Teach the AI", ctxLen >= MIN_CONTEXT_CHARS ? "done" : gate(prevDone()),
     ctxLen >= MIN_CONTEXT_CHARS ? undefined : "A short description of what the project is and how it is built. The AI can draft it from your repo.");
 
-  let idea: { id: string; title: string; plan: string | null; complexity: string | null } | null = null;
-  let allIdeas: { id: string; title: string; plan: string | null; complexity: string | null }[] = [];
+  let idea: OnboardIdea | null = null;
+  let allIdeas: OnboardIdea[] = [];
   let runs: { status: string; prNumber: number | null; ideaId: string | null }[] = [];
   if (project) {
     const ideas = await db.idea.findMany({ where: { userId, projectId: project.id }, orderBy: { createdAt: "desc" } });
     runs = await db.run.findMany({ where: { userId, projectId: project.id, kind: "implement" } });
-    allIdeas = ideas.filter((i) => i.status !== "done").slice(0, 40).map((i) => ({ id: i.id, title: i.title, plan: i.plan ?? null, complexity: i.complexity ?? null }));
+    allIdeas = ideas.filter((i) => i.status !== "done").slice(0, 40).map(toOnboardIdea);
     const withRun = ideas.find((i) => runs.some((r) => r.ideaId === i.id));
     const pick = withRun ?? ideas.find((i) => i.status !== "done") ?? ideas[0];
-    if (pick) idea = { id: pick.id, title: pick.title, plan: pick.plan ?? null, complexity: pick.complexity ?? null };
+    if (pick) idea = toOnboardIdea(pick);
   }
   const ideaRuns = idea ? runs.filter((r) => r.ideaId === idea!.id) : [];
 
   add("idea", "Add your first idea", "Your first AI change", idea ? "done" : gate(prevDone()), idea?.title);
-  add("plan", "Generate the build prompt", "Your first AI change", idea?.plan ? "done" : gate(prevDone()),
-    idea?.plan ? undefined : "The AI turns your idea into a precise plan you can read and approve.");
+  add("plan", "Plan the idea", "Your first AI change", idea?.plan ? "done" : gate(prevDone()),
+    idea?.plan ? undefined : "The AI sizes your idea and writes a precise plan you can read before anything is built.");
   const ran = ideaRuns.some((r) => r.prNumber);
-  add("run", "Implement it with AI", "Your first AI change", ran ? "done" : ideaRuns.some((r) => r.status === "failed") ? "warn" : gate(prevDone()));
+  add("run", "Build it with AI", "Your first AI change", ran ? "done" : ideaRuns.some((r) => r.status === "failed") ? "warn" : gate(prevDone()));
   const shipped = ideaRuns.some((r) => r.status === "merged");
-  add("shipped", "Review and merge the pull request", "Your first AI change", shipped ? "done" : gate(prevDone()));
+  add("shipped", "Review and merge the change", "Your first AI change", shipped ? "done" : gate(prevDone()));
 
   const done = steps.filter((s) => s.status === "done").length;
   const current = steps.find((s) => s.status !== "done");

@@ -39,7 +39,7 @@ describe("the Guide names things the way the app does", () => {
   const LABELS = [
     "Set up this project", "Project knowledge", "Connect GitHub", "Read my repo and describe it", "This looks right",
     "Quick draft from my repo", "Learn deeply in my GitHub", "Answer a few questions", "This is right", "Looks right, confirm all", "Save a copy in my repo",
-    "Update the workflow", "Update workflow", "Generate build prompt", "Implement", "Implement again", "Approve and run", "Approve and merge", "Request changes", "Revert this change", "Cancel run",
+    "Update the workflow", "Update workflow", "Generate build prompt", "Try again", "Approve and run", "Merge the revert", "Revert this change", "Cancel run",
     "Break into stories", "Estimate them all", "See it running", "No preview link yet", "Build and tests passed", "What the AI said",
     "Most reported", "Quick wins first", "Value / effort", "Quick wins", "Big bets", "Fill-ins", "Time sinks", "Ideas and bugs", "Blocked by",
     "Import ideas", "Monthly cap", "Focus", "Billing", "Upgrade", "Settings", "Your data", "Download my data", "Delete my account", "Sign out on all devices",

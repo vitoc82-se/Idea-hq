@@ -15,6 +15,9 @@ import { RunProgress } from "./run-progress";
 import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
 import { COMPLEXITIES, type Idea } from "./ideas-shared";
 
+// What the card needs to know about the idea. The idea page and the welcome pages both have at least this much.
+export type JourneyIdea = Pick<Idea, "id" | "title" | "complexity" | "plan" | "scope" | "status" | "closureNote" | "closedAt">;
+
 type JRun = {
   id: string; kind: string; status: string; checksState: string | null; prNumber: number | null; previewUrl?: string | null;
   agentNote?: string | null; costUsd: number | null; turns: number | null; error: string | null; createdAt: string; startedAt?: string | null;
@@ -39,16 +42,17 @@ async function call(url: string, body?: unknown): Promise<{ ok: boolean; json: R
 // The idea page as one journey: Describe, Plan, Build, Review, Ship, with one button for the next step. It sits above
 // the older cards (triage, stories, scope, build prompt, run panel), which still do everything it does and more.
 export function IdeaJourney({
-  idea, onEstimate, onPlan, onSplit, onReveal, onSetSize, blockedBy = [], onSaveClosure,
+  idea, onEstimate, onPlan, onSplit, onReveal, onSetSize, blockedBy = [], onSaveClosure, allowAdjust = true,
 }: {
-  idea: Idea;
-  onEstimate: () => Promise<Idea | string>;
-  onPlan: () => Promise<Idea | string>;
+  idea: JourneyIdea;
+  onEstimate: () => Promise<JourneyIdea | string>;
+  onPlan: () => Promise<JourneyIdea | string>;
   onSplit: () => void;
   onReveal: (id: string) => void; // open the folded details and bring one part into view
   onSetSize: (value: string) => void; // the person sets the size by hand
   blockedBy?: string[];
   onSaveClosure: (text: string) => void;
+  allowAdjust?: boolean; // the welcome pages leave out "Adjust model and turns"; the idea page offers it
 }) {
   const [data, setData] = useState<Data | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -105,7 +109,7 @@ export function IdeaJourney({
   const doPlan = async (force = false) => {
     setBusy("plan"); setError(null);
     try {
-      let current: Idea = idea;
+      let current: JourneyIdea = idea;
       if (!effectiveSize(current)) {
         setStep("Sizing the idea…");
         const r = await onEstimate();
@@ -255,7 +259,7 @@ export function IdeaJourney({
             )}
             {view.primary && ["build", "approve"].includes(view.primary.action) && (
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                {buildExpectation(null, data?.recommended ?? null, reportsCost)}. That limit is a safety ceiling, not what it should take. The full brief is in the AI build prompt card below.
+                {buildExpectation(null, data?.recommended ?? null, reportsCost)}. That limit is a safety ceiling, not what it should take. You can read the full plan in the build prompt.
               </p>
             )}
           </div>
@@ -328,7 +332,7 @@ export function IdeaJourney({
         {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         {view.blocked && <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">{view.blocked}</p>}
 
-        {(view.primary || view.secondary.length > 0) && (
+        {(view.primary || view.secondary.some((s) => allowAdjust || s.action !== "adjust")) && (
           <div className="flex flex-wrap items-center gap-2">
             {view.primary?.action === "nextStep" && data?.epic?.nextId ? (
               <Link href={`/ideas/${data.epic.nextId}`} className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-700 px-4 text-sm font-medium text-white hover:bg-emerald-800">{view.primary.label}</Link>
@@ -340,7 +344,7 @@ export function IdeaJourney({
                 {view.primary.label}
               </Button>
             ) : null}
-            {view.secondary.map((s) => (
+            {view.secondary.filter((s) => allowAdjust || s.action !== "adjust").map((s) => (
               <Button key={s.action} variant={s.action === "closePr" ? "ghost" : "outline"} size="sm" disabled={busy !== null} onClick={() => runSecondary(s.action)}>
                 {s.label}
               </Button>
