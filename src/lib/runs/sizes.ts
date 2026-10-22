@@ -2,13 +2,15 @@ import type { Size } from "./size";
 
 // How big an idea is, in terms of what the AI has to do (not what a human developer would need). The four stored
 // values S, M, L and XL stay; these are the names people see and what each size typically costs the AI. The ranges
-// are starting values from the first real runs, to be replaced by each person's own history once there is some:
-// the README practice run took 8 turns and $0.01, a four-file change $0.21, a ten-file one $0.74.
+// are starting values from real runs, to be replaced by each person's own history once there is some. Measured on
+// Haiku: two small changes took 7 and 7 to 14 turns, about half a cent each, 4 to 5 minutes (about 2 of them the AI,
+// the rest installing, building and testing twice); the README practice run 8 turns and $0.01; a four-file change
+// $0.21 and a ten-file one $0.74. Standard and Large are not yet measured.
 export const SIZE_NAMES: Record<Size, string> = { S: "Quick", M: "Standard", L: "Large", XL: "Epic" };
 
 type Range = readonly [number, number];
 export const SIZE_PROFILE: Record<Size, { turns: Range; minutes: Range; usd: Range; what: string }> = {
-  S: { turns: [5, 15], minutes: [3, 8], usd: [0.01, 0.1], what: "one or two files" },
+  S: { turns: [5, 15], minutes: [4, 8], usd: [0.01, 0.05], what: "one or two files" },
   M: { turns: [15, 35], minutes: [6, 15], usd: [0.1, 0.6], what: "a handful of files" },
   L: { turns: [30, 60], minutes: [12, 30], usd: [0.5, 2.5], what: "a new feature across the app" },
   XL: { turns: [60, 100], minutes: [25, 45], usd: [2, 8], what: "more than one run can safely do" },

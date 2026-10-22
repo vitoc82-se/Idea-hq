@@ -122,7 +122,7 @@ export default async function GuidePage() {
           {[
             ["Project", "One product or codebase of yours, like \"My webshop\". Ideas belong to a project."],
             ["Idea", "Something you want to change or add, written in plain words."],
-            ["Size", "How much work an idea is for the AI: Quick (5 to 15 turns, 3 to 8 minutes, $0.01 to $0.10), Standard (15 to 35 turns, 6 to 15 minutes, $0.10 to $0.60), Large (30 to 60 turns, 12 to 30 minutes, $0.50 to $2.50) or Epic (too big for one run: split it into steps first). These are typical ranges; real runs vary."],
+            ["Size", "How much work an idea is for the AI: Quick (5 to 15 turns, 4 to 8 minutes, $0.01 to $0.05), Standard (15 to 35 turns, 6 to 15 minutes, $0.10 to $0.60), Large (30 to 60 turns, 12 to 30 minutes, $0.50 to $2.50) or Epic (too big for one run: split it into steps first). These are typical ranges; real runs vary."],
             ["Build prompt", "The short brief the AI follows for an idea: which files to change, which checks to run, and what done looks like. It has no git steps, because the workflow does those."],
             ["GitHub", "The website where your project's code is stored. Think of it as cloud storage for code that remembers every change."],
             ["Repo (repository)", "Your project's folder on GitHub."],

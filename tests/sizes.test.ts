@@ -26,10 +26,10 @@ describe("sizes are measured in what the AI has to do", () => {
     }
   });
   it("says turns, minutes and cost, and tells an Epic to be split", () => {
-    expect(sizeExpectation("S")).toBe("typically 5 to 15 turns, 3 to 8 minutes, $0.01 to $0.10");
+    expect(sizeExpectation("S")).toBe("typically 5 to 15 turns, 4 to 8 minutes, $0.01 to $0.05");
     expect(sizeExpectation("M")).toBe("typically 15 to 35 turns, 6 to 15 minutes, $0.10 to $0.60");
     expect(sizeExpectation("L")).toBe("typically 30 to 60 turns, 12 to 30 minutes, $0.50 to $2.5");
-    expect(sizeExpectation("S", { withCost: false })).toBe("typically 5 to 15 turns, 3 to 8 minutes");
+    expect(sizeExpectation("S", { withCost: false })).toBe("typically 5 to 15 turns, 4 to 8 minutes");
     expect(sizeExpectation("XL")).toMatch(/split it into steps first/);
   });
   it("the typical turns of each size fit under the turn limit its model tier gets, with room to spare", () => {
