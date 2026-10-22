@@ -182,6 +182,9 @@ export default async function GuidePage() {
 
         <H id="first">Your first AI change</H>
         <P>Start tiny, so you learn the loop cheaply. The practice idea (add one line to the README) is perfect.</P>
+        <P>
+          At the top of every idea is a card with five stages: <b>Describe</b>, <b>Plan</b>, <b>Build</b>, <b>Review</b> and <b>Ship</b>. It always has one main button for the next step. <b>Plan it</b> sizes the idea and writes the plan for you. <b>Build it</b> shows what the build typically costs and takes, and pressing it is your approval to start. While the AI works you see its progress. When it is done, <b>Merge</b> puts the change into your project. If the checks fail, <b>Ask the AI to fix it</b> sends the AI back with the failing checks already filled in. For an Epic, <b>Split it into steps</b> breaks it up first. The cards below the journey card, and the steps that follow, do the same things one by one.
+        </P>
         <ol className="mt-3 space-y-2 text-gray-700 dark:text-gray-300 list-decimal pl-5">
           <li>Add the idea. The AI needs to know how big it is before it may build it, so press <b>Estimate the build</b> (or set the <b>Effort</b> yourself). Then click <b>Generate build prompt</b> and read the plan it writes.</li>
           <li>Click <b>Implement</b>. You will see which AI model and effort it picked, and why. Leave it as it is for now.</li>

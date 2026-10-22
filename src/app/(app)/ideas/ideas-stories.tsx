@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Layers, Loader2, X, Plus, ChevronRight, ClipboardList } from "lucide-react";
@@ -37,10 +37,13 @@ export function StoriesSection({
   ideaId,
   complexity,
   initialChildren,
+  startSignal = 0,
 }: {
   ideaId: string;
   complexity: string | null;
   initialChildren: StoryChild[];
+  // Counts up each time something outside (the journey card) asks for a split to be proposed.
+  startSignal?: number;
 }) {
   const router = useRouter();
   const [children, setChildren] = useState<StoryChild[]>(initialChildren);
@@ -75,6 +78,16 @@ export function StoriesSection({
       setLoading(false);
     }
   };
+
+  // Something outside asked for a split to be proposed (the journey card's "Split it into steps").
+  const lastSignal = useRef(startSignal);
+  useEffect(() => {
+    if (startSignal !== lastSignal.current) {
+      lastSignal.current = startSignal;
+      void propose();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startSignal]);
 
   const commit = async () => {
     const stories = drafts
@@ -122,7 +135,7 @@ export function StoriesSection({
     setDrafts((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
 
   return (
-    <Card>
+    <Card id="stories">
       <CardContent className="p-5 space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">

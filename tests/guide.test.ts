@@ -45,7 +45,7 @@ describe("the Guide names things the way the app does", () => {
     "Import ideas", "Monthly cap", "Focus", "Billing", "Upgrade", "Settings", "Your data", "Download my data", "Delete my account", "Sign out on all devices",
     "Turn on support", "Draft notes from my project knowledge", "Add it for me", "Check my site", "Track this", "Turn into a bug", "Add to an existing one", "Write an entry by hand",
     "Show a public What's new page", "Confirm my email", "Send the email again", "Waiting for approval", "Starting", "AI is working", "PR ready for review",
-    "Confirmed with GitHub", "The AI works on the change"
+    "Confirmed with GitHub", "The AI works on the change", "Plan it", "Build it", "Ask the AI to fix it", "Split it into steps", "Merge", "Closing note", "Describe", "Ship",
   ];
   it("every label it quotes is on a screen of the app", async () => {
     const html = await text();
