@@ -25,6 +25,9 @@ export interface Idea {
   severity: string | null; // bugs only
   repro: string | null; // bugs only: steps to reproduce
   createdAt: string;
+  // From the ideas list only: the latest build and, for an idea split into steps, the steps (for the stage line on the board).
+  latestRun?: { id: string; status: string; kind: string; checksState: string | null } | null;
+  epic?: { children: { id: string; status: string }[]; nextId: string | null } | null;
 }
 
 // A project this hub tracks ideas for.
