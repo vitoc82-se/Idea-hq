@@ -21,7 +21,7 @@ export const STAGES: { id: StageId; label: string }[] = [
 
 const IGNORED = /^(post |complete job)/i;
 
-function stageOf(job: string, step: string): StageId | null {
+export function stageOf(job: string, step: string): StageId | null {
   if (IGNORED.test(step)) return null;
   if (/push branch|report result/i.test(step)) return "save";
   if (/verify|apply the ai/i.test(step)) return "test";
