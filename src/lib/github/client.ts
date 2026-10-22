@@ -39,6 +39,9 @@ export type PrComment = { author: string; bot: boolean; body: string };
 export type GhStep = { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null };
 export type GhJob = { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null; steps: GhStep[] };
 
+// What a pull request changes, for the owner's review: per file and in total.
+export type GhPrChanges = { files: { name: string; additions: number; deletions: number }[]; totalFiles: number; additions: number; deletions: number; truncated: boolean };
+
 // A workflow run as the Actions API reports it (just what reconciling needs).
 export type GhWorkflowRun = { id: number; status: string; conclusion: string | null; htmlUrl: string | null; createdAt: string | null };
 
@@ -57,6 +60,7 @@ export interface GitHubApi {
   listTree(i: number, owner: string, repo: string, ref: string): Promise<{ paths: string[]; truncated: boolean }>;
   commitsAhead(i: number, owner: string, repo: string, fromSha: string, toRef: string): Promise<number | null>;
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
+  prChanges(i: number, owner: string, repo: string, n: number): Promise<GhPrChanges>;
   listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
   failedStep(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
   runJobs(i: number, owner: string, repo: string, ghRunId: string): Promise<GhJob[]>;
@@ -280,6 +284,17 @@ export const github: GitHubApi = {
   async listPrFiles(i, owner, repo, n) {
     const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
     return (j || []).map((f) => f.filename);
+  },
+  async prChanges(i, owner, repo, n) {
+    const j = await call<{ filename: string; additions: number; deletions: number }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
+    const files = (j || []).map((f) => ({ name: String(f.filename), additions: Number(f.additions) || 0, deletions: Number(f.deletions) || 0 }));
+    return {
+      files,
+      totalFiles: files.length,
+      additions: files.reduce((a, f) => a + f.additions, 0),
+      deletions: files.reduce((a, f) => a + f.deletions, 0),
+      truncated: files.length >= 100, // GitHub's page size: there may be more
+    };
   },
   async runNote(i, owner, repo, ghRunId) {
     const j = await call<{ jobs: { id: number }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=5`, undefined, [404]);

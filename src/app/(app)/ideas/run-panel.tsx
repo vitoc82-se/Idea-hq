@@ -230,7 +230,7 @@ export function RunPanel({
                     </p>
                     {size && (
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        A {sizeName(size)} idea is {sizeExpectation(size, { withCost: prov?.reportsCost !== false })}. The limit above is a safety ceiling, not what it should take.
+                        A {sizeName(size)} idea is {sizeExpectation(size, { withCost: prov?.reportsCost !== false, withTurns: true })}. The limit above is a safety ceiling, not what it should take.
                       </p>
                     )}
                     <button type="button" className="text-xs text-emerald-600 hover:underline" onClick={() => setChanging(!changing)}>

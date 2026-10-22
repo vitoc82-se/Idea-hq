@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { effectiveSize } from "@/lib/runs/size";
 import { SIZE_NAMES, sizeExpectation } from "@/lib/runs/sizes";
 import { historyLine, type SizeHistory } from "@/lib/runs/history";
-import { JOURNEY_STAGES, buildExpectation, fixChecksRequest, journeyFor, type PrimaryAction, type Rec, type SecondaryAction } from "@/lib/runs/journey";
+import { JOURNEY_STAGES, fixChecksRequest, journeyFor, type PrimaryAction, type Rec, type SecondaryAction } from "@/lib/runs/journey";
 import { RunProgress } from "./run-progress";
 import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
 import { COMPLEXITIES, type Idea } from "./ideas-shared";
@@ -22,13 +22,19 @@ export type JourneyIdea = Pick<Idea, "id" | "title" | "complexity" | "plan" | "s
 type JRun = {
   id: string; kind: string; status: string; checksState: string | null; prNumber: number | null; previewUrl?: string | null;
   agentNote?: string | null; costUsd: number | null; turns: number | null; error: string | null; createdAt: string; startedAt?: string | null;
+  baseBranch?: string | null; stageMs?: { total?: number } | null; parentRunId?: string | null;
   project: { repoOwner: string | null; repoName: string | null };
 };
+// What the open pull request changes: the biggest files, and the totals.
+type Changes = { files: { name: string; additions: number; deletions: number }[]; more: number; totalFiles: number; additions: number; deletions: number; truncated: boolean };
 type Data = {
   runs: JRun[]; recommended: Rec | null; epic: { children: { id: string; status: string }[]; nextId: string | null } | null;
-  aiBuild: boolean; needsPlan: boolean; capReached: string | null; failingChecks: string[]; history?: SizeHistory;
+  aiBuild: boolean; needsPlan: boolean; capReached: string | null; failingChecks: string[]; changes?: Changes | null; history?: SizeHistory;
   provider: { reportsCost: boolean } | null;
 };
+
+// "about 6 minutes" from the milliseconds the workflow took; empty when unknown.
+const minutesText = (ms: number | null | undefined) => (ms && ms > 0 ? `about ${Math.max(1, Math.round(ms / 60000))} minute${Math.round(ms / 60000) <= 1 ? "" : "s"}` : "");
 
 async function call(url: string, body?: unknown): Promise<{ ok: boolean; json: Record<string, unknown>; error: string | null }> {
   try {
@@ -89,6 +95,7 @@ export function IdeaJourney({
   }, [load]);
 
   const run = data?.runs.find((r) => r.kind === "implement") ?? null;
+  const revert = data?.runs.find((r) => r.kind === "revert") ?? null;
   const waiting = run?.status === "awaiting_approval" ? run : null;
   const busyRun = !!run && ["dispatched", "running"].includes(run.status);
   const checking = run?.status === "pr_open" && run.checksState !== "green" && run.checksState !== "red";
@@ -180,14 +187,18 @@ export function IdeaJourney({
   };
 
   const act = async (label: string, url: string, body?: unknown) => {
+    let revealed = false;
     setBusy(label); setError(null);
     try {
       const r = await call(url, body);
       if (!r.ok) setError(r.error);
       else if (label === "revise") { setAsking(false); setRequest(""); }
+      else if (label === "revert") revealed = true;
     } finally {
       await finish();
     }
+    // The revert is a pull request of its own, waiting under Details and overrides: bring it into view.
+    if (revealed) onReveal("implement-with-ai");
   };
 
   const runPrimary = (a: PrimaryAction) => {
@@ -272,7 +283,7 @@ export function IdeaJourney({
             )}
             {view.primary && ["build", "approve"].includes(view.primary.action) && (
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                {data?.recommended ? `${buildExpectation(null, data.recommended, reportsCost)}. That limit is a safety ceiling, not what it should take. ` : ""}You can read the full plan in the build prompt.
+                {allowAdjust ? "The model, effort and turn limit are under Adjust model and turns. " : ""}You can read the full plan in the build prompt.
               </p>
             )}
           </div>
@@ -293,8 +304,26 @@ export function IdeaJourney({
                   See it running <ExternalLink className="h-3 w-3" aria-hidden="true" />
                 </a>
               )}
-              {run.costUsd != null && <span className="text-xs text-gray-600 dark:text-gray-400">${run.costUsd.toFixed(2)}{run.turns != null ? ` · ${run.turns} turns` : ""}</span>}
+              {(run.costUsd != null || run.stageMs?.total) && (
+                <span className="text-xs text-gray-600 dark:text-gray-400">{[run.costUsd != null ? `$${run.costUsd.toFixed(2)}` : "", minutesText(run.stageMs?.total).replace("about ", "")].filter(Boolean).join(" · ")}</span>
+              )}
             </div>
+            {data?.changes && data.changes.totalFiles > 0 && (
+              <div data-testid="what-changed">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  What changed: {data.changes.totalFiles}{data.changes.truncated ? "+" : ""} file{data.changes.totalFiles === 1 ? "" : "s"}, <span className="text-emerald-700 dark:text-emerald-400">+{data.changes.additions}</span> <span className="text-red-700 dark:text-red-400">−{data.changes.deletions}</span>
+                </p>
+                <ul className="mt-1 space-y-0.5 text-xs text-gray-700 dark:text-gray-300">
+                  {data.changes.files.map((f) => (
+                    <li key={f.name} className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 break-all">{f.name}</span>
+                      <span className="shrink-0 tabular-nums"><span className="text-emerald-700 dark:text-emerald-400">+{f.additions}</span> <span className="text-red-700 dark:text-red-400">−{f.deletions}</span></span>
+                    </li>
+                  ))}
+                  {data.changes.more > 0 && <li>and {data.changes.more} more{prUrl ? <> (<a href={`${prUrl}/files`} target="_blank" rel="noreferrer" className="text-emerald-700 underline dark:text-emerald-400">see every line on GitHub</a>)</> : null}</li>}
+                </ul>
+              </div>
+            )}
             {run.agentNote && (
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">What the AI said</p>
@@ -320,11 +349,31 @@ export function IdeaJourney({
 
         {view.stage === "ship" && (
           <div className="space-y-2 text-sm">
-            {run?.status === "merged" && (run.turns != null || run.costUsd != null) && (
+            {run?.status === "merged" && (run.costUsd != null || run.stageMs?.total) && (
               <p className="text-gray-700 dark:text-gray-300">
-                This took {run.turns != null ? `${run.turns} turns` : "an unknown number of turns"}{run.costUsd != null ? ` and $${run.costUsd.toFixed(2)}` : ""}
+                This took {[minutesText(run.stageMs?.total), run.costUsd != null ? `$${run.costUsd.toFixed(2)}` : ""].filter(Boolean).join(" and ")}
                 {size ? `. A ${SIZE_NAMES[size]} idea is ${sizeExpectation(size, { withCost: reportsCost })}.` : "."}
               </p>
+            )}
+            {allowAdjust && run?.status === "merged" && run.kind === "implement" && (
+              <div className="rounded-lg border border-gray-300 p-3 dark:border-gray-600" data-testid="undo">
+                {!revert || ["closed", "cancelled", "failed"].includes(revert.status) ? (
+                  <>
+                    <p className="font-medium text-gray-900 dark:text-white">Changed your mind?</p>
+                    <p className="mt-0.5 text-gray-700 dark:text-gray-300">Revert this change opens a new pull request that undoes it. Nothing is undone until you merge that one.</p>
+                    <Button className="mt-2" size="sm" variant="outline" disabled={busy !== null} onClick={() => act("revert", `/api/runs/${run.id}/revert`)}>
+                      {busy === "revert" ? <Loader2 className="mr-1 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}Revert this change
+                    </Button>
+                  </>
+                ) : revert.status === "merged" ? (
+                  <p className="text-gray-700 dark:text-gray-300">This change was reverted.</p>
+                ) : (
+                  <>
+                    <p className="text-gray-700 dark:text-gray-300">A revert is waiting for you. Merge it to undo this change.</p>
+                    <Button className="mt-2" size="sm" variant="outline" onClick={() => onReveal("implement-with-ai")}>Open the revert</Button>
+                  </>
+                )}
+              </div>
             )}
             <label htmlFor="journey-closure" className="flex items-baseline justify-between gap-2 font-medium text-gray-900 dark:text-white">
               Closing note
@@ -354,6 +403,12 @@ export function IdeaJourney({
         )}
         {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         {view.blocked && <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">{view.blocked}</p>}
+
+        {view.primary?.action === "merge" && run && (
+          <p className="text-xs text-gray-600 dark:text-gray-400" data-testid="merge-explained">
+            Merge puts this change into {run.baseBranch ? <b>{run.baseBranch}</b> : "your main branch"}{run.project.repoOwner ? <> of {run.project.repoOwner}/{run.project.repoName}</> : null}. If your host deploys when that branch changes, your live site updates. You can undo it afterwards with Revert this change.
+          </p>
+        )}
 
         {(view.primary || view.secondary.some((s) => allowAdjust || s.action !== "adjust")) && (
           <div className="flex flex-wrap items-center gap-2">
