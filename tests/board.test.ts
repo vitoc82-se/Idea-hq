@@ -9,7 +9,7 @@ process.env.NEXTAUTH_SECRET = "test-secret-test-secret-test-secret";
 
 import { db, resetDb } from "./pg";
 import { GET as listIdeas } from "@/app/api/ideas/route";
-import { boardNext, wantsPlan, type BoardInput } from "@/lib/runs/journey";
+import { boardNext, needsYou, needsYouRank, wantsPlan, type BoardInput } from "@/lib/runs/journey";
 import { planBatch, MAX_PER_PRESS } from "@/app/(app)/ideas/plan-batch";
 import type { Idea } from "@/app/(app)/ideas/ideas-shared";
 
@@ -166,7 +166,7 @@ describe("what the board shows", () => {
   const board = read("src/app/(app)/ideas/ideas-board.tsx");
   it("each row has the stage and the next step, and the old estimate-only prompts are gone", () => {
     expect(board).toMatch(/data-testid="idea-next"/);
-    expect(board).toMatch(/boardNext\(\{ idea, run: idea\.latestRun/);
+    expect(board).toMatch(/boardNext\(\{ idea: i, run: i\.latestRun/);
     expect(board).not.toMatch(/Estimate them all|not estimated, estimate now/);
   });
   it("Plan them all covers the ideas the filters show, and a press is capped", () => {
@@ -176,7 +176,7 @@ describe("what the board shows", () => {
   });
   it("building and merging stay on the idea page: the row only links there", () => {
     expect(board).not.toMatch(/\/api\/ideas\/[^"']*\/runs|startRun|approveRun/);
-    expect(board).toMatch(/Next: \{step\.next\}/);
+    expect(board).toMatch(/<Link href=\{`\/ideas\/\$\{idea\.id\}`\} className=\{NEXT_ACTION\}>\{step\.next\}/);
   });
   it("the import page points at the new button", () => {
     expect(read("src/components/backlog-import.tsx")).toMatch(/Plan them all/);
@@ -193,5 +193,70 @@ describe("the polls and the list are cheap", () => {
     expect(route).toMatch(/take: 1/);
     expect(route).not.toMatch(/distinct:/);
     expect(route).not.toMatch(/ideaId: \{ in: ids \}/);
+  });
+});
+
+describe("Needs you", () => {
+  const next = (over: Partial<BoardInput>) => boardNext(input(over));
+  const idea = (status = "new", complexity: string | null = "S", plan: string | null = "A brief") => ({ title: "x", complexity, plan, status });
+
+  it("counts a finished change, failed checks, a failed run, an approval and a build ready to start", () => {
+    expect(needsYou(next({ run: { status: "pr_open", checksState: "green" } }))).toBe(true);
+    expect(needsYou(next({ run: { status: "pr_open", checksState: "red" } }))).toBe(true);
+    expect(needsYou(next({ run: { status: "failed" } }))).toBe(true);
+    expect(needsYou(next({ run: { status: "awaiting_approval" } }))).toBe(true);
+    expect(needsYou(next({}))).toBe(true); // planned and sized: ready to build
+    expect(needsYou(next({ idea: idea("new", "XL", null) }))).toBe(true); // an Epic to split
+  });
+
+  it("leaves out whatever is not waiting for the owner", () => {
+    expect(needsYou(next({ run: { status: "running" } }))).toBe(false);
+    expect(needsYou(next({ run: { status: "pr_open", checksState: "pending" } }))).toBe(false);
+    expect(needsYou(next({ run: { status: "merged" } }))).toBe(false);
+    expect(needsYou(next({ idea: idea("done") }))).toBe(false);
+    expect(needsYou(next({ idea: idea("parked") }))).toBe(false);
+    expect(needsYou(next({ blockedBy: ["Login"] }))).toBe(false); // cannot be built yet
+    expect(needsYou(next({ idea: idea("new", null, null) }))).toBe(false); // planning is Plan them all's job
+  });
+
+  it("orders by urgency: merge, then failed checks, failed run, approval, build, split", () => {
+    const rank = (o: Partial<BoardInput>) => needsYouRank(next(o));
+    const order = [
+      rank({ run: { status: "pr_open", checksState: "green" } }),
+      rank({ run: { status: "pr_open", checksState: "red" } }),
+      rank({ run: { status: "failed" } }),
+      rank({ run: { status: "awaiting_approval" } }),
+      rank({}),
+      rank({ idea: idea("new", "XL", null) }),
+    ];
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(new Set(order).size).toBe(order.length);
+    expect(rank({ run: { status: "running" } })).toBeGreaterThan(order[order.length - 1]);
+  });
+
+  it("the board has the chip, filters with it, and sorts by it", () => {
+    const board = read("src/app/(app)/ideas/ideas-board.tsx");
+    expect(board).toMatch(/label=\{needsYouCount === 1 \? "needs you" : "need you"\}/);
+    expect(board).toMatch(/if \(needsOnly && !needsYou\(nextById\.get\(i\.id\)!\)\) return false;/);
+    expect(board).toMatch(/needsYouRank\(nextById\.get\(a\.id\)!\)/);
+    expect(board).toMatch(/setNeedsOnly\(false\)/); // Clear resets it too
+  });
+});
+
+describe("one story for status and stage", () => {
+  it("the stored value stays 'building', and people read 'In progress'", async () => {
+    const { STATUSES, statusLabel } = await import("@/app/(app)/ideas/ideas-shared");
+    expect(STATUSES.map((s) => s.value)).toEqual(["new", "considering", "building", "done", "parked"]);
+    expect(statusLabel("building")).toBe("In progress");
+    expect(STATUSES.map((s) => s.label)).not.toContain("Building");
+  });
+  it("a parked row does not repeat 'Parked' as a stage chip as well as in the status", () => {
+    const board = read("src/app/(app)/ideas/ideas-board.tsx");
+    expect(board).toMatch(/\{step\.stage && \(\s*<span className="rounded-full border/);
+  });
+  it("the next step is a real button: 44px on touch, in the accent colour, and says which idea to a screen reader", () => {
+    const board = read("src/app/(app)/ideas/ideas-board.tsx");
+    expect(board).toMatch(/const NEXT_ACTION =\s*"[^"]*min-h-11[^"]*bg-emerald-700[^"]*\[@media\(pointer:coarse\)\]:min-h-11"/);
+    expect(board).toMatch(/className=\{NEXT_ACTION\}>Plan it<span className="sr-only">: \{idea\.title\}/);
   });
 });
