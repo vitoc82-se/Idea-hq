@@ -17,7 +17,7 @@ test("the Light and Dark switch changes the page and is remembered", async ({ pa
 test("the app's screens load in both themes without an error", async ({ page }) => {
   for (const theme of ["light", "dark"]) {
     await page.addInitScript((t) => { try { localStorage.setItem("ideahq-theme", t); } catch { /* private window */ } }, theme);
-    for (const url of ["/ideas", "/ideas/ready", "/focus", "/projects"]) {
+    for (const url of ["/ideas", "/ideas/ready", "/focus", "/projects", "/guide"]) {
       await page.goto(url);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.locator("main, [role=main], h1").first()).toBeVisible();
@@ -25,8 +25,7 @@ test("the app's screens load in both themes without an error", async ({ page }) 
   }
 });
 
-// The public pages as a visitor sees them. (Signed in, the Guide sometimes hydrates twice under heavy load: see TODOS.md.)
-test("the public pages load in both themes without an error", async ({ browser }) => {
+test("the public pages, signed out, load in both themes without an error", async ({ browser }) => {
   for (const theme of ["light", "dark"]) {
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await context.newPage();

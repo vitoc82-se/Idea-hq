@@ -20,13 +20,15 @@ test("an idea page fits a phone in every stage", async ({ page }) => {
   }
 });
 
-// The public pages as a visitor sees them. (Signed in, the Guide sometimes hydrates twice under heavy load: see TODOS.md.)
-test.describe("signed out", () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-  test("the Guide and the start page fit a phone", async ({ page }) => {
-    for (const url of ["/guide", "/"]) {
-      await page.goto(url);
-      expect(await noSideScroll(page), url).toBe(true);
-    }
-  });
+test("the Guide fits a phone, signed in and signed out, and so does the start page", async ({ page, browser }) => {
+  await page.goto("/guide");
+  await expect(page.getByRole("link", { name: "Open the app" })).toBeVisible(); // the browser's session has loaded
+  expect(await noSideScroll(page), "/guide signed in").toBe(true);
+  const visitor = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: page.viewportSize() ?? undefined, isMobile: true, hasTouch: true });
+  const guest = await visitor.newPage();
+  for (const url of ["/guide", "/"]) {
+    await guest.goto(url);
+    expect(await noSideScroll(guest), `${url} signed out`).toBe(true);
+  }
+  await visitor.close();
 });
