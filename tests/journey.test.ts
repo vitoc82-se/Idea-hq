@@ -93,6 +93,17 @@ describe("the journey: which stage and what the one button does", () => {
     expect(view({ access: { aiBuild: true, needsPlan: false, capReached: "Monthly cap reached." } })).toMatchObject({ primary: null, blocked: "Monthly cap reached." });
     expect(view({ idea: { title: "x", complexity: null, plan: null, status: "new" }, access: { aiBuild: false, needsPlan: true, capReached: "cap" } }).primary).toMatchObject({ action: "plan" });
   });
+  it("an idea waiting on others cannot be built, says which, and can still be planned", () => {
+    const v = view({ blockedBy: ["Add accounts"] });
+    expect(v).toMatchObject({ stage: "plan", primary: null, blocked: 'Blocked by "Add accounts". Finish it first.' });
+    expect(v.secondary.map((s) => s.action)).toEqual(["replan"]); // no point adjusting a run that cannot start
+    expect(view({ blockedBy: ["A", "B"] }).blocked).toBe('Blocked by "A", "B". Finish them first.');
+    expect(view({ blockedBy: ["A", "B", "C", "D", "E"] }).blocked).toBe('Blocked by "A", "B", "C" and 2 more. Finish them first.');
+    expect(view({ blockedBy: [], idea: { ...base.idea, plan: null } })).toMatchObject({ primary: { action: "plan" } });
+    expect(view({ blockedBy: ["A"], idea: { ...base.idea, plan: null } })).toMatchObject({ primary: { action: "plan" }, blocked: null });
+    expect(view({ blockedBy: ["A"], run: run("awaiting_approval") }).primary).toBeNull();
+    expect(view({ blockedBy: ["A"], access: { aiBuild: false, needsPlan: false, capReached: null } }).blocked).toMatch(/switched off/); // access comes first
+  });
   it("the practice idea counts as sized", () => {
     expect(view({ idea: { title: "Practice: add a one-line note to the README", complexity: null, plan: "x", status: "new" } })).toMatchObject({ stage: "plan", primary: { action: "build" } });
   });
@@ -126,7 +137,7 @@ describe("the text the journey writes", () => {
 
 describe("the journey card", () => {
   const idea = { id: "i1", projectId: "p1", parentId: null, title: "Add a footer", notes: null, status: "new", priority: "none", tags: [], blockedBy: [], complexity: null, impact: null, scope: null, aiEstimatedAt: null, plan: null, plannedAt: null, closureNote: null, closedAt: null, kind: "idea", severity: null, repro: null, createdAt: "2026-10-22" } as Idea;
-  const html = renderToStaticMarkup(createElement(IdeaJourney, { idea, onEstimate: async () => idea, onPlan: async () => idea, onSplit() {}, onSaveClosure() {} }));
+  const html = renderToStaticMarkup(createElement(IdeaJourney, { idea, onEstimate: async () => idea, onPlan: async () => idea, onSplit() {}, onReveal() {}, onSetSize() {}, onSaveClosure() {} }));
   it("shows the five stages with the current one marked, and a phone line", () => {
     for (const l of ["Describe", "Plan", "Build", "Review", "Ship"]) expect(html).toContain(l);
     expect(html).toContain('aria-current="step"');
@@ -136,12 +147,58 @@ describe("the journey card", () => {
   it("offers Plan it for a new idea", () => {
     expect(html).toMatch(/<button[^>]*>[^<]*(<svg[^>]*>.*?<\/svg>)?Plan it<\/button>/);
   });
-  it("sits above the older cards on the idea page, which are all still there", () => {
+  it("is the main thing on the idea page: priority and value sit in the top card, the older cards are folded into Details", () => {
     const page = read("src/app/(app)/ideas/ideas-detail.tsx");
     const at = (s: string) => page.indexOf(s);
     expect(at("<IdeaJourney")).toBeGreaterThan(0);
-    expect(at("<IdeaJourney")).toBeLessThan(at("{/* Triage controls */}"));
-    for (const s of ["<StoriesSection", "Implementation scope", "AI build prompt", "<RunPanel"]) expect(at(s), s).toBeGreaterThan(at("<IdeaJourney"));
+    // top card first: priority and value are editable there
+    expect(at('id="idea-priority"')).toBeGreaterThan(0);
+    expect(at('id="idea-value"')).toBeGreaterThan(0);
+    expect(at('id="idea-value"')).toBeLessThan(at("<IdeaJourney"));
+    // then the journey, then one folded row holding everything else
+    expect(at('aria-controls="idea-details"')).toBeGreaterThan(at("<IdeaJourney"));
+    expect(page).toMatch(/aria-expanded=\{detailsOpen\}/);
+    expect(page).toContain('hidden={!detailsOpen}'); // folded, not unmounted: stories and runs keep their state
+    for (const s of ['id="idea-status"', "Dependencies", "<StoriesSection", "Implementation scope", "AI build prompt", "<RunPanel compact", "Delete idea"]) {
+      expect(at(s), s).toBeGreaterThan(at('aria-controls="idea-details"'));
+    }
+  });
+  it("no longer has the Triage card or a second closing-note box; nothing else was lost", () => {
+    const page = read("src/app/(app)/ideas/ideas-detail.tsx");
+    expect(page).not.toMatch(/>\s*Triage\s*</);
+    expect(page).not.toContain("{/* Closure note */}");
+    expect(page).not.toContain("closureDraft");
+    expect(page).toContain("onSaveClosure={(text) => patch({ closureNote: text || null })}");
+    expect(page).toContain("onSetSize={(value) => patch({ complexity: value })}");
+  });
+  it("opens the folded details by itself for an Epic, and when the journey sends people into them", () => {
+    const page = read("src/app/(app)/ideas/ideas-detail.tsx");
+    expect(page).toMatch(/useState\(\(\) => childStories\.length > 0 \|\| initial\.complexity === "XL"\)/);
+    expect(page).toMatch(/const reveal = \(id: string\) => \{\s*setDetailsOpen\(true\)/);
+    expect(page).toContain("onReveal={reveal}");
+    const journey = read("src/app/(app)/ideas/idea-journey.tsx");
+    expect(journey).toContain('onReveal("implement-with-ai")');
+    expect(journey).not.toContain("scrollIntoView");
+  });
+  it("the run panel on the idea page keeps only what the journey does not do", () => {
+    const panel = read("src/app/(app)/ideas/run-panel.tsx");
+    for (const hidden of ["!compact && BUSY.includes(run.status) && <RunProgress", '!compact && run.status === "pr_open"', "canStart && !compact", "!compact && loaded && aiBuild && needsSize"]) {
+      expect(panel, hidden).toContain(hidden);
+    }
+    // approval with changed model or turns, revert and the AI's note are not hidden
+    expect(panel).toContain("Change model and effort");
+    expect(panel).toContain("Revert this change");
+    expect(panel).not.toMatch(/!compact && [^\n]*Revert this change/);
+    expect(read("src/app/welcome/welcome.tsx")).not.toContain("<RunPanel compact"); // the welcome journey still uses the full panel
+  });
+  it("looks again at what a new run would use when the size changes", () => {
+    expect(read("src/app/(app)/ideas/idea-journey.tsx")).toContain("useEffect(() => { load(); }, [load, idea.complexity]);");
+  });
+  it("lets the person set the size by hand in the journey card", () => {
+    const html = renderToStaticMarkup(createElement(IdeaJourney, { idea, onEstimate: async () => idea, onPlan: async () => idea, onSplit() {}, onReveal() {}, onSetSize() {}, onSaveClosure() {} }));
+    expect(html).toContain('id="journey-size"');
+    expect(html).toContain("Not sized yet");
+    for (const label of ["Quick: 5 to 15 turns", "Standard: 15 to 35 turns", "Large: 30 to 60 turns", "Epic: split it first"]) expect(html).toContain(label);
   });
   it("the stories section and run panel listen for it", () => {
     expect(read("src/app/(app)/ideas/ideas-stories.tsx")).toContain("startSignal");

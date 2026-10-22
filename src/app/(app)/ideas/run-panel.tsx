@@ -54,11 +54,14 @@ const STATUS_LABEL: Record<string, string> = {
 const BUSY = ["dispatched", "running"];
 
 export function RunPanel({
-  ideaId, projectId, plan, sized, size = null, onEstimate, estimating = false,
+  ideaId, projectId, plan, sized, size = null, onEstimate, estimating = false, compact = false,
 }: {
   ideaId: string; projectId: string; plan: string | null;
   // sized: the idea has an Effort (from the estimate or set by hand). The AI only implements a sized idea.
   sized: boolean; size?: string | null; onEstimate?: () => void; estimating?: boolean;
+  // compact: on the idea page, where the journey card above already starts runs, shows progress and merges. This panel
+  // then keeps what only it does: approving with changed model or turns, run history, the AI's note, and revert.
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[]>([]);
@@ -156,9 +159,9 @@ export function RunPanel({
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
             <Rocket className="w-4 h-4 text-emerald-600" />
-            Implement with AI
+            {compact ? "Run options and history" : "Implement with AI"}
           </span>
-          {canStart && (
+          {canStart && !compact && (
             <Button size="sm" disabled={!plan || busy !== null} onClick={() => act("start", `/api/ideas/${ideaId}/runs`)}>
               {busy === "start" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
               {run ? "Implement again" : "Implement"}
@@ -166,17 +169,18 @@ export function RunPanel({
           )}
         </div>
 
-        {loaded && !aiBuild && (
+        {compact && loaded && !run && <p className="text-sm text-gray-600 dark:text-gray-400">No runs yet. Use the journey card above to build this idea.</p>}
+        {!compact && loaded && !aiBuild && (
           <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
             AI build is switched off for your account. Ask the owner.
           </p>
         )}
-        {loaded && aiBuild && capReached && (
+        {!compact && loaded && aiBuild && capReached && (
           <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
             {capReached} <Link href="/projects" className="font-semibold text-emerald-800 underline dark:text-emerald-300">Open Projects</Link>
           </p>
         )}
-        {loaded && aiBuild && needsPlan && (
+        {!compact && loaded && aiBuild && needsPlan && (
           <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
             AI build needs Pro or a runs pack. <Link href="/billing" className="font-semibold text-emerald-800 underline dark:text-emerald-300">Open Billing</Link>
           </p>
@@ -202,7 +206,7 @@ export function RunPanel({
         )}
 
         {!plan && !epic && <p className="text-sm text-gray-400">Generate the build prompt first. It becomes the plan the AI follows.</p>}
-        {loaded && aiBuild && needsSize && (
+        {!compact && loaded && aiBuild && needsSize && (
           <div role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">
             <p>
               <b>Size this idea first.</b> The AI picks its model and its number of turns from the size, so a small change does not run on an expensive setup. Press <b>Estimate the build</b>, or set the <b>Effort</b> above yourself.
@@ -214,7 +218,7 @@ export function RunPanel({
             )}
           </div>
         )}
-        {loaded && !run && plan && !epic && sized && (
+        {!compact && loaded && !run && plan && !epic && sized && (
           <p className="text-sm text-gray-400">
             The AI follows your build prompt in the project&apos;s GitHub repo and opens a pull request.{" "}
             <Link href={`/projects/${projectId}/setup`} className="text-emerald-600 hover:underline">Open the setup guide</Link> if this project is not connected yet.
@@ -257,7 +261,7 @@ export function RunPanel({
               )}
             </div>
 
-            {BUSY.includes(run.status) && <RunProgress key={run.id + (run.startedAt ?? "")} runId={run.id} startedAt={run.startedAt ?? run.createdAt} />}
+            {!compact && BUSY.includes(run.status) && <RunProgress key={run.id + (run.startedAt ?? "")} runId={run.id} startedAt={run.startedAt ?? run.createdAt} />}
 
             {aiBuild && !needsPlan && !capReached && run.status === "awaiting_approval" && plan && (
               <div className="space-y-2">
@@ -324,7 +328,7 @@ export function RunPanel({
               </Button>
             )}
 
-            {run.status === "pr_open" && (
+            {!compact && run.status === "pr_open" && (
               <div className="space-y-3">
                 <p className="text-sm flex items-center gap-1.5">
                   {run.checksState === "green" ? (
