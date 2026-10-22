@@ -15,6 +15,7 @@ import {
   tagStyle,
   isQuickWin,
 } from "./ideas-shared";
+import { sizeName } from "@/lib/runs/sizes";
 
 // A simple drag-and-drop kanban: columns are statuses; dropping a card in a
 // column changes its status. Uses native HTML5 drag events (no library).
@@ -132,7 +133,7 @@ export function KanbanBoard({
                           COMPLEXITY_STYLES[idea.complexity] || COMPLEXITY_STYLES.M
                         }`}
                       >
-                        {idea.complexity}
+                        {sizeName(idea.complexity)}
                       </span>
                     )}
                     {idea.tags.slice(0, 2).map((t) => (

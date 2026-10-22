@@ -109,7 +109,7 @@ export default async function GuidePage() {
         <H id="loop">The big picture</H>
         <ol className="mt-3 space-y-2 text-gray-700 dark:text-gray-300 list-decimal pl-5">
           <li><b>You write an idea.</b> Plain words are fine.</li>
-          <li><b>The AI estimates it.</b> A rough size: small, medium, large or extra large.</li>
+          <li><b>The AI sizes it.</b> Quick, Standard, Large or Epic, by the work the AI has to do (turns, minutes and cost), not by how long a person would need.</li>
           <li><b>The AI writes a plan</b> (called the build prompt). You can read and approve it.</li>
           <li><b>The AI builds it</b> in a safe copy of your project, and runs your checks.</li>
           <li><b>You review the result</b> as a &quot;pull request&quot; (a proposed change you can read).</li>
@@ -122,7 +122,8 @@ export default async function GuidePage() {
           {[
             ["Project", "One product or codebase of yours, like \"My webshop\". Ideas belong to a project."],
             ["Idea", "Something you want to change or add, written in plain words."],
-            ["Build prompt", "The plan the AI follows for an idea. It is written for you to read."],
+            ["Size", "How much work an idea is for the AI: Quick (5 to 15 turns, 4 to 8 minutes, $0.01 to $0.05), Standard (15 to 35 turns, 6 to 15 minutes, $0.10 to $0.60), Large (30 to 60 turns, 12 to 30 minutes, $0.50 to $2.50) or Epic (too big for one run: split it into steps first). These are typical ranges; real runs vary."],
+            ["Build prompt", "The short brief the AI follows for an idea: which files to change, which checks to run, and what done looks like. It has no git steps, because the workflow does those."],
             ["GitHub", "The website where your project's code is stored. Think of it as cloud storage for code that remembers every change."],
             ["Repo (repository)", "Your project's folder on GitHub."],
             ["Branch", "A separate copy of your project to try changes in, so the real one stays untouched. \"main\" is usually the real one."],
@@ -209,7 +210,7 @@ export default async function GuidePage() {
           <li><b>One thing per idea.</b> &quot;Add a search box to the ideas page&quot; is better than &quot;improve the ideas page&quot;.</li>
           <li><b>Say what done looks like.</b> &quot;When I type in the box, the list shows only matching ideas.&quot;</li>
           <li><b>Mention what to leave alone</b> if it matters. &quot;Do not change the sign-in page.&quot;</li>
-          <li><b>Too big?</b> If the estimate says large or extra large, break it into stories first. Smaller steps are cheaper and fail less.</li>
+          <li><b>Too big?</b> If the size says Large or Epic, break it into stories first. Smaller steps are cheaper and fail less. An Epic is better split than built in one go; you can still build it as one if you choose.</li>
         </UL>
 
         <P>
@@ -244,7 +245,7 @@ export default async function GuidePage() {
 
         <H id="cost">What it costs</H>
         <P>
-          Two things cost money, and they are separate. The AI work itself is billed by Anthropic to the API key you add to your repo: small changes cost cents, a medium change a few tens of cents, bigger ones more, and stronger models cost more per step. Separately, Idea HQ may ask you to pay for <b>AI build</b> (the Implement and Learn deeply buttons), once the owner switches payments on.
+          Two things cost money, and they are separate. The AI work itself is billed by Anthropic to the API key you add to your repo: a Quick change costs cents, a Standard one tens of cents, a Large one a dollar or two, and stronger models cost more per step. Each idea shows what its size typically costs before you approve a run. Separately, Idea HQ may ask you to pay for <b>AI build</b> (the Implement and Learn deeply buttons), once the owner switches payments on.
         </P>
         <UL>
           <li><b>Free:</b> you can always add projects and ideas, and use the quick helper steps (estimates, plans, project description), up to a daily limit.</li>

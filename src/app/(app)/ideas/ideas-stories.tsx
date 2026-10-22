@@ -16,6 +16,7 @@ import {
   COMPLEXITY_STYLES,
   statusLabel,
 } from "./ideas-shared";
+import { sizeName } from "@/lib/runs/sizes";
 
 type ProposedStory = {
   title: string;
@@ -174,7 +175,7 @@ export function StoriesSection({
                       COMPLEXITY_STYLES[c.complexity] || COMPLEXITY_STYLES.M
                     }`}
                   >
-                    {c.complexity}
+                    {sizeName(c.complexity)}
                   </span>
                 )}
                 <span

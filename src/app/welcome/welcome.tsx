@@ -333,7 +333,7 @@ export function Welcome({ name }: { name: string }) {
                       <details className="text-sm"><summary className="cursor-pointer text-gray-600 dark:text-gray-300">Read the build prompt</summary>
                         <pre className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 whitespace-pre-wrap font-sans text-sm max-h-72 overflow-auto">{cur.plan}</pre>
                       </details>
-                      <RunPanel key={cur.id} ideaId={cur.id} projectId={ob.projectId!} plan={cur.plan} sized={!!effectiveSize(cur)} onEstimate={estimate} estimating={busy === "estimate"} />
+                      <RunPanel key={cur.id} ideaId={cur.id} projectId={ob.projectId!} plan={cur.plan} sized={!!effectiveSize(cur)} size={effectiveSize(cur)} onEstimate={estimate} estimating={busy === "estimate"} />
                     </>
                   )}
                 </div>

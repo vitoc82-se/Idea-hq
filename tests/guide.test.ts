@@ -91,7 +91,7 @@ describe("the numbers in the Guide are the app's numbers", () => {
   it("the turn limits leave room for a real change, and the Guide does not quote old numbers", async () => {
     for (const t of TIERS) expect(t.maxTurns).toBeGreaterThanOrEqual(30);
     const html = await text();
-    expect(html).not.toMatch(/\b15 turns\b/);
+    expect(html).not.toMatch(/(?:up to|limit of|all) 15 turns/); // the old Quick ceiling; "5 to 15 turns" is a typical range
   });
 });
 

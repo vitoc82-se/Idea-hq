@@ -12,6 +12,7 @@ import {
   statusLabel,
 } from "../ideas/ideas-shared";
 import { loadFocusIdeas, rankFocusIdeas } from "../ideas/focus";
+import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 
 export const metadata = { title: "Focus" };
 
@@ -77,8 +78,8 @@ export default async function FocusPage() {
                         {idea.project.name}
                       </span>
                     )}
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${COMPLEXITY_STYLES[idea.complexity!] ?? ""}`} title="Effort">
-                      Effort {idea.complexity}
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${COMPLEXITY_STYLES[idea.complexity!] ?? ""}`} title={`Effort: ${sizeExpectation(idea.complexity)}`}>
+                      Effort {sizeName(idea.complexity)}
                     </span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${IMPACT_STYLES[idea.impact!] ?? ""}`} title="Value">
                       Value {idea.impact}

@@ -9,12 +9,7 @@ import { requireAiCall } from "@/lib/runs/http";
 import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { projectPromptContext } from "@/lib/project-context";
-
-const COMPLEXITY_GUIDE = `Complexity scale:
-S = a few hours, 1-2 files, no schema change.
-M = ~1 day, a handful of files, maybe a small additive schema field.
-L = multi-day, a new model/endpoint + UI, or non-trivial logic.
-XL = major effort (new platform, big rework, external integration, native app).`;
+import { SIZE_GUIDE } from "@/lib/runs/size-guide";
 
 export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -62,18 +57,18 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
           role: "user",
           content: `${projectPromptContext(idea.project)}
 
-${COMPLEXITY_GUIDE}
+${SIZE_GUIDE}
 
 A feature idea to estimate (${DATA_NOTICE}):
 Title: ${fenced("idea-title", idea.title)}
 Notes:
 ${fenced("idea-notes", idea.notes || "(none)")}
 
-Estimate what it would take to build this in ${idea.project.name}, and how valuable it is. Return ONLY valid JSON, no other text:
+Size the work an AI coding agent would have to do to build this in ${idea.project.name}, and say how valuable it is. Return ONLY valid JSON, no other text:
 {
   "complexity": "S | M | L | XL",
   "impact": "low | medium | high — how much this improves the product for its users (user value, differentiation, reach). Judge value, not effort.",
-  "scope": "2-4 sentences: what it touches (models, endpoints, UI), the rough steps, and any real risk or dependency. Concrete and specific to this app.",
+  "scope": "2-4 sentences: what the AI will change (files, models, endpoints, UI), the rough steps, and any real risk (sign-in, payments, schema, security) or dependency. Concrete and specific to this app. No hours or days.",
   "suggestedPriority": "low | medium | high",
   "tags": ["1-3 short lowercase theme tags, e.g. ai, ios, growth, nutrition, ux, backend"]
 }`,

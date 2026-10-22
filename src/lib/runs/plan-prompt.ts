@@ -12,10 +12,15 @@ type IdeaForPrompt = {
   impact: string | null;
 };
 
+// The reader of this text is the AI agent inside Idea HQ's workflow, not a person at a terminal. The workflow creates the
+// branch, runs the checks, commits and opens the pull request; the agent only changes files in the working tree and runs
+// the project's own scripts. The agent is billed per step and has a limited number of steps, so the brief is short and
+// exact, and has no git or deploy steps for it to read and then ignore.
 export function intro(kind: string, projectName: string): string {
+  const who = `an AI coding agent that runs inside an automated workflow in the "${projectName}" repo. The workflow creates the branch, runs the build and tests, commits and opens the pull request, so the agent only changes files and runs the project's own scripts. No human writes code.`;
   return kind === "bug"
-    ? `You write bug-fix prompts for an AI coding agent (Claude Code) that has full read/write access to the "${projectName}" repo. No human writes code, the agent fixes the bug and ships it. Your job: turn the bug report below into ONE self-contained prompt the owner can paste straight into the agent with no edits.`
-    : `You write build prompts for an AI coding agent (Claude Code) that has full read/write access to the "${projectName}" repo. No human writes code — the agent implements the whole feature and ships it. Your job: turn the backlog idea below into ONE self-contained prompt the owner can paste straight into the agent with no edits.`;
+    ? `You write bug-fix briefs for ${who} Your job: turn the bug report below into ONE short, self-contained brief for that agent.`
+    : `You write build briefs for ${who} Your job: turn the backlog idea below into ONE short, self-contained brief for that agent.`;
 }
 
 export function ideaBlock(idea: IdeaForPrompt, blockedByLine: string, epicNote: string): string {
@@ -59,25 +64,23 @@ A numbered, ordered list of concrete steps naming the exact files and functions 
 The test that failed before the fix and passes after it, and where it belongs in the repo.
 
 ## Acceptance criteria
-A checkbox list ("- [ ] …"): the new test fails without the fix and passes with it, the original steps no longer show the bug, nothing unrelated changed, and tsc and the build pass.`;
+A checkbox list ("- [ ] …"): the new test fails without the fix and passes with it, the original steps no longer show the bug, nothing unrelated changed, and tsc and the build pass.
+
+Do NOT write any git, branch, commit, push, merge or deploy steps: the workflow does the git and deploy work. Be short and exact, and name the files so the agent does not have to search.`;
   }
-  return `Write the prompt in Markdown, addressed directly to the agent in the imperative ("Add…", "Create…", "Update…"). Structure it as:
+  return `Write the brief in Markdown, addressed directly to the agent in the imperative ("Add…", "Create…", "Update…"). The agent is billed for every step it takes and has a limited number of steps, so be short and exact: name the files so it does not have to search, and for a small change keep the whole brief under 20 lines. Structure it as:
 
 # <short feature name>
 **Goal:** one or two sentences on the user-facing outcome.
 
-## Verify first
-Tell the agent to confirm the assumptions below against the actual code before writing anything, and to adapt if reality differs from the architecture doc (the doc can lag). Name the specific files/routes/models it should open to check (e.g. the relevant API route, the Prisma model, the page/component it will touch).
+## Change
+A numbered, ordered list of concrete steps naming the exact files, functions, Prisma models, API routes and components to add or change. Build on what already exists; do not add a parallel system. If a step rests on something you could not confirm in the code, say so in that step.
 
-## Context
-The few repo specifics that matter for THIS feature — which existing files/models/routes it builds on. Prefer extending what already exists over adding parallel systems; if a route or helper for this already exists, say so and reuse it.
+## Checks
+The tests to add or update and where they belong, and the project's own test and build commands (as the project context gives them). Mention a schema change only if there is one, and why it is safe to push.
 
-## Implementation
-A numbered, ordered list of concrete steps naming the exact files, Prisma models, API routes and components to add or change. Be specific to this codebase — no generic filler.
+## Done when
+A checkbox list ("- [ ] …") of what done looks like: the behaviour, the new tests pass, the project's checks and build pass.
 
-## Data & deploy notes
-Any schema change and why it's db-push-safe (or flag the risk). Note the prisma generate + build + branch/merge/push steps to follow.
-
-## Acceptance criteria
-A checkbox list ("- [ ] …") of what "done" looks like, including that tsc and the build pass.`;
+Do NOT write any git, branch, commit, push, merge or deploy steps, and do not tell the agent to "verify first" what you can already see in the code: the workflow does the git and deploy work, and the agent confirms things as it goes.`;
 }
