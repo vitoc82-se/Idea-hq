@@ -257,6 +257,6 @@ describe("one story for status and stage", () => {
   it("the next step is a real button: 44px on touch, in the accent colour, and says which idea to a screen reader", () => {
     const board = read("src/app/(app)/ideas/ideas-board.tsx");
     expect(board).toMatch(/const NEXT_ACTION =\s*"[^"]*min-h-11[^"]*bg-emerald-700[^"]*\[@media\(pointer:coarse\)\]:min-h-11"/);
-    expect(board).toMatch(/className=\{NEXT_ACTION\}>Plan it<span className="sr-only">: \{idea\.title\}/);
+    expect(board).toMatch(/className=\{NEXT_ACTION\}>Plan it<span className="sr-only"> for \{idea\.title\}/);
   });
 });

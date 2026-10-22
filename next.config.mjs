@@ -1,3 +1,5 @@
+import path from "node:path";
+
 /** @type {import('next').NextConfig} */
 // What the app's own pages may load. Next.js puts small inline scripts and styles into every page, so those are
 // allowed ('unsafe-inline'); everything else is limited to this site, plus Cloudflare's "are you a person" check on
@@ -17,7 +19,34 @@ export const APP_CSP = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+// Running on your own machine with the in-memory database (scripts/local.mjs): the build uses src/lib/db-pglite.ts in
+// place of src/lib/db.ts. Nothing here applies to a normal build.
+const localDb = process.env.IDEAHQ_DB === "pglite";
+const DB_FILE = path.resolve("src/lib/db.ts");
+const LOCAL_DB_FILE = path.resolve("src/lib/db-pglite.ts");
+class UseLocalDatabase {
+  apply(compiler) {
+    compiler.hooks.normalModuleFactory.tap("UseLocalDatabase", (factory) => {
+      factory.hooks.afterResolve.tap("UseLocalDatabase", (data) => {
+        if (data.createData?.resource === DB_FILE) data.createData.resource = LOCAL_DB_FILE;
+      });
+    });
+  }
+}
+
+// The dev server's hot reloading needs eval; a production build never gets it.
+const csp = process.env.NODE_ENV === "development" ? APP_CSP.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'") : APP_CSP;
+
 const nextConfig = {
+  ...(localDb
+    ? {
+        serverExternalPackages: ["@electric-sql/pglite", "pglite-prisma-adapter"],
+        webpack(config) {
+          config.plugins.push(new UseLocalDatabase());
+          return config;
+        },
+      }
+    : {}),
   // Do not tell the world which framework (and so which advisories) to try.
   poweredByHeader: false,
   images: {
@@ -43,7 +72,7 @@ const nextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
-          { key: "Content-Security-Policy", value: APP_CSP },
+          { key: "Content-Security-Policy", value: csp },
         ],
       },
     ];
