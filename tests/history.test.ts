@@ -107,6 +107,7 @@ describe("the Guide says so", () => {
     const { renderToStaticMarkup } = await import("react-dom/server");
     vi.doMock("next-auth", () => ({ getServerSession: async () => null }));
     vi.doMock("@/lib/auth", () => ({ authOptions: {} }));
+    vi.doMock("next-auth/react", () => ({ useSession: () => ({ status: "unauthenticated" }) }));
     const html = renderToStaticMarkup(await (await import("@/app/guide/page")).default());
     expect(html).toMatch(/at least three changes of a size/);
     expect(html).toMatch(/what your own runs of that size cost/);

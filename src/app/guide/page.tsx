@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
+import { GuideCta } from "./guide-cta";
 import { HandCircle, Highlight, PenNote, Underline } from "@/components/landing/notebook";
 
-export const dynamic = "force-dynamic";
+// One static page for everyone: it does not read the session on the server. (A page that waited on the session while
+// streaming a 160 KB document sometimes hydrated twice in a browser under load: "Hydration failed", and the theme
+// attribute on <html> was lost. See TODOS.md.) Who is looking is decided in the browser, in the header and the closing box.
 export const metadata = {
   title: "How Idea HQ works",
   description:
@@ -73,13 +73,12 @@ function Q({ q, children }: { q: string; children: React.ReactNode }) {
   );
 }
 
-export default async function GuidePage() {
-  const session = await getServerSession(authOptions);
+export default function GuidePage() {
   return (
     <div className="nb-skin nb-grid relative min-h-screen overflow-hidden bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
       {/* The red margin line of the start page, only where it clears the text. */}
       <div aria-hidden="true" className="absolute inset-y-0 left-[72px] w-0.5 bg-[#F1B5AE] hidden min-[1100px]:light:block" />
-      <SiteHeader signedIn={!!session} />
+      <SiteHeader />
       <main className="relative max-w-3xl mx-auto px-4 pt-10">
         <PenNote rotate={-2} className="hidden light:inline-block text-[19px] font-medium leading-[1.2] mb-2">read me first</PenNote>
         <h1 className="text-4xl font-bold tracking-tight">
@@ -323,14 +322,7 @@ export default async function GuidePage() {
         <Q q="I want to start the setup over">Open Projects, then Repo and AI setup on the project. Every step can be redone. Nothing is lost.</Q>
 
         <div className="mt-12 rounded-xl border border-gray-200 bg-white dark:bg-transparent dark:border-gray-700 p-5 text-center">
-          {session ? (
-            <Link href="/ideas" className="px-5 py-2.5 rounded-lg bg-emerald-700 text-white font-medium hover:bg-emerald-800 inline-block">Back to my ideas</Link>
-          ) : (
-            <>
-              <p className="font-semibold">Ready to try it?</p>
-              <Link href="/auth/signin?mode=register" className="mt-3 px-5 py-2.5 rounded-lg bg-emerald-700 text-white font-medium hover:bg-emerald-800 inline-block">Create an account</Link>
-            </>
-          )}
+          <GuideCta />
         </div>
       </main>
       <SiteFooter />

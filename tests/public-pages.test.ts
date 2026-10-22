@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 
-const sess = vi.hoisted(() => ({ user: null as null | { id: string } }));
+const sess = vi.hoisted(() => ({ user: null as null | { id: string }, status: null as null | "loading" | "authenticated" | "unauthenticated" }));
 vi.mock("next-auth", () => ({ getServerSession: async () => (sess.user ? { user: sess.user } : null) }));
+// The browser's own session, for the Guide's header and closing box.
+vi.mock("next-auth/react", () => ({ useSession: () => ({ status: sess.status ?? (sess.user ? "authenticated" : "unauthenticated") }) }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 const redirect = vi.hoisted(() => vi.fn((to: string) => { throw new Error(`REDIRECT:${to}`); }));
 vi.mock("next/navigation", () => ({ redirect }));
@@ -16,7 +19,7 @@ vi.mock("@/components/landing/mono-font", () => ({ notebookMono: { variable: "nb
 import HomePage from "@/app/page";
 import GuidePage from "@/app/guide/page";
 
-beforeEach(() => { sess.user = null; redirect.mockClear(); });
+beforeEach(() => { sess.user = null; sess.status = null; redirect.mockClear(); });
 
 describe("start page", () => {
   it("says what the product does and puts early access and Sign in up front", async () => {
@@ -110,10 +113,27 @@ describe("guide page", () => {
   });
 
   it("offers a way back into the app when signed in, and sign-up when not", async () => {
-    expect(renderToStaticMarkup(await GuidePage())).toContain("/auth/signin?mode=register");
+    const out = renderToStaticMarkup(await GuidePage());
+    expect(out).toContain("/auth/signin?mode=register");
+    expect(out).toContain("Create an account");
+    expect(out).not.toContain("Back to my ideas");
     sess.user = { id: "u1" };
     const html = renderToStaticMarkup(await GuidePage());
     expect(html).toContain("Back to my ideas");
+    expect(html).toContain("Open the app");
     expect(html).not.toContain("Create an account");
+  });
+
+  it("is one static page for everyone: it never reads the session on the server, and shows neither set of buttons while the browser's session loads", async () => {
+    const source = readFileSync("src/app/guide/page.tsx", "utf8");
+    expect(source).not.toMatch(/getServerSession|force-dynamic|authOptions/);
+    expect(source).toMatch(/<SiteHeader \/>/); // no `signedIn`: the browser decides
+    sess.status = "loading";
+    const html = renderToStaticMarkup(await GuidePage());
+    expect(html).not.toContain("Open the app");
+    expect(html).not.toContain("Create account");
+    expect(html).not.toContain("Back to my ideas");
+    expect(html).not.toContain("Create an account");
+    expect(html).toMatch(/aria-hidden="true" class="inline-block h-12 w-44"/); // room for the buttons, so nothing jumps
   });
 });

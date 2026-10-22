@@ -16,12 +16,6 @@
 **What:** A proper review of the product design (screens, the notebook theme, the first-run journey) and of the technology stack, before more is built on top.
 **Context:** Stack today: Next.js 15 and React 19, Prisma 7 on Neon Postgres, next-auth, Tailwind, Vercel, GitHub App plus Actions workflow for the AI runs. Run /plan-design-review and /plan-eng-review on the redesign in items 1 and 2.
 
-## The signed-in Guide sometimes hydrates twice under heavy load
-**What:** Signed in, `/guide` now and then logs "Minified React error #418" (a hydration mismatch). React recovers by drawing the page again on the client, so nobody sees a broken page, but `<html data-theme>` is dropped by that second render until the next navigation.
-**Evidence (2026-10-22, found by the smoke tests):** with 6 browsers loading `/guide` at once against the local production build, signed in: about 30% of loads; signed out: 0 of 120; signed in on `/ideas`: 0 of 120; the live ideahq.cloud signed out: 0 of 96. It does not happen in `next dev`, nor when the document is delivered in one piece (a Playwright `route.fulfill`), so it looks like a race between streaming the HTML (the page awaits `getServerSession`, which only signed-in people do slowly) and the client starting to hydrate. Not caused by the service worker, the Help button script or the theme switcher (each ruled out).
-**Next:** reproduce with `node scripts/local.mjs start` and several parallel browsers; try removing the `await` before the shell (read the session in a child component inside `<Suspense>`), or check Next/React release notes for a streaming-hydration fix. The smoke tests check the Guide signed out until this is fixed.
-**Depends on:** nothing.
-
 ## Multi-vendor AI run engines (Codex, Gemini, Grok CLIs)
 **What:** Adapters behind the run-engine interface for Codex, Gemini and Grok CLIs.
 **Why:** Friends may not have Anthropic keys; v1 ships Claude Code only (eng review 2026-10-17, D1).

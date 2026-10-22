@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 vi.hoisted(() => { process.env.NEXTAUTH_SECRET = "a-test-secret-used-only-by-the-sizes-test"; });
 vi.mock("next-auth", () => ({ getServerSession: async () => null }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("next-auth/react", () => ({ useSession: () => ({ status: "unauthenticated" }) })); // the Guide asks the browser's session
 
 import { SIZE_NAMES, SIZE_PROFILE, sizeName, sizeExpectation, sizeOptionLabel } from "@/lib/runs/sizes";
 import { SIZE_GUIDE } from "@/lib/runs/size-guide";

@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import fs from "fs";
 import path from "path";
+vi.mock("next-auth/react", () => ({ useSession: () => ({ status: "unauthenticated" }) })); // the Guide asks the browser's session
 
 // Things that keep the site looking finished: every page has a real title, icons
 // exist and belong to this app, search engines get only the public pages, and no

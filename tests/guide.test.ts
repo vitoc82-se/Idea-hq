@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 vi.hoisted(() => { process.env.NEXTAUTH_SECRET = "a-test-secret-used-only-by-the-guide-test"; });
 vi.mock("next-auth", () => ({ getServerSession: async () => null }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("next-auth/react", () => ({ useSession: () => ({ status: "unauthenticated" }) })); // the Guide asks the browser's session
 
 import GuidePage from "@/app/guide/page";
 import { CAPS } from "@/lib/caps-values";
