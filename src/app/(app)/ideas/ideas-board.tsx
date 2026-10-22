@@ -45,8 +45,13 @@ import {
   tagStyle,
 } from "./ideas-shared";
 import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
-import { boardNext, wantsPlan } from "@/lib/runs/journey";
+import { boardNext, needsYou, needsYouRank, wantsPlan, type BoardNext } from "@/lib/runs/journey";
 import { planBatch, MAX_PER_PRESS } from "./plan-batch";
+
+// The next step on a row: the most important thing on it, so it is a real button (44px tall on a phone or any touch
+// screen, 36px with a mouse) in the accent colour, not a line of small text.
+const NEXT_ACTION =
+  "inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 text-sm font-medium text-white hover:bg-emerald-800 sm:min-h-9 [@media(pointer:coarse)]:min-h-11";
 
 type SortKey = "newest" | "priority" | "effort" | "quickwins" | "reports";
 
@@ -77,6 +82,7 @@ export function IdeasBoard() {
   const [fTag, setFTag] = useState("all");
   const [quickOnly, setQuickOnly] = useState(false);
   const [openOnly, setOpenOnly] = useState(false);
+  const [needsOnly, setNeedsOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("newest");
   const [showMatrix, setShowMatrix] = useState(false);
   const [view, setView] = useState<"list" | "board">("list");
@@ -218,6 +224,14 @@ export function IdeasBoard() {
     return s;
   }, [ideas, byId]);
 
+  // Where each idea stands and what comes next (see lib/runs/journey.ts), for its row and for the Needs you filter.
+  const nextById = useMemo(() => {
+    const m = new Map<string, BoardNext>();
+    for (const i of ideas) m.set(i.id, boardNext({ idea: i, run: i.latestRun ?? null, epic: i.epic ?? null, blockedBy: blockingIdeas(i, byId).map((b) => b.title) }));
+    return m;
+  }, [ideas, byId]);
+  const needsYouCount = useMemo(() => ideas.filter((i) => needsYou(nextById.get(i.id)!)).length, [ideas, nextById]);
+
   // All tags in use (for the tag filter).
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -283,13 +297,14 @@ export function IdeasBoard() {
       if (fTag !== "all" && !i.tags.includes(fTag)) return false;
       if (quickOnly && !isQuickWin(i)) return false;
       if (openOnly && (i.status === "done" || i.status === "parked")) return false;
+      if (needsOnly && !needsYou(nextById.get(i.id)!)) return false;
       if (q) {
         const hay = `${i.title} ${i.notes || ""} ${i.tags.join(" ")}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [ideas, search, fProject, fPriority, fComplexity, fKind, fTag, quickOnly, openOnly]);
+  }, [ideas, search, fProject, fPriority, fComplexity, fKind, fTag, quickOnly, openOnly, needsOnly, nextById]);
 
   // List view also honors the status filter and the sort order.
   const visible = useMemo(() => {
@@ -297,8 +312,10 @@ export function IdeasBoard() {
       fStatus === "all"
         ? baseFiltered
         : baseFiltered.filter((i) => i.status === fStatus);
-    return sortIdeas(list);
-  }, [baseFiltered, fStatus, sortIdeas]);
+    const sorted = sortIdeas(list);
+    // Needs you: the most urgent first (finished work waiting to be merged), then the chosen order within each group.
+    return needsOnly ? [...sorted].sort((a, b) => needsYouRank(nextById.get(a.id)!) - needsYouRank(nextById.get(b.id)!)) : sorted;
+  }, [baseFiltered, fStatus, sortIdeas, needsOnly, nextById]);
 
   const kanbanIdeas = useMemo(() => sortIdeas(baseFiltered), [baseFiltered, sortIdeas]);
 
@@ -311,7 +328,8 @@ export function IdeasBoard() {
     fKind !== "all" ||
     fTag !== "all" ||
     quickOnly ||
-    openOnly;
+    openOnly ||
+    needsOnly;
 
   const resetFilters = () => {
     setSearch("");
@@ -323,6 +341,7 @@ export function IdeasBoard() {
     setFTag("all");
     setQuickOnly(false);
     setOpenOnly(false);
+    setNeedsOnly(false);
   };
 
   // Clicking a status stat-chip filters the list to that status (a list concept,
@@ -507,6 +526,14 @@ export function IdeasBoard() {
               active={!filtersActive}
               onClick={resetFilters}
               title="Show all ideas (clear filters)"
+            />
+            <StatChip
+              label={needsYouCount === 1 ? "needs you" : "need you"}
+              value={needsYouCount}
+              active={needsOnly}
+              attention={needsYouCount > 0}
+              onClick={() => setNeedsOnly((v) => !v)}
+              title="Ideas waiting for you: merge a finished change, fix failed checks, try a failed run again, or press Build. The most urgent come first."
             />
             <StatChip
               label="Open"
@@ -744,7 +771,7 @@ export function IdeasBoard() {
                   blocked={blockedIds.has(idea.id)}
                   onStatus={patchStatus}
                   onClosure={patchClosure}
-                  blockedBy={blockingIdeas(idea, byId).map((b) => b.title)}
+                  step={nextById.get(idea.id)!}
                   planning={planningIds.has(idea.id)}
                   onPlan={() => void planIdeas([idea])}
                 />
@@ -761,12 +788,14 @@ function StatChip({
   label,
   value,
   active,
+  attention,
   onClick,
   title,
 }: {
   label: string;
   value: number;
   active?: boolean;
+  attention?: boolean; // something here is waiting for the owner: the chip is outlined in the accent colour
   onClick?: () => void;
   title?: string;
 }) {
@@ -778,7 +807,9 @@ function StatChip({
       className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border transition ${
         active
           ? "border-emerald-400 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
-          : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+          : attention
+            ? "border-emerald-700 text-gray-900 dark:border-emerald-500 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
       }`}
     >
       <span className="font-semibold text-gray-900 dark:text-white">{value}</span>
@@ -792,7 +823,7 @@ function IdeaRow({
   blocked,
   onStatus,
   onClosure,
-  blockedBy,
+  step,
   planning,
   onPlan,
 }: {
@@ -800,12 +831,11 @@ function IdeaRow({
   blocked: boolean;
   onStatus: (id: string, status: string) => void;
   onClosure: (id: string, note: string) => void;
-  blockedBy: string[];
+  step: BoardNext;
   planning: boolean;
   onPlan: () => void;
 }) {
   const quick = isQuickWin(idea);
-  const step = boardNext({ idea, run: idea.latestRun ?? null, epic: idea.epic ?? null, blockedBy });
   const [showClosure, setShowClosure] = useState(false);
   const [closureText, setClosureText] = useState(idea.closureNote || "");
   return (
@@ -932,19 +962,21 @@ function IdeaRow({
         </Link>
         </div>
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-700 dark:text-gray-300" data-testid="idea-next">
-          <span className="rounded-full border border-gray-300 px-2 py-0.5 font-medium dark:border-gray-600" title={step.stage ? "Describe, Plan, Build, Review, Ship" : undefined}>
-            <span className="sr-only">Stage: </span>
-            {step.stageLabel}{step.number ? ` · ${step.number} of 5` : ""}
-          </span>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-700 dark:text-gray-300" data-testid="idea-next">
+          {step.stage && (
+            <span className="rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium dark:border-gray-600">
+              <span className="sr-only">Stage: </span>
+              {step.stageLabel} · {step.number} of 5
+            </span>
+          )}
           {planning ? (
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400"><Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Planning…</span>
+            <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Planning…</span>
           ) : step.action === "plan" ? (
-            <button type="button" onClick={onPlan} className="font-medium text-emerald-700 underline dark:text-emerald-400">Next: Plan it</button>
+            <button type="button" onClick={onPlan} className={NEXT_ACTION}>Plan it<span className="sr-only">: {idea.title}</span></button>
           ) : step.action ? (
-            <Link href={`/ideas/${idea.id}`} className="font-medium text-emerald-700 underline dark:text-emerald-400">Next: {step.next}</Link>
+            <Link href={`/ideas/${idea.id}`} className={NEXT_ACTION}>{step.next}<span className="sr-only">: {idea.title}</span></Link>
           ) : (
-            <span>{step.stage === "ship" || !step.stage ? step.next : `Next: ${step.next}`}</span>
+            <span>{step.next}</span>
           )}
         </div>
 

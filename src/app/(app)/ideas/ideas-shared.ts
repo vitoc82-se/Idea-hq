@@ -65,7 +65,7 @@ export interface StoryChild {
 export const STATUSES = [
   { value: "new", label: "New" },
   { value: "considering", label: "Considering" },
-  { value: "building", label: "Building" },
+  { value: "building", label: "In progress" }, // set by itself when the AI starts a build; the stage line says where it is
   { value: "done", label: "Done" },
   { value: "parked", label: "Parked" },
 ];

@@ -220,3 +220,19 @@ export function boardNext(i: BoardInput): BoardNext {
 export function wantsPlan(i: BoardInput): boolean {
   return i.idea.status !== "parked" && boardNext({ ...i, blockedBy: [] }).action === "plan";
 }
+
+// "Needs you": the ideas where the next move is the owner's. The AI has finished or stopped, or it is waiting for a
+// go-ahead. An idea the AI or the checks are working on, one waiting on another idea, a parked one and a finished one
+// need nothing. Planning is left out: it is the one step Plan them all does in bulk. The order is the urgency: finished
+// work waiting to be merged first, a build ready to start last.
+const NEEDS_YOU_ORDER: PrimaryAction[] = ["merge", "fix", "retry", "approve", "build", "split"];
+
+export function needsYou(n: Pick<BoardNext, "action">): boolean {
+  return n.action !== null && NEEDS_YOU_ORDER.includes(n.action);
+}
+
+// Smaller is more urgent; ideas that do not need the owner sort after every one that does.
+export function needsYouRank(n: Pick<BoardNext, "action">): number {
+  const i = n.action ? NEEDS_YOU_ORDER.indexOf(n.action) : -1;
+  return i < 0 ? NEEDS_YOU_ORDER.length : i;
+}
