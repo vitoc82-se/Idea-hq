@@ -65,11 +65,11 @@ export function summarizeHistory(runs: HistoryRun[]): SizeHistory {
 
 const money = (n: number) => `$${n.toFixed(2)}`;
 
-// "Your last 5 Quick changes took 6 to 12 turns, 4 to 7 minutes (about 2 of them the AI) and $0.01 to $0.04."
+// "Your last 5 Quick changes took 4 to 7 minutes and cost $0.01 to $0.04." Empty until there are minutes or a cost to show.
 export function historyLine(size: Size, h: RangeSummary | undefined, opts: { withCost?: boolean } = {}): string {
   if (!h) return "";
-  const parts = [`${h.turns[0]} to ${h.turns[1]} turns`];
-  if (h.minutes) parts.push(`${h.minutes[0]} to ${h.minutes[1]} minutes${h.aiMinutes ? ` (about ${h.aiMinutes} of them the AI)` : ""}`);
-  if (opts.withCost !== false && h.usd) parts.push(`${money(h.usd[0])} to ${money(h.usd[1])}`);
-  return `Your last ${h.count} ${SIZE_NAMES[size]} changes took ${parts.join(", ")}.`;
+  const minutes = h.minutes ? `${h.minutes[0]} to ${h.minutes[1]} minutes` : "";
+  const cost = opts.withCost !== false && h.usd ? `${money(h.usd[0])} to ${money(h.usd[1])}` : "";
+  if (!minutes && !cost) return "";
+  return `Your last ${h.count} ${SIZE_NAMES[size]} changes ${minutes && cost ? `took ${minutes} and cost ${cost}` : minutes ? `took ${minutes}` : `cost ${cost}`}.`;
 }

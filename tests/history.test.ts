@@ -50,8 +50,12 @@ describe("what a person's own runs show", () => {
 
   it("says it in one plain sentence", () => {
     const h = summarizeHistory([run("S", 8, 0.01, 250000, 110000), run("S", 9, 0.02, 300000, 120000), run("S", 10, 0.03, 410000, 150000)]).S;
-    expect(historyLine("S", h)).toBe("Your last 3 Quick changes took 8 to 10 turns, 4 to 7 minutes (about 2 of them the AI), $0.01 to $0.03.");
-    expect(historyLine("S", h, { withCost: false })).not.toContain("$");
+    expect(historyLine("S", h)).toBe("Your last 3 Quick changes took 4 to 7 minutes and cost $0.01 to $0.03.");
+    expect(historyLine("S", h)).not.toMatch(/turns/);
+    expect(historyLine("S", h, { withCost: false })).toBe("Your last 3 Quick changes took 4 to 7 minutes.");
+    const noTimes = summarizeHistory([run("S", 8, 0.01, null), run("S", 9, 0.02, null), run("S", 10, 0.03, null)]).S;
+    expect(historyLine("S", noTimes)).toBe("Your last 3 Quick changes cost $0.01 to $0.03.");
+    expect(historyLine("S", noTimes, { withCost: false })).toBe(""); // nothing to say without minutes or cost
     expect(historyLine("M", undefined)).toBe("");
   });
 });

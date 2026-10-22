@@ -46,6 +46,7 @@ function fakeGh(): typeof gh {
     listTree: async () => ({ paths: [], truncated: false }),
     commitsAhead: async () => 0,
     listPrFiles: async () => [],
+    prChanges: async () => state.changes ?? { files: [], totalFiles: 0, additions: 0, deletions: 0, truncated: false },
     listPrComments: async () => state.comments ?? [],
     failedStep: async () => state.failedStep ?? null,
     runJobs: async () => state.jobs ?? [],

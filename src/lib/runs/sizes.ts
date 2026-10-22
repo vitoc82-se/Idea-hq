@@ -25,18 +25,20 @@ export function sizeName(c: string | null | undefined): string {
 
 const money = (n: number) => `$${n < 1 ? n.toFixed(2) : String(Math.round(n * 10) / 10)}`;
 
-// "typically 5 to 15 turns, 3 to 8 minutes, $0.01 to $0.10". `withCost` is false for providers that do not report cost.
-export function sizeExpectation(c: string | null | undefined, opts: { withCost?: boolean } = {}): string {
+// "typically 4 to 8 minutes, $0.01 to $0.05". Minutes and cost are what the owner decides on; the turns (the AI's steps)
+// are for the run options, so they are only included when asked for. `withCost` is false for providers that do not report cost.
+export function sizeExpectation(c: string | null | undefined, opts: { withCost?: boolean; withTurns?: boolean } = {}): string {
   if (!isSize(c)) return "";
   const p = SIZE_PROFILE[c];
   if (c === "XL") return "too big for one run: split it into steps first";
-  const parts = [`${p.turns[0]} to ${p.turns[1]} turns`, `${p.minutes[0]} to ${p.minutes[1]} minutes`];
+  const parts = [`${p.minutes[0]} to ${p.minutes[1]} minutes`];
   if (opts.withCost !== false) parts.push(`${money(p.usd[0])} to ${money(p.usd[1])}`);
+  if (opts.withTurns) parts.push(`${p.turns[0]} to ${p.turns[1]} turns`);
   return `typically ${parts.join(", ")}`;
 }
 
 // The line in a size dropdown. Short, because the dropdown sits in a narrow column; the idea page shows the full expectation.
 export function sizeOptionLabel(c: Size): string {
   const p = SIZE_PROFILE[c];
-  return c === "XL" ? `${SIZE_NAMES[c]}: split it first` : `${SIZE_NAMES[c]}: ${p.turns[0]} to ${p.turns[1]} turns`;
+  return c === "XL" ? `${SIZE_NAMES[c]}: split it first` : `${SIZE_NAMES[c]}: ${p.minutes[0]} to ${p.minutes[1]} minutes`;
 }

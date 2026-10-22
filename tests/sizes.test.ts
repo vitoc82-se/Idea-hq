@@ -26,10 +26,11 @@ describe("sizes are measured in what the AI has to do", () => {
     }
   });
   it("says turns, minutes and cost, and tells an Epic to be split", () => {
-    expect(sizeExpectation("S")).toBe("typically 5 to 15 turns, 4 to 8 minutes, $0.01 to $0.05");
-    expect(sizeExpectation("M")).toBe("typically 15 to 35 turns, 6 to 15 minutes, $0.10 to $0.60");
-    expect(sizeExpectation("L")).toBe("typically 30 to 60 turns, 12 to 30 minutes, $0.50 to $2.5");
-    expect(sizeExpectation("S", { withCost: false })).toBe("typically 5 to 15 turns, 4 to 8 minutes");
+    expect(sizeExpectation("S")).toBe("typically 4 to 8 minutes, $0.01 to $0.05");
+    expect(sizeExpectation("M")).toBe("typically 6 to 15 minutes, $0.10 to $0.60");
+    expect(sizeExpectation("L")).toBe("typically 12 to 30 minutes, $0.50 to $2.5");
+    expect(sizeExpectation("S", { withCost: false })).toBe("typically 4 to 8 minutes");
+    expect(sizeExpectation("S", { withTurns: true })).toBe("typically 4 to 8 minutes, $0.01 to $0.05, 5 to 15 turns"); // only where the limit is chosen
     expect(sizeExpectation("XL")).toMatch(/split it into steps first/);
   });
   it("the typical turns of each size fit under the turn limit its model tier gets, with room to spare", () => {
@@ -49,7 +50,7 @@ describe("sizes are measured in what the AI has to do", () => {
       expect(c.label).toBe(sizeOptionLabel(c.value));
       expect(c.label).not.toMatch(/hour|day|week/i);
     }
-    expect(COMPLEXITIES[0].label).toMatch(/^Quick: 5 to 15 turns/);
+    expect(COMPLEXITIES[0].label).toBe("Quick: 4 to 8 minutes");
     expect(COMPLEXITIES[3].label).toMatch(/^Epic: split it first/);
   });
 });
@@ -114,14 +115,14 @@ describe("sizes show as names everywhere, with the numbers where they help", () 
     }
   });
   it("the approval card and the idea page show what the size typically costs", () => {
-    expect(read("src/app/(app)/ideas/run-panel.tsx")).toMatch(/is \{sizeExpectation\(size,/);
+    expect(read("src/app/(app)/ideas/run-panel.tsx")).toMatch(/is \{sizeExpectation\(size, \{ withCost: [^}]*withTurns: true \}\)/);
     expect(read("src/app/(app)/ideas/ideas-detail.tsx")).toContain("sizeExpectation(idea.complexity)");
   });
   it("the Guide quotes the same ranges", async () => {
     const html = renderToStaticMarkup(await GuidePage()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
     for (const c of ["S", "M", "L"] as const) {
       const p = SIZE_PROFILE[c];
-      expect(html, c).toContain(`${SIZE_NAMES[c]} (${p.turns[0]} to ${p.turns[1]} turns, ${p.minutes[0]} to ${p.minutes[1]} minutes`);
+      expect(html, c).toContain(`${SIZE_NAMES[c]} (${p.minutes[0]} to ${p.minutes[1]} minutes, $${p.usd[0].toFixed(2)} to $${p.usd[1].toFixed(2)})`);
     }
     expect(html).toContain("Epic (too big for one run");
   });

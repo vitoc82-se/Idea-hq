@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push() {}, refresh() {} }) }));
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => createElement("a", { href, ...rest }, children) }));
 
-import { journeyFor, buildLabel, buildExpectation, fixChecksRequest, closureNoteFor, JOURNEY_STAGES, type JourneyInput, type Rec } from "@/lib/runs/journey";
+import { journeyFor, buildLabel, fixChecksRequest, closureNoteFor, JOURNEY_STAGES, type JourneyInput, type Rec } from "@/lib/runs/journey";
 import { IdeaJourney } from "@/app/(app)/ideas/idea-journey";
 import type { Idea } from "@/app/(app)/ideas/ideas-shared";
 
@@ -111,8 +111,7 @@ describe("the journey: which stage and what the one button does", () => {
 
 describe("the text the journey writes", () => {
   it("says what to expect before approving", () => {
-    expect(buildExpectation("S", HAIKU, true)).toBe("Quick: typically 5 to 15 turns, 4 to 8 minutes, $0.01 to $0.05. It will use Haiku 5.5 at low effort, with a limit of 30 turns");
-    expect(buildExpectation("S", HAIKU, false)).not.toContain("$");
+    expect(read("src/lib/runs/journey.ts")).not.toContain("buildExpectation"); // the model, effort and turns are under Adjust, not on the card
   });
   it("pre-fills the fix request with the failing checks", () => {
     expect(fixChecksRequest(["build", "tests / unit"])).toBe("The checks failed: build, tests / unit. Find out why they fail, fix it with the smallest change, and make sure they pass.");
@@ -218,7 +217,7 @@ describe("the journey card", () => {
     const html = renderToStaticMarkup(createElement(IdeaJourney, { idea, onEstimate: async () => idea, onPlan: async () => idea, onSplit() {}, onReveal() {}, onSetSize() {}, onSaveClosure() {} }));
     expect(html).toContain('id="journey-size"');
     expect(html).toContain("Not sized yet");
-    for (const label of ["Quick: 5 to 15 turns", "Standard: 15 to 35 turns", "Large: 30 to 60 turns", "Epic: split it first"]) expect(html).toContain(label);
+    for (const label of ["Quick: 4 to 8 minutes", "Standard: 6 to 15 minutes", "Large: 12 to 30 minutes", "Epic: split it first"]) expect(html).toContain(label);
   });
   it("the stories section and run panel listen for it", () => {
     expect(read("src/app/(app)/ideas/ideas-stories.tsx")).toContain("startSignal");

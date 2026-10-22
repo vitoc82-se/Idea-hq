@@ -1,5 +1,5 @@
 import { effectiveSize, type Size } from "./size";
-import { SIZE_NAMES, SIZE_PROFILE, sizeExpectation } from "./sizes";
+import { SIZE_PROFILE } from "./sizes";
 
 // The idea page as one journey: Describe, Plan, Build, Review, Ship. This file decides, from what the idea and its
 // latest run look like, which stage it is in and what the one primary button does. It is plain data in and out so it
@@ -57,20 +57,6 @@ const SIZE_INDEX: Record<Size, number> = { S: 0, M: 1, L: 2, XL: 3 };
 export function buildLabel(size: Size | null, rec: Rec | null, reportsCost: boolean): string {
   if (size && size !== "XL" && rec && reportsCost && rec.index === SIZE_INDEX[size]) return `Build it, up to ${money(SIZE_PROFILE[size].usd[1])}`;
   return "Build it";
-}
-
-// "claude-haiku-5-5" is shown as "Haiku 5.5".
-function modelName(id: string): string {
-  const m = /^(?:claude-)?([a-z]+)-(\d+)-(\d+)$/.exec(id);
-  return m ? `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}` : id;
-}
-
-// What the idea's "what to expect" line says before approving: the size, the model, the turn limit.
-export function buildExpectation(size: Size | null, rec: Rec | null, reportsCost: boolean): string {
-  const parts: string[] = [];
-  if (size) parts.push(`${SIZE_NAMES[size]}: ${sizeExpectation(size, { withCost: reportsCost })}`);
-  if (rec) parts.push(`It will use ${modelName(rec.model)} at ${rec.effort} effort, with a limit of ${rec.maxTurns} turns`);
-  return parts.join(". ");
 }
 
 // The request box that arrives pre-filled when the checks fail.
