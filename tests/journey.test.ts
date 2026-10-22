@@ -159,7 +159,7 @@ describe("the journey card", () => {
     expect(at('aria-controls="idea-details"')).toBeGreaterThan(at("<IdeaJourney"));
     expect(page).toMatch(/aria-expanded=\{detailsOpen\}/);
     expect(page).toContain('hidden={!detailsOpen}'); // folded, not unmounted: stories and runs keep their state
-    for (const s of ['id="idea-status"', "Dependencies", "<StoriesSection", "Implementation scope", "AI build prompt", "<RunPanel compact", "Delete idea"]) {
+    for (const s of ['id="idea-status"', "Dependencies", "<StoriesSection", "Implementation scope", "AI build prompt", "<RunPanel ", "Delete idea"]) {
       expect(at(s), s).toBeGreaterThan(at('aria-controls="idea-details"'));
     }
   });
@@ -180,16 +180,36 @@ describe("the journey card", () => {
     expect(journey).toContain('onReveal("implement-with-ai")');
     expect(journey).not.toContain("scrollIntoView");
   });
-  it("the run panel on the idea page keeps only what the journey does not do", () => {
+  it("the run panel keeps only what the journey does not do, and still merges and follows a revert", () => {
     const panel = read("src/app/(app)/ideas/run-panel.tsx");
-    for (const hidden of ["!compact && BUSY.includes(run.status) && <RunProgress", '!compact && run.status === "pr_open"', "canStart && !compact", "!compact && loaded && aiBuild && needsSize"]) {
-      expect(panel, hidden).toContain(hidden);
-    }
-    // approval with changed model or turns, revert and the AI's note are not hidden
-    expect(panel).toContain("Change model and effort");
-    expect(panel).toContain("Revert this change");
-    expect(panel).not.toMatch(/!compact && [^\n]*Revert this change/);
-    expect(read("src/app/welcome/welcome.tsx")).not.toContain("<RunPanel compact"); // the welcome journey still uses the full panel
+    // gone: starting, sizing notices, progress and review of an implementation (the journey card does those)
+    for (const gone of ["Implement again", "Request changes", "Approve and merge", "Size this idea first", "needsSize", "compact"]) expect(panel, gone).not.toContain(gone);
+    // kept: approval with a changed model or turn limit, the AI's note, revert
+    for (const kept of ["Change model and effort", "Approve and run", "What the AI said", "Revert this change"]) expect(panel, kept).toContain(kept);
+    // a revert is not an idea's run, so the journey ignores it: the panel merges it and follows its progress
+    expect(panel).toContain('run.kind === "revert" && run.status === "pr_open"');
+    expect(panel).toContain('run.kind === "revert" && BUSY.includes(run.status) && <RunProgress');
+    expect(panel).toContain("Merge the revert");
+  });
+  it("the welcome pages use the same journey card for the first AI change, and no longer carry their own run panel", () => {
+    const welcome = read("src/app/welcome/welcome.tsx");
+    expect(welcome).toContain("<IdeaJourney");
+    expect(welcome).toContain("allowAdjust={false}");
+    expect(welcome).not.toContain("<RunPanel");
+    expect(welcome).not.toContain("Generate the build prompt");
+    expect(welcome).toContain("window.addEventListener(RUNS_CHANGED, load)");
+    // the steps before it are untouched
+    for (const s of ["Create your first project", "This looks right", "Do you already have a list of ideas?", "Your first AI change"]) expect(welcome, s).toContain(s);
+  });
+  it("the onboarding payload carries what the card needs", () => {
+    const o = read("src/lib/onboarding.ts");
+    expect(o).toContain("scope: string | null; status: string; closureNote: string | null; closedAt: string | null;");
+    expect(o).toContain("closedAt: i.closedAt ? i.closedAt.toISOString() : null");
+  });
+  it("the card can leave out Adjust model and turns", () => {
+    const journey = read("src/app/(app)/ideas/idea-journey.tsx");
+    expect(journey).toContain("allowAdjust || s.action !== \"adjust\"");
+    expect(journey).toContain("allowAdjust = true");
   });
   it("looks again at what a new run would use when the size changes", () => {
     expect(read("src/app/(app)/ideas/idea-journey.tsx")).toContain("useEffect(() => { load(); }, [load, idea.complexity]);");

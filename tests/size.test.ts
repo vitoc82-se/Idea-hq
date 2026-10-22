@@ -27,10 +27,11 @@ describe("an idea has to be sized before the AI implements it", () => {
     expect(engine).toMatch(/startRun[^]*?if \(!effectiveSize\(idea\)\) throw new RunError\(409, SIZE_FIRST_MESSAGE\)/);
     expect(engine).toMatch(/approveRun[^]*?if \(run\.ideaId && !effectiveSize\(run\.idea\)\) throw new RunError\(409, SIZE_FIRST_MESSAGE\)/);
     expect(read("src/app/api/ideas/[id]/runs/route.ts")).toContain("sized: !!effectiveSize(idea)");
-    const panel = read("src/app/(app)/ideas/run-panel.tsx");
-    expect(panel).toMatch(/canStart = [^;]*&& sized &&/);
-    expect(panel).toContain("Size this idea first.");
-    expect(read("src/app/(app)/ideas/ideas-detail.tsx")).toContain("sized={!!effectiveSize(idea)}");
-    expect(read("src/app/welcome/welcome.tsx")).toContain("sized={!!effectiveSize(cur)}");
+    // the journey card sizes before planning (or lets the person pick), on the idea page and the welcome pages
+    const journey = read("src/app/(app)/ideas/idea-journey.tsx");
+    expect(journey).toContain("effectiveSize(current)");
+    expect(journey).toContain('id="journey-size"');
+    expect(read("src/app/(app)/ideas/ideas-detail.tsx")).toContain("<IdeaJourney");
+    expect(read("src/app/welcome/welcome.tsx")).toContain("<IdeaJourney");
   });
 });

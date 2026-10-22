@@ -772,7 +772,7 @@ export function IdeaDetail({
                   {idea.plan}
                 </pre>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                  This is the brief Implement gives the AI. You can also paste it into
+                  This is the brief the AI follows when you press Build it. You can also paste it into
                   Claude Code yourself; it has no git steps, so you handle those.
                   {idea.plannedAt &&
                     ` · Generated ${new Date(idea.plannedAt).toLocaleDateString()}`}
@@ -788,7 +788,7 @@ export function IdeaDetail({
       </Card>
 
       {/* Implement with AI (GitHub Actions) */}
-      <RunPanel compact ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} size={effectiveSize(idea)} onEstimate={() => void runEstimate()} estimating={estimating} />
+      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} size={effectiveSize(idea)} />
 
       {/* Danger zone */}
       <div className="flex justify-end">
