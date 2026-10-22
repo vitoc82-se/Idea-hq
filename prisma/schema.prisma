@@ -220,6 +220,8 @@ model Run {
   model        String?   // model the run was dispatched with
   effort       String?
   maxTurns     Int?
+  sizeAtRun    String?   // S | M | L | XL: the idea's size when the run started (the idea can be re-sized later)
+  stageMs      Json?     // how long each stage of the workflow took, in milliseconds: prepare, ai, handover, test, save, total
   checksState  String?   // pending | green | red
   creditCharged Boolean  @default(false) // a runs-pack credit paid for this run (refunded if it fails)
   agentNote     String?  @db.Text // what the AI said at the end of the run (why it changed nothing, or what it did)

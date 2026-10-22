@@ -14,6 +14,7 @@ import { buildPrompt, buildLearnPrompt, requiredWorkflowVersion, workflowVersion
 import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, suggestsStrongerModel, timeoutFor, type Override, type Tier } from "./policy";
 import { effectiveSize, SIZE_FIRST_MESSAGE } from "./size";
 import { closureNoteFor } from "./journey";
+import { stageDurations } from "./history-store";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
@@ -239,7 +240,7 @@ export async function approveRun(userId: string, runId: string, deps?: Deps, ove
     const charged = await chargeBuild(tx as unknown as typeof db, userId).catch(billingToRunError);
     const ok = await tx.run.updateMany({
       where: { id: run.id, status: "awaiting_approval" },
-      data: { creditCharged: charged, status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), provider: getProvider(p.aiProvider).id, model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns },
+      data: { creditCharged: charged, status: "dispatched", branch, startedAt: (deps?.now?.() ?? new Date()), provider: getProvider(p.aiProvider).id, model: tier.model, effort: tier.effort, maxTurns: tier.maxTurns, sizeAtRun: effectiveSize(run.idea) },
     });
     if (ok.count === 0) throw new RunError(409, "Run was already started.");
   });
@@ -620,6 +621,11 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   const { i, owner, repo } = repoOf(run.project);
   // What the AI said at the end, when the workflow passed it back (workflow v6). Never blocks the run.
   const note = await gh.runNote(i, owner, repo, String(wr.id)).catch(() => null);
+  // How long each stage took, for the person's own history of what a size costs. A revision's time is not the build's.
+  if (!run.prNumber) {
+    const stageMs = await gh.runJobs(i, owner, repo, String(wr.id)).then(stageDurations).catch(() => null);
+    if (stageMs) await db.run.update({ where: { id: run.id }, data: { stageMs } }).catch(() => undefined);
+  }
 
   if (!ok) {
     // Name the step that broke, so the person is told what to fix instead of "it failed".

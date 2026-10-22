@@ -2,7 +2,8 @@ import type { Size } from "./size";
 
 // How big an idea is, in terms of what the AI has to do (not what a human developer would need). The four stored
 // values S, M, L and XL stay; these are the names people see and what each size typically costs the AI. The ranges
-// are starting values from real runs, to be replaced by each person's own history once there is some. Measured on
+// are starting values from real runs. Each person's own history of finished runs (history.ts) is shown next to them once
+// there are enough runs of that size. Measured on
 // Haiku: two small changes took 7 and 7 to 14 turns, about half a cent each, 4 to 5 minutes (about 2 of them the AI,
 // the rest installing, building and testing twice); the README practice run 8 turns and $0.01; a four-file change
 // $0.21 and a ten-file one $0.74. Standard and Large are not yet measured.

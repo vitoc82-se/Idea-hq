@@ -1245,3 +1245,57 @@ describe("the AI's final message", () => {
     expect(t.tables.run[0].agentNote ?? null).toBeNull();
   });
 });
+
+// What a size really takes is learned from the person's own runs: the size at the start, and where the time went.
+describe("run history is recorded", () => {
+  const step = (name: string, a: string, b: string) => ({ name, status: "completed", conclusion: "success", startedAt: `2026-10-22T10:${a}Z`, completedAt: `2026-10-22T10:${b}Z` });
+  const jobs = [
+    { name: "implement", status: "completed", conclusion: "success", startedAt: null, completedAt: null, steps: [
+      step("Set up job", "00:00", "00:05"), step("Check out the repo", "00:05", "00:30"), step("Install dependencies", "00:30", "01:30"),
+      step("Run Claude Code", "01:30", "03:30"), step("Hand over the changes", "03:30", "03:40"), step("Post Check out", "03:40", "03:41"),
+    ] },
+    { name: "publish", status: "completed", conclusion: "success", startedAt: null, completedAt: null, steps: [
+      step("Apply the AI changes", "03:50", "04:00"), step("Verify the change builds", "04:00", "05:00"), step("Push branch", "05:00", "05:10"),
+    ] },
+  ];
+
+  it("keeps the idea's size when the run starts, even if the idea is re-sized afterwards", async () => {
+    t.tables.idea[0].complexity = "M";
+    await dispatchedRun();
+    t.tables.idea[0].complexity = "L";
+    expect(t.tables.run[0].sizeAtRun).toBe("M");
+  });
+
+  it("stores how long each stage took when the workflow finishes", async () => {
+    gh.state.jobs = jobs;
+    await prOpenRun();
+    const ms = t.tables.run[0].stageMs;
+    expect(ms.ai).toBe(120000);
+    expect(ms.handover).toBe(10000);
+    expect(ms.prepare).toBe(90000);
+    expect(ms.test).toBe(70000);
+    expect(ms.save).toBe(10000);
+    expect(ms.total).toBe(310000);
+  });
+
+  it("a run still finishes when GitHub gives no step times, or cannot be asked", async () => {
+    gh.state.jobs = [];
+    await prOpenRun();
+    expect(t.tables.run[0].status).toBe("pr_open");
+    expect(t.tables.run[0].stageMs ?? null).toBeNull();
+    t = makeFakeDb(); holder.db = t.db; seed(); gh = fakeGh();
+    gh.runJobs = async () => { throw new Error("down"); };
+    await prOpenRun();
+    expect(t.tables.run[0].status).toBe("pr_open");
+  });
+
+  it("a revision's time does not replace the build's", async () => {
+    gh.state.jobs = jobs;
+    await prOpenRun();
+    const before = t.tables.run[0].stageMs;
+    gh.state.jobs = [{ ...jobs[0], steps: [step("Run Claude Code", "00:00", "00:10")] }];
+    await reviseRun("u1", "RUN1", "make it blue", deps());
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "rev-1", deps());
+    expect(t.tables.run[0].stageMs).toEqual(before);
+  });
+});

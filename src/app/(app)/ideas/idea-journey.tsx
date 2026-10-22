@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { effectiveSize } from "@/lib/runs/size";
 import { SIZE_NAMES, sizeExpectation } from "@/lib/runs/sizes";
+import { historyLine, type SizeHistory } from "@/lib/runs/history";
 import { JOURNEY_STAGES, buildExpectation, fixChecksRequest, journeyFor, type PrimaryAction, type Rec, type SecondaryAction } from "@/lib/runs/journey";
 import { RunProgress } from "./run-progress";
 import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
@@ -25,7 +26,7 @@ type JRun = {
 };
 type Data = {
   runs: JRun[]; recommended: Rec | null; epic: { children: { id: string; status: string }[]; nextId: string | null } | null;
-  aiBuild: boolean; needsPlan: boolean; capReached: string | null; failingChecks: string[];
+  aiBuild: boolean; needsPlan: boolean; capReached: string | null; failingChecks: string[]; history?: SizeHistory;
   provider: { reportsCost: boolean } | null;
 };
 
@@ -251,6 +252,9 @@ export function IdeaJourney({
             <p className="text-gray-700 dark:text-gray-300">
               <b>{SIZE_NAMES[size]}</b>: {sizeExpectation(size, { withCost: reportsCost })}
             </p>
+            {size !== "XL" && data?.history?.[size] && (
+              <p className="text-gray-700 dark:text-gray-300" data-testid="own-history">{historyLine(size, data.history[size], { withCost: reportsCost })}</p>
+            )}
             {idea.scope && (
               <>
                 <p className="font-medium text-gray-900 dark:text-white">What the AI will do</p>

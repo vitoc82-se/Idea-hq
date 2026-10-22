@@ -6,6 +6,7 @@ import { getProvider } from "@/lib/providers";
 import { buildAccess } from "@/lib/billing";
 import { capState, capMessage } from "@/lib/spend";
 import { effectiveSize } from "@/lib/runs/size";
+import { loadHistory } from "@/lib/runs/history-store";
 import { github } from "@/lib/github/client";
 import { requireRepoAccess } from "@/lib/github/access";
 
@@ -79,12 +80,14 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
         failingChecks = [];
       }
     }
+    // What this person's own finished runs took, by size, shown next to the default ranges.
+    const history = await loadHistory(auth.userId).catch(() => ({}));
     const prov = getProvider(idea.project?.aiProvider);
     const access = await buildAccess(auth.userId);
     const cap = await capState(idea.projectId);
     return NextResponse.json({
       capReached: cap.reached ? capMessage(idea.project?.name ?? "this project", cap) : null, // a plain sentence when the monthly cap is used up
-      runs, recommended, epic, failingChecks,
+      runs, recommended, epic, failingChecks, history,
       aiBuild: access.ok || access.reason !== "off", // false: show a notice instead of the AI build buttons
       needsPlan: !access.ok && access.reason === "needs_plan", // paywall: no Pro and no credits left
       sized: !!effectiveSize(idea), // the AI only implements an idea that has a size
