@@ -56,6 +56,7 @@ export function IdeaJourney({
   allowAdjust?: boolean; // the welcome pages leave out "Adjust model and turns"; the idea page offers it
 }) {
   const [data, setData] = useState<Data | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [step, setStep] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,20 +64,28 @@ export function IdeaJourney({
   const [asking, setAsking] = useState(false);
   const [closure, setClosure] = useState(idea.closureNote || "");
 
-  const load = useCallback(async () => {
+  // `poll`: a refresh while a run is going; the history of earlier runs is loaded once and kept.
+  const load = useCallback(async (poll = false) => {
     try {
-      const res = await fetch(`/api/ideas/${idea.id}/runs`, { cache: "no-store" });
-      if (res.ok) setData(await res.json());
+      const res = await fetch(`/api/ideas/${idea.id}/runs${poll ? "?poll=1" : ""}`, { cache: "no-store" });
+      if (res.ok) {
+        const json: Data = await res.json();
+        setData((prev) => ({ ...json, history: json.history ?? prev?.history }));
+        setLoadFailed(false);
+      } else {
+        setLoadFailed(true);
+      }
     } catch {
-      /* the next poll tries again */
+      setLoadFailed(true); // with data already on screen the next poll tries again; without it the card says so
     }
   }, [idea.id]);
 
   // Look again when the size changes: the model a new run would use depends on it.
-  useEffect(() => { load(); }, [load, idea.complexity]);
+  useEffect(() => { void load(); }, [load, idea.complexity]);
   useEffect(() => {
-    window.addEventListener(RUNS_CHANGED, load);
-    return () => window.removeEventListener(RUNS_CHANGED, load);
+    const again = () => void load();
+    window.addEventListener(RUNS_CHANGED, again);
+    return () => window.removeEventListener(RUNS_CHANGED, again);
   }, [load]);
 
   const run = data?.runs.find((r) => r.kind === "implement") ?? null;
@@ -85,7 +94,7 @@ export function IdeaJourney({
   const checking = run?.status === "pr_open" && run.checksState !== "green" && run.checksState !== "red";
   useEffect(() => {
     if (!busyRun && !checking) return;
-    const t = setInterval(load, 8000);
+    const t = setInterval(() => void load(true), 8000);
     return () => clearInterval(t);
   }, [busyRun, checking, load]);
 
@@ -263,7 +272,7 @@ export function IdeaJourney({
             )}
             {view.primary && ["build", "approve"].includes(view.primary.action) && (
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                {buildExpectation(null, data?.recommended ?? null, reportsCost)}. That limit is a safety ceiling, not what it should take. You can read the full plan in the build prompt.
+                {data?.recommended ? `${buildExpectation(null, data.recommended, reportsCost)}. That limit is a safety ceiling, not what it should take. ` : ""}You can read the full plan in the build prompt.
               </p>
             )}
           </div>
@@ -333,6 +342,16 @@ export function IdeaJourney({
           </div>
         )}
 
+        {!data && (
+          loadFailed ? (
+            <p role="alert" className="flex flex-wrap items-center gap-2 text-sm text-red-700 dark:text-red-400">
+              Could not load this idea&apos;s builds, so Build is switched off for now.
+              <Button size="sm" variant="outline" onClick={() => void load()}>Try again</Button>
+            </p>
+          ) : (
+            <p role="status" className="text-xs text-gray-600 dark:text-gray-400">Checking what a build would use…</p>
+          )
+        )}
         {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         {view.blocked && <p role="status" className="rounded-lg border border-gray-400 p-3 text-sm text-gray-800 dark:border-gray-500 dark:text-gray-200">{view.blocked}</p>}
 
@@ -343,7 +362,7 @@ export function IdeaJourney({
             ) : view.primary?.action === "home" ? (
               <Link href="/ideas" className="inline-flex h-10 items-center justify-center rounded-lg bg-emerald-700 px-4 text-sm font-medium text-white hover:bg-emerald-800">{view.primary.label}</Link>
             ) : view.primary ? (
-              <Button disabled={busy !== null || (view.primary.action === "fix" && !request.trim())} onClick={() => runPrimary(view.primary!.action)} className="bg-emerald-700 hover:bg-emerald-800">
+              <Button disabled={busy !== null || (!data && view.primary.action !== "plan") || (view.primary.action === "fix" && !request.trim())} onClick={() => runPrimary(view.primary!.action)} className="bg-emerald-700 hover:bg-emerald-800">
                 {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : view.primary.action === "plan" ? <Sparkles className="mr-1.5 h-4 w-4" aria-hidden="true" /> : null}
                 {view.primary.label}
               </Button>

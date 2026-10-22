@@ -182,3 +182,16 @@ describe("what the board shows", () => {
     expect(read("src/components/backlog-import.tsx")).toMatch(/Plan them all/);
   });
 });
+
+describe("the polls and the list are cheap", () => {
+  it("the runs route skips the history on a poll, and sends it otherwise", () => {
+    const route = read("src/app/api/ideas/[id]/runs/route.ts");
+    expect(route).toMatch(/searchParams\.has\("poll"\) \? undefined : await loadHistory/);
+  });
+  it("the ideas list takes each idea's latest build in the database, one row per idea", () => {
+    const route = read("src/app/api/ideas/route.ts");
+    expect(route).toMatch(/take: 1/);
+    expect(route).not.toMatch(/distinct:/);
+    expect(route).not.toMatch(/ideaId: \{ in: ids \}/);
+  });
+});

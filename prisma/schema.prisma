@@ -216,6 +216,8 @@ model Run {
   mergedSha    String?
   costUsd      Float?
   turns        Int?
+  turnsBefore  Int?      // turns already used by earlier workflow runs on this run: a revision adds to them
+  costBeforeUsd Float?   // the same for cost
   provider     String?   // claude | openai
   model        String?   // model the run was dispatched with
   effort       String?

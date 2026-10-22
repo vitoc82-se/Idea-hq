@@ -15,7 +15,7 @@ const PUBLIC = {
   checksState: true, agentNote: true, previewUrl: true, costUsd: true, turns: true, provider: true, model: true, effort: true, maxTurns: true, error: true, createdAt: true, startedAt: true, finishedAt: true, parentRunId: true,
 } as const;
 
-export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
@@ -81,7 +81,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       }
     }
     // What this person's own finished runs took, by size, shown next to the default ranges.
-    const history = await loadHistory(auth.userId).catch(() => ({}));
+    // The page asks for it once; the poll while a run is going (?poll=1) does not need it again.
+    const history = new URL(req.url).searchParams.has("poll") ? undefined : await loadHistory(auth.userId).catch(() => ({}));
     const prov = getProvider(idea.project?.aiProvider);
     const access = await buildAccess(auth.userId);
     const cap = await capState(idea.projectId);
