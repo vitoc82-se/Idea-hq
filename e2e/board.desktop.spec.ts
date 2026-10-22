@@ -68,3 +68,13 @@ test("search narrows the list and the next step on a row is a real, labelled but
   await build.click();
   await expect(page).toHaveURL(/\/ideas\/ready/);
 });
+
+test("the board view shows each card's stage and next step too", async ({ page }) => {
+  await openIdeas(page);
+  await page.getByRole("button", { name: "Board" }).click();
+  const cards = page.getByTestId("kanban-next");
+  await expect(cards.first()).toBeVisible();
+  await expect(page.getByTestId("kanban-next").filter({ hasText: "Review · 4 of 5 · Merge" })).toHaveCount(1);
+  await expect(page.getByTestId("kanban-next").filter({ hasText: "Describe · 1 of 5 · Plan it" })).toHaveCount(3);
+  await expect(page.getByTestId("kanban-next").filter({ hasText: "Not planned for now" })).toHaveCount(1);
+});

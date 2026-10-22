@@ -89,6 +89,7 @@ describe("the public support surface is walled off", () => {
       .filter((f) => f.startsWith("support/") || f.startsWith("cron/"))
       .sort();
     expect(open).toEqual([
+      "cron/stuck-runs/route.ts",
       "cron/support-retention/route.ts",
       "support/space/[key]/ask/route.ts",
       "support/space/[key]/tickets/route.ts",
