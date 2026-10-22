@@ -31,10 +31,7 @@ import {
   STATUSES,
   PRIORITIES,
   IMPACTS,
-  COMPLEXITIES,
   STATUS_STYLES,
-  PRIORITY_STYLES,
-  IMPACT_STYLES,
   COMPLEXITY_STYLES,
   tagStyle,
   parseTagInput,
@@ -82,14 +79,15 @@ export function IdeaDetail({
   const [deleting, setDeleting] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [copied, setCopied] = useState(false);
-  const [closureDraft, setClosureDraft] = useState(initial.closureNote || "");
+  // "Details and overrides" opens by itself for an idea that is (or may become) an Epic, because splitting happens there.
+  const [detailsOpen, setDetailsOpen] = useState(() => childStories.length > 0 || initial.complexity === "XL");
   // The journey card asks the stories section to propose a split (an Epic): each press counts up.
   const [splitSignal, setSplitSignal] = useState(0);
 
-  const saveClosure = () => {
-    const v = closureDraft.trim();
-    if (v === (idea.closureNote || "")) return;
-    patch({ closureNote: v || null });
+  // Open the folded details, then bring one part of them into view (the journey card sends people there).
+  const reveal = (id: string) => {
+    setDetailsOpen(true);
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "center" }), 60);
   };
 
   // Collapsible sections so a long idea (big notes, scope, build prompt) doesn't
@@ -384,20 +382,6 @@ export function IdeaDetail({
                       {STATUSES.find((s) => s.value === idea.status)?.label ||
                         idea.status}
                     </span>
-                    {idea.priority !== "none" && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${PRIORITY_STYLES[idea.priority]}`}
-                      >
-                        {idea.priority} priority
-                      </span>
-                    )}
-                    {idea.impact && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${IMPACT_STYLES[idea.impact]}`}
-                      >
-                        {idea.impact} value
-                      </span>
-                    )}
                     {idea.complexity && (
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -415,6 +399,29 @@ export function IdeaDetail({
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Added {new Date(idea.createdAt).toLocaleDateString()}
                   </p>
+                  <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <div>
+                      <Label htmlFor="idea-priority" className="text-xs">Priority</Label>
+                      <Select id="idea-priority" value={idea.priority} onChange={(e) => patch({ priority: e.target.value })} className="mt-1 w-auto text-sm">
+                        {PRIORITIES.map((p) => (
+                          <option key={p.value} value={p.value}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="idea-value" className="text-xs">Value</Label>
+                      <Select id="idea-value" value={idea.impact || ""} onChange={(e) => patch({ impact: e.target.value })} className="mt-1 w-auto text-sm">
+                        {!idea.impact && <option value="">— not set —</option>}
+                        {IMPACTS.map((i) => (
+                          <option key={i.value} value={i.value}>
+                            {i.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
                 </div>
                 <Button
                   variant="outline"
@@ -510,21 +517,39 @@ export function IdeaDetail({
         onPlan={() => runPlan(true)}
         onSplit={() => {
           setSplitSignal((n) => n + 1);
-          document.getElementById("stories")?.scrollIntoView({ block: "center" });
+          reveal("stories");
         }}
+        onReveal={reveal}
+        onSetSize={(value) => patch({ complexity: value })}
+        blockedBy={idea.blockedBy.map((id) => idTitle.get(id)).filter((r): r is IdeaRef => !!r && r.status !== "done").map((r) => r.title)}
         onSaveClosure={(text) => patch({ closureNote: text || null })}
       />
 
-      {/* Triage controls */}
+      {/* Everything the journey does not need day to day. Nothing here was removed; it is only folded away. */}
+      <div>
+        <button
+          type="button"
+          aria-expanded={detailsOpen}
+          aria-controls="idea-details"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 text-left text-sm font-medium text-gray-900 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700"
+        >
+          <span>
+            Details and overrides
+            <span className="block text-xs font-normal text-gray-600 dark:text-gray-400">Status, dependencies, stories, scope, the brief, run options</span>
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+        {/* hidden, not unmounted: the stories proposal and the run panel keep their state while folded */}
+        <div id="idea-details" hidden={!detailsOpen} className="mt-4 space-y-4">
+      {/* Status: normally moved by the journey; this is the manual override (for example Parked) */}
       <Card>
         <CardContent className="p-5">
-          <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-            Triage
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <Label className="text-xs">Status</Label>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="w-full sm:w-56">
+              <Label htmlFor="idea-status" className="text-xs">Status</Label>
               <Select
+                id="idea-status"
                 value={idea.status}
                 onChange={(e) => patch({ status: e.target.value })}
                 className="mt-1 w-full text-sm"
@@ -536,85 +561,8 @@ export function IdeaDetail({
                 ))}
               </Select>
             </div>
-            <div>
-              <Label className="text-xs">Priority</Label>
-              <Select
-                value={idea.priority}
-                onChange={(e) => patch({ priority: e.target.value })}
-                className="mt-1 w-full text-sm"
-              >
-                {PRIORITIES.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Value</Label>
-              <Select
-                value={idea.impact || ""}
-                onChange={(e) => patch({ impact: e.target.value })}
-                className="mt-1 w-full text-sm"
-              >
-                {!idea.impact && <option value="">— not set —</option>}
-                {IMPACTS.map((i) => (
-                  <option key={i.value} value={i.value}>
-                    {i.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Effort</Label>
-              <Select
-                value={idea.complexity || ""}
-                onChange={(e) => patch({ complexity: e.target.value })}
-                className="mt-1 w-full text-sm"
-              >
-                {!idea.complexity && <option value="">— not set —</option>}
-                {COMPLEXITIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">The journey above moves this by itself. Change it here to park an idea or to correct it.</p>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Closure note */}
-      <Card
-        className={
-          idea.status === "done"
-            ? "border-emerald-300 dark:border-emerald-700"
-            : undefined
-        }
-      >
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5" /> Closure note
-            </h2>
-            {idea.closedAt && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                Closed {new Date(idea.closedAt).toLocaleDateString()}
-              </span>
-            )}
-          </div>
-          <Textarea
-            value={closureDraft}
-            onChange={(e) => setClosureDraft(e.target.value)}
-            onBlur={saveClosure}
-            placeholder="What actually shipped, what changed, or why this is done…"
-            className={`min-h-[70px] text-sm ${idea.status === "done" ? "" : "opacity-70"}`}
-          />
-          {idea.status !== "done" && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              A short record of what shipped — most useful once this is marked done.
-            </p>
-          )}
         </CardContent>
       </Card>
 
@@ -840,7 +788,7 @@ export function IdeaDetail({
       </Card>
 
       {/* Implement with AI (GitHub Actions) */}
-      <RunPanel ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} size={effectiveSize(idea)} onEstimate={() => void runEstimate()} estimating={estimating} />
+      <RunPanel compact ideaId={initial.id} projectId={initial.projectId} plan={idea.plan} sized={!!effectiveSize(idea)} size={effectiveSize(idea)} onEstimate={() => void runEstimate()} estimating={estimating} />
 
       {/* Danger zone */}
       <div className="flex justify-end">
@@ -854,6 +802,8 @@ export function IdeaDetail({
           <Trash2 className="w-4 h-4 mr-1" />
           {deleting ? "Deleting…" : "Delete idea"}
         </Button>
+      </div>
+        </div>
       </div>
     </div>
   );

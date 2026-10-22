@@ -35,6 +35,8 @@ export type JourneyInput = {
   access: { aiBuild: boolean; needsPlan: boolean; capReached: string | null };
   recommended: Rec | null;
   reportsCost: boolean;
+  // Titles of the ideas that must ship first and are not done. While there are any, the AI does not build this one.
+  blockedBy?: string[];
 };
 
 export type JourneyView = {
@@ -100,6 +102,11 @@ export function closureNoteFor(agentNote: string | null | undefined, prNumber: n
   return `${/[.!?…]$/.test(text) ? text : `${text}.`} Shipped in PR #${prNumber}.`;
 }
 
+// Adjusting a run only makes sense when one could start; planning again always does.
+function buildSecondary(blocked: string | null): JourneyView["secondary"] {
+  return blocked ? [{ action: "replan", label: "Plan again" }] : [{ action: "adjust", label: "Adjust model and turns" }, { action: "replan", label: "Plan again" }];
+}
+
 export function journeyFor(i: JourneyInput): JourneyView {
   const size = effectiveSize(i.idea);
   const { run, epic } = i;
@@ -107,7 +114,9 @@ export function journeyFor(i: JourneyInput): JourneyView {
 
   // What stops the AI build buttons (not planning, which uses the helper AI).
   const blocked = !i.access.aiBuild ? "AI build is switched off for your account. Ask the owner." : i.access.needsPlan ? "AI build needs Pro or a runs pack. Open Billing." : i.access.capReached;
-  const buildBlocked = blocked ?? null;
+  const waiting = i.blockedBy ?? [];
+  const names = waiting.slice(0, 3).map((t) => `"${t}"`).join(", ") + (waiting.length > 3 ? ` and ${waiting.length - 3} more` : "");
+  const buildBlocked = blocked ?? (waiting.length ? `Blocked by ${names}. Finish ${waiting.length === 1 ? "it" : "them"} first.` : null);
 
   // Ship: merged, or the idea is done.
   if (i.idea.status === "done" || run?.status === "merged") {
@@ -157,13 +166,13 @@ export function journeyFor(i: JourneyInput): JourneyView {
     return { stage: "plan", headline: "This is an Epic: more than one run can do safely. Splitting it into steps is cheaper and fails less.", primary: { action: "split", label: "Split it into steps" }, secondary: [{ action: "buildAsOne", label: "Build it as one anyway" }], blocked: buildBlocked };
   }
   if (run?.status === "awaiting_approval") {
-    return { stage: "plan", headline: "Ready to build. Press the button to approve the run.", primary: buildBlocked ? null : { action: "approve", label: buildLabel(size, i.recommended, i.reportsCost) }, secondary: [{ action: "adjust", label: "Adjust model and turns" }, { action: "replan", label: "Plan again" }], blocked: buildBlocked };
+    return { stage: "plan", headline: "Ready to build. Press the button to approve the run.", primary: buildBlocked ? null : { action: "approve", label: buildLabel(size, i.recommended, i.reportsCost) }, secondary: buildSecondary(buildBlocked), blocked: buildBlocked };
   }
   return {
     stage: "plan",
     headline: run?.status === "closed" || run?.status === "cancelled" ? "The last run was closed. You can build it again." : "Planned. Ready to build.",
     primary: buildBlocked ? null : { action: "build", label: buildLabel(size, i.recommended, i.reportsCost) },
-    secondary: [{ action: "adjust", label: "Adjust model and turns" }, { action: "replan", label: "Plan again" }],
+    secondary: buildSecondary(buildBlocked),
     blocked: buildBlocked,
   };
 }

@@ -6,12 +6,14 @@ import { Check, ExternalLink, GitPullRequest, Loader2, Sparkles } from "lucide-r
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { effectiveSize } from "@/lib/runs/size";
 import { SIZE_NAMES, sizeExpectation } from "@/lib/runs/sizes";
 import { JOURNEY_STAGES, buildExpectation, fixChecksRequest, journeyFor, type PrimaryAction, type Rec, type SecondaryAction } from "@/lib/runs/journey";
 import { RunProgress } from "./run-progress";
 import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
-import type { Idea } from "./ideas-shared";
+import { COMPLEXITIES, type Idea } from "./ideas-shared";
 
 type JRun = {
   id: string; kind: string; status: string; checksState: string | null; prNumber: number | null; previewUrl?: string | null;
@@ -37,12 +39,15 @@ async function call(url: string, body?: unknown): Promise<{ ok: boolean; json: R
 // The idea page as one journey: Describe, Plan, Build, Review, Ship, with one button for the next step. It sits above
 // the older cards (triage, stories, scope, build prompt, run panel), which still do everything it does and more.
 export function IdeaJourney({
-  idea, onEstimate, onPlan, onSplit, onSaveClosure,
+  idea, onEstimate, onPlan, onSplit, onReveal, onSetSize, blockedBy = [], onSaveClosure,
 }: {
   idea: Idea;
   onEstimate: () => Promise<Idea | string>;
   onPlan: () => Promise<Idea | string>;
   onSplit: () => void;
+  onReveal: (id: string) => void; // open the folded details and bring one part into view
+  onSetSize: (value: string) => void; // the person sets the size by hand
+  blockedBy?: string[];
   onSaveClosure: (text: string) => void;
 }) {
   const [data, setData] = useState<Data | null>(null);
@@ -62,7 +67,8 @@ export function IdeaJourney({
     }
   }, [idea.id]);
 
-  useEffect(() => { load(); }, [load]);
+  // Look again when the size changes: the model a new run would use depends on it.
+  useEffect(() => { load(); }, [load, idea.complexity]);
   useEffect(() => {
     window.addEventListener(RUNS_CHANGED, load);
     return () => window.removeEventListener(RUNS_CHANGED, load);
@@ -90,7 +96,7 @@ export function IdeaJourney({
   const view = journeyFor({
     idea, run, epic: data?.epic ?? null,
     access: { aiBuild: data?.aiBuild !== false, needsPlan: !!data?.needsPlan, capReached: data?.capReached ?? null },
-    recommended: data?.recommended ?? null, reportsCost: data?.provider?.reportsCost !== false,
+    recommended: data?.recommended ?? null, reportsCost: data?.provider?.reportsCost !== false, blockedBy,
   });
   const stageIndex = JOURNEY_STAGES.findIndex((s) => s.id === view.stage);
 
@@ -156,7 +162,7 @@ export function IdeaJourney({
     } finally {
       await finish();
     }
-    document.getElementById("implement-with-ai")?.scrollIntoView({ block: "center" });
+    onReveal("implement-with-ai");
   };
 
   const act = async (label: string, url: string, body?: unknown) => {
@@ -223,6 +229,19 @@ export function IdeaJourney({
           )}
         </p>
 
+        {(view.stage === "describe" || view.stage === "plan") && !(data?.epic && data.epic.children.length > 0) && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="journey-size" className="text-xs">Size</Label>
+            <Select id="journey-size" value={idea.complexity || ""} disabled={busy !== null} onChange={(e) => e.target.value && onSetSize(e.target.value)} className="w-auto text-sm">
+              {!idea.complexity && <option value="">Not sized yet</option>}
+              {COMPLEXITIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </Select>
+            <span className="text-xs text-gray-600 dark:text-gray-400">Plan it sizes it for you. Choose one here to set it yourself.</span>
+          </div>
+        )}
+
         {view.stage === "plan" && idea.plan && size && (
           <div className="space-y-2 text-sm">
             <p className="text-gray-700 dark:text-gray-300">
@@ -236,7 +255,7 @@ export function IdeaJourney({
             )}
             {view.primary && ["build", "approve"].includes(view.primary.action) && (
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                {buildExpectation(size, data?.recommended ?? null, reportsCost)}. That limit is a safety ceiling, not what it should take. The full brief is in the AI build prompt card below.
+                {buildExpectation(null, data?.recommended ?? null, reportsCost)}. That limit is a safety ceiling, not what it should take. The full brief is in the AI build prompt card below.
               </p>
             )}
           </div>
@@ -290,7 +309,10 @@ export function IdeaJourney({
                 {size ? `. A ${SIZE_NAMES[size]} idea is ${sizeExpectation(size, { withCost: reportsCost })}.` : "."}
               </p>
             )}
-            <label htmlFor="journey-closure" className="block font-medium text-gray-900 dark:text-white">Closing note</label>
+            <label htmlFor="journey-closure" className="flex items-baseline justify-between gap-2 font-medium text-gray-900 dark:text-white">
+              Closing note
+              {idea.closedAt && <span className="text-xs font-normal text-gray-600 dark:text-gray-400">Closed {new Date(idea.closedAt).toLocaleDateString()}</span>}
+            </label>
             <Textarea
               id="journey-closure"
               value={closure}
