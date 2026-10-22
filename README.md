@@ -9,7 +9,7 @@ its own `context` (its ARCHITECTURE.md / stack / models / deploy flow), which is
 exact text handed to Claude when it estimates or plans an idea for that project.
 
 ## Stack
-Next.js 14 (App Router) · Prisma 7 → Neon Postgres · NextAuth (credentials + optional Google) · Anthropic Claude Opus 5 · Tailwind · deployed on Vercel.
+Next.js 15 (App Router) · React 19 · Prisma 7 → Neon Postgres · NextAuth (credentials + optional Google) · Anthropic Claude · Tailwind · deployed on Vercel. AI changes run in the owner's own GitHub through a GitHub App and an Actions workflow.
 
 ## Getting started
 1. `npm install`
@@ -18,6 +18,26 @@ Next.js 14 (App Router) · Prisma 7 → Neon Postgres · NextAuth (credentials +
 4. `npm run dev`, open http://localhost:3000, register (the first account becomes the owner).
 5. Go to **Projects**, add each project and paste its context (its `ARCHITECTURE.md`).
 6. Go to **Ideas**, capture an idea under a project — the estimate fills in automatically.
+
+## Try it locally, with nothing to set up
+```
+npm install
+npm run dev:local
+```
+Open http://localhost:3100 and sign in as `dev@ideahq.test` with `dev-password-local-only`. This runs the whole app on an
+in-memory Postgres (PGlite, `src/lib/db-pglite.ts`) filled with sample data (`src/lib/dev-seed.ts`): a project with an idea
+in every stage of the journey (needs a plan, ready to build, the AI working, failed checks, ready to merge, shipped, a revert
+waiting), an Epic, and another person's idea that must never show. No Neon, no GitHub, no AI key: the AI key is blanked, so
+nothing can spend money (set `IDEAHQ_ALLOW_AI=1` to allow it), and GitHub calls simply find nothing. Everything resets when
+the server stops. It only exists when `IDEAHQ_DB=pglite` is set (`scripts/local.mjs` does that); a normal build never
+contains it, and it refuses to start on Vercel.
+
+## Tests
+- `npm test` runs the unit and database tests (Vitest, with the real SQL on PGlite).
+- `npm run test:e2e` builds the local version above and runs the smoke tests in a real browser (Playwright, `e2e/`): sign-in,
+  the Ideas list with each idea's stage and next step, the Needs you filter, every stage of the idea card, light and dark,
+  and a phone width. The first time, run `npx playwright install chromium`. `npm run test:e2e:fast` reuses the last build.
+  The same tests run in CI as the `smoke` job. When the sample data changes, change the expectations in `e2e/` with it.
 
 ## Deploy
 Set the same env vars in Vercel, then `git push origin main`. The build runs

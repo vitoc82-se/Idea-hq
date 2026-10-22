@@ -839,7 +839,7 @@ function IdeaRow({
   const [showClosure, setShowClosure] = useState(false);
   const [closureText, setClosureText] = useState(idea.closureNote || "");
   return (
-    <Card className="hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors">
+    <Card className="hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors" data-testid="idea-row" data-idea-id={idea.id}>
       <CardContent className="p-3">
         <div className="flex items-center gap-3">
         <Link href={`/ideas/${idea.id}`} className="min-w-0 flex-1 group">
@@ -972,9 +972,9 @@ function IdeaRow({
           {planning ? (
             <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Planning…</span>
           ) : step.action === "plan" ? (
-            <button type="button" onClick={onPlan} className={NEXT_ACTION}>Plan it<span className="sr-only">: {idea.title}</span></button>
+            <button type="button" onClick={onPlan} className={NEXT_ACTION}>Plan it<span className="sr-only"> for {idea.title}</span></button>
           ) : step.action ? (
-            <Link href={`/ideas/${idea.id}`} className={NEXT_ACTION}>{step.next}<span className="sr-only">: {idea.title}</span></Link>
+            <Link href={`/ideas/${idea.id}`} className={NEXT_ACTION}>{step.next}<span className="sr-only"> for {idea.title}</span></Link>
           ) : (
             <span>{step.next}</span>
           )}

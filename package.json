@@ -12,7 +12,12 @@
     "lint": "next lint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "support:eval": "RUN_SUPPORT_EVAL=1 vitest run tests/support-eval.live.test.ts"
+    "support:eval": "RUN_SUPPORT_EVAL=1 vitest run tests/support-eval.live.test.ts",
+    "dev:local": "node scripts/local.mjs dev",
+    "build:local": "node scripts/local.mjs build",
+    "start:local": "node scripts/local.mjs start",
+    "test:e2e": "node scripts/local.mjs build && playwright test",
+    "test:e2e:fast": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
@@ -40,6 +45,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.15",
+    "@playwright/test": "^1.64.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/libsodium-wrappers": "^0.7.14",
     "@types/node": "^20",

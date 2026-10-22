@@ -18,3 +18,26 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+  # Smoke tests of the main screens in a real browser, against a production build that runs on the in-memory database
+  # with sample data (npm run test:e2e). Nothing here touches a real database, GitHub or an AI key.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: smoke-test-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
