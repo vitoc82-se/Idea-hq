@@ -32,34 +32,29 @@ export async function GET(request: Request) {
   // Optional ?projectId= filter; omitted → every project (the cross-project view).
   const projectId = new URL(request.url).searchParams.get("projectId");
 
-  // Only top-level ideas on the board — child stories live on their epic's page.
+  // Only top-level ideas on the board — child stories live on their epic's page. Each idea also carries its latest
+  // build (one row per idea, taken in the database), for the stage line on its row.
   const ideas = await db.idea.findMany({
     where: { userId, parentId: null, ...(projectId ? { projectId } : {}) },
     orderBy: [{ createdAt: "desc" }],
-    ...withProject,
+    include: {
+      ...withProject.include,
+      runs: { where: { userId, kind: "implement" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, kind: true, checksState: true } },
+    },
   });
-  // Where each idea stands on the journey (see lib/runs/journey.ts): its latest build and, for one split into steps, the steps.
+  // For an idea split into steps: the steps and the next one that can start.
   const ids = ideas.map((i) => i.id);
-  const [runs, kids] = ids.length
-    ? await Promise.all([
-        db.run.findMany({
-          where: { userId, ideaId: { in: ids }, kind: "implement" },
-          orderBy: { createdAt: "desc" },
-          distinct: ["ideaId"],
-          select: { ideaId: true, id: true, status: true, kind: true, checksState: true },
-        }),
-        db.idea.findMany({ where: { userId, parentId: { in: ids } }, orderBy: { createdAt: "asc" }, select: { id: true, parentId: true, status: true, blockedBy: true } }),
-      ])
-    : [[], []];
-  const runOf = new Map(runs.map((r) => [r.ideaId, { id: r.id, status: r.status, kind: r.kind, checksState: r.checksState }]));
+  const kids = ids.length
+    ? await db.idea.findMany({ where: { userId, parentId: { in: ids } }, orderBy: { createdAt: "asc" }, select: { id: true, parentId: true, status: true, blockedBy: true } })
+    : [];
   return NextResponse.json(
-    ideas.map((i) => {
+    ideas.map(({ runs, ...i }) => {
       const own = kids.filter((k) => k.parentId === i.id);
       const done = new Set(own.filter((k) => k.status === "done").map((k) => k.id));
       const next = own.find((k) => k.status !== "done" && k.blockedBy.every((b) => done.has(b)));
       return {
         ...i,
-        latestRun: runOf.get(i.id) ?? null,
+        latestRun: runs[0] ?? null,
         epic: own.length ? { children: own.map((k) => ({ id: k.id, status: k.status })), nextId: next?.id ?? null } : null,
       };
     })

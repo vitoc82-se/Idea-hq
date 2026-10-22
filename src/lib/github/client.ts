@@ -39,6 +39,9 @@ export type PrComment = { author: string; bot: boolean; body: string };
 export type GhStep = { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null };
 export type GhJob = { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null; steps: GhStep[] };
 
+// A workflow run as the Actions API reports it (just what reconciling needs).
+export type GhWorkflowRun = { id: number; status: string; conclusion: string | null; htmlUrl: string | null; createdAt: string | null };
+
 export interface GitHubApi {
   repoBranch(i: number, owner: string, repo: string, branch: string): Promise<{ sha: string; protected: boolean } | null>;
   secretExists(i: number, owner: string, repo: string, name: string): Promise<boolean>;
@@ -57,6 +60,8 @@ export interface GitHubApi {
   listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
   failedStep(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
   runJobs(i: number, owner: string, repo: string, ghRunId: string): Promise<GhJob[]>;
+  // The newest workflow run of an Idea HQ run (found by its run name, or directly when its GitHub id is known); null if none.
+  findWorkflowRun(i: number, owner: string, repo: string, file: string, runId: string, ghRunId?: string | null): Promise<GhWorkflowRun | null>;
   runNote(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
   getSecretsPublicKey(i: number, owner: string, repo: string): Promise<{ keyId: string; key: string }>;
   putSecret(i: number, owner: string, repo: string, name: string, encryptedValue: string, keyId: string): Promise<void>;
@@ -296,6 +301,18 @@ export const github: GitHubApi = {
       name: job.name, status: job.status, conclusion: job.conclusion, startedAt: job.started_at, completedAt: job.completed_at,
       steps: (job.steps ?? []).map((s) => ({ name: s.name, status: s.status, conclusion: s.conclusion, startedAt: s.started_at, completedAt: s.completed_at })),
     }));
+  },
+  async findWorkflowRun(i, owner, repo, file, runId, ghRunId) {
+    type R = { id: number; status: string; conclusion: string | null; html_url?: string | null; created_at?: string | null; display_title?: string | null };
+    const map = (r: R): GhWorkflowRun => ({ id: r.id, status: r.status, conclusion: r.conclusion, htmlUrl: r.html_url ?? null, createdAt: r.created_at ?? null });
+    if (ghRunId) {
+      const r = await call<R>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}`, undefined, [404]);
+      return r ? map(r) : null;
+    }
+    // Newest first. The run name is `idea-hq <run id>` (see the workflow template), the same text the webhook matches.
+    const j = await call<{ workflow_runs?: R[] }>(i, "GET", `/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(file)}/runs?event=workflow_dispatch&per_page=30`, undefined, [404]);
+    const hit = (j?.workflow_runs ?? []).find((r) => r.display_title === `idea-hq ${runId}`);
+    return hit ? map(hit) : null;
   },
   async failedStep(i, owner, repo, ghRunId) {
     const j = await call<{ jobs: { steps?: { name: string; conclusion: string | null }[] }[] }>(i, "GET", `/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(ghRunId)}/jobs?per_page=10`, undefined, [404]);

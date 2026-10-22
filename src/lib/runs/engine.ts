@@ -71,6 +71,8 @@ const g = (d?: Deps) => d?.gh ?? realGithub;
 // Workflow timeout is 30 min; allow slack for queueing.
 export const STUCK_AFTER_MS = 45 * 60 * 1000;
 export const RECONCILE_COOLDOWN_MS = 30 * 1000;
+// How long a run is given to be reported by GitHub before Idea HQ asks GitHub itself.
+export const ASK_GITHUB_AFTER_MS = 3 * 60 * 1000;
 
 type RunRow = NonNullable<Awaited<ReturnType<typeof db.run.findUnique>>>;
 type ProjectRow = NonNullable<Awaited<ReturnType<typeof db.project.findUnique>>>;
@@ -265,7 +267,8 @@ export async function reviseRun(userId: string, runId: string, instruction: stri
     const ok = await tx.run.updateMany({
       where: { id: run.id, status: "pr_open" },
       // A new clock and no GitHub run yet: the progress view must not show the earlier workflow run.
-      data: { status: "dispatched", checksState: "pending", error: null, startedAt: deps?.now?.() ?? new Date(), ghRunId: null },
+      // What the build and any earlier revision used is kept: the revision's own turns and cost are added on top.
+      data: { status: "dispatched", checksState: "pending", error: null, startedAt: deps?.now?.() ?? new Date(), ghRunId: null, turnsBefore: run.turns ?? null, costBeforeUsd: run.costUsd ?? null },
     });
     if (ok.count === 0) throw new RunError(409, "Run changed, try again.");
   });
@@ -580,9 +583,13 @@ async function processEvent(event: string, payload: Payload, gh: GitHubApi): Pro
     if (!run) return "ignored";
     const cost = /cost=([0-9.]+)/.exec(desc);
     const turns = /turns=([0-9]+)/.exec(desc);
+    // The line reports this workflow run only; a revision's earlier workflow runs are in turnsBefore and costBeforeUsd.
     await db.run.update({
       where: { id: run.id },
-      data: { costUsd: cost ? Number(cost[1]) : undefined, turns: turns ? Number(turns[1]) : undefined },
+      data: {
+        costUsd: cost ? Math.round(((run.costBeforeUsd ?? 0) + Number(cost[1])) * 1e6) / 1e6 : undefined,
+        turns: turns ? (run.turnsBefore ?? 0) + Number(turns[1]) : undefined,
+      },
     });
     // This line normally comes before the workflow's "completed" event. If it came after, the failure message was
     // written without knowing the turns were used up: say so now.
@@ -631,8 +638,9 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
     // Name the step that broke, so the person is told what to fix instead of "it failed".
     const step = await gh.failedStep(i, owner, repo, String(wr.id)).catch(() => null);
     // The turns used arrive with the run's last status line, which GitHub sends before the workflow completes.
-    const used = await db.run.findUnique({ where: { id: run.id }, select: { turns: true, maxTurns: true } }).catch(() => null);
-    const outOfTurns = used && ranOutOfTurns(used) ? { cap: used.maxTurns!, next: moreTurns(used.maxTurns!) } : null;
+    const used = await db.run.findUnique({ where: { id: run.id }, select: { turns: true, turnsBefore: true, maxTurns: true } }).catch(() => null);
+    // This workflow run's own turns, not the total over the build and its revisions.
+    const outOfTurns = used && ranOutOfTurns({ turns: used.turns == null ? null : used.turns - (used.turnsBefore ?? 0), maxTurns: used.maxTurns }) ? { cap: used.maxTurns!, next: moreTurns(used.maxTurns!) } : null;
     await transition(run, "failed", {
       ghRunId: String(wr.id),
       error: workflowFailureMessage(wr.conclusion, step, wr.html_url, outOfTurns),
@@ -731,6 +739,26 @@ export async function reconcileRun(runId: string, deps?: Deps): Promise<void> {
 
   if (isActive(run.status)) {
     const since = (run.startedAt ?? run.createdAt).getTime();
+    // The finish notice from GitHub (a webhook) can be lost. After a short wait, ask GitHub what happened to the
+    // workflow run and handle the answer exactly as the notice would have been handled.
+    if (now.getTime() - since > ASK_GITHUB_AFTER_MS) {
+      const { i, owner, repo } = repoOf(run.project);
+      try {
+        const wr = await gh.findWorkflowRun(i, owner, repo, WORKFLOW_FILE, run.id, run.ghRunId);
+        // A revision keeps its run id: an earlier workflow run with the same name is not this one.
+        const mine = wr && (!wr.createdAt || Date.parse(wr.createdAt) >= since - 2 * 60 * 1000);
+        if (wr && mine) {
+          if (wr.status === "completed") {
+            await onWorkflowCompleted(run, { id: wr.id, conclusion: wr.conclusion, html_url: wr.htmlUrl, display_title: `idea-hq ${run.id}` }, gh);
+            return;
+          }
+          if (run.status === "dispatched") await transition(run, "running", { ghRunId: String(wr.id) });
+        }
+      } catch (e) {
+        // Never worse than before: the stuck check below still applies. A second handler winning the race lands here too.
+        logError("reconcile could not ask GitHub", e, run.id);
+      }
+    }
     if (now.getTime() - since > STUCK_AFTER_MS) {
       await transition(run, "failed", { error: "No result from GitHub in time. Check the Actions tab.", finishedAt: now });
     }

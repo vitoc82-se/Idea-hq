@@ -212,7 +212,7 @@ describe("the journey card", () => {
     expect(journey).toContain("allowAdjust = true");
   });
   it("looks again at what a new run would use when the size changes", () => {
-    expect(read("src/app/(app)/ideas/idea-journey.tsx")).toContain("useEffect(() => { load(); }, [load, idea.complexity]);");
+    expect(read("src/app/(app)/ideas/idea-journey.tsx")).toContain("useEffect(() => { void load(); }, [load, idea.complexity]);");
   });
   it("lets the person set the size by hand in the journey card", () => {
     const html = renderToStaticMarkup(createElement(IdeaJourney, { idea, onEstimate: async () => idea, onPlan: async () => idea, onSplit() {}, onReveal() {}, onSetSize() {}, onSaveClosure() {} }));
@@ -236,5 +236,24 @@ describe("the journey card", () => {
   it("no click event leaks into the quiet flag of the estimate and plan calls", () => {
     const page = read("src/app/(app)/ideas/ideas-detail.tsx");
     expect(page).not.toMatch(/onClick=\{runEstimate\}|onClick=\{runPlan\}/);
+  });
+});
+
+describe("the card before its builds have loaded", () => {
+  const planned = { id: "i1", title: "Add a footer", complexity: "S", plan: "A brief", scope: "x", status: "new", closureNote: null, closedAt: null } as unknown as Parameters<typeof IdeaJourney>[0]["idea"];
+  const html = renderToStaticMarkup(createElement(IdeaJourney, { idea: planned, onEstimate: async () => planned, onPlan: async () => planned, onSplit() {}, onReveal() {}, onSetSize() {}, onSaveClosure() {} }));
+
+  it("says it is checking, switches Build off until it knows, and has no stray sentence", () => {
+    expect(html).toContain("Checking what a build would use");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>[^<]*Build it/);
+    expect(html).not.toContain(". That limit is a safety ceiling");
+    expect(html).not.toMatch(/>\s*\./);
+  });
+  it("the failed-load message and its retry exist, and a poll does not re-ask for the history", () => {
+    const src = read("src/app/(app)/ideas/idea-journey.tsx");
+    expect(src).toContain("Could not load this idea&apos;s builds");
+    expect(src).toMatch(/Try again<\/Button>/);
+    expect(src).toMatch(/\?poll=1/);
+    expect(src).toMatch(/history: json\.history \?\? prev\?\.history/);
   });
 });

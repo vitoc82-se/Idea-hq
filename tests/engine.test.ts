@@ -49,6 +49,7 @@ function fakeGh(): typeof gh {
     listPrComments: async () => state.comments ?? [],
     failedStep: async () => state.failedStep ?? null,
     runJobs: async () => state.jobs ?? [],
+    findWorkflowRun: async () => (state.workflowRunError ? Promise.reject(new Error("down")) : state.workflowRun ?? null),
     runNote: async () => state.note ?? null,
     listRepos: async () => [],
     closePr: async (_i, _o, _r, n) => { log.push(`closePr ${n}`); },
@@ -1297,5 +1298,135 @@ describe("run history is recorded", () => {
     await reviseRun("u1", "RUN1", "make it blue", deps());
     await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "rev-1", deps());
     expect(t.tables.run[0].stageMs).toEqual(before);
+  });
+});
+
+// A revision runs the workflow again on the same run: what it uses is added to what the build used.
+describe("a revision adds to the run's turns and cost", () => {
+  const status = (id: string, turns: number, cost: number) =>
+    handleWebhook("status", { context: "idea-hq/run", description: `run=RUN1 cost=${cost} turns=${turns} failed=none`, repository: { full_name: "acme/app" } }, id, deps());
+
+  it("keeps the build's totals and adds the revision's own", async () => {
+    await prOpenRun();
+    await status("s1", 9, 0.1);
+    expect(t.tables.run[0]).toMatchObject({ turns: 9, costUsd: 0.1 });
+    await reviseRun("u1", "RUN1", "make it blue", deps());
+    expect(t.tables.run[0]).toMatchObject({ turnsBefore: 9, costBeforeUsd: 0.1 });
+    await status("s2", 4, 0.05);
+    expect(t.tables.run[0]).toMatchObject({ turns: 13, costUsd: 0.15 });
+    // the same line again (GitHub can repeat it) does not add twice
+    await status("s3", 4, 0.05);
+    expect(t.tables.run[0]).toMatchObject({ turns: 13, costUsd: 0.15 });
+    // and a second revision starts from the new total
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "rev-done", deps());
+    await reviseRun("u1", "RUN1", "and bigger", deps());
+    await status("s4", 2, 0.01);
+    expect(t.tables.run[0]).toMatchObject({ turns: 15, costUsd: 0.16 });
+  });
+
+  it("a first build is unchanged: no earlier totals to add", async () => {
+    await dispatchedRun();
+    await status("s5", 7, 0.02);
+    expect(t.tables.run[0]).toMatchObject({ turns: 7, costUsd: 0.02 });
+    expect(t.tables.run[0].turnsBefore ?? null).toBeNull();
+  });
+
+  it("a revision that fails is judged on its own turns, not the total", async () => {
+    await prOpenRun();
+    const cap = t.tables.run[0].maxTurns as number;
+    await status("s6", cap - 2, 0.1); // the build used nearly all its turns
+    await reviseRun("u1", "RUN1", "tweak", deps());
+    await status("s7", 3, 0.01); // the revision used 3: the total is over the cap, the revision is not
+    gh.state.failedStep = "Run Claude Code";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "rev-fail", deps());
+    expect(String(t.tables.run[0].error)).not.toContain("used all");
+    expect(String(t.tables.run[0].error)).toMatch(/ANTHROPIC_API_KEY/);
+  });
+
+  it("a revision that really uses all its turns still says so", async () => {
+    await prOpenRun();
+    const cap = t.tables.run[0].maxTurns as number;
+    await status("s8", 5, 0.1);
+    await reviseRun("u1", "RUN1", "tweak", deps());
+    await status("s9", cap, 0.2);
+    gh.state.failedStep = "Run Claude Code";
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "failure" }), "rev-fail2", deps());
+    expect(String(t.tables.run[0].error)).toContain(`used all ${cap} turns`);
+  });
+});
+
+// The finish notice from GitHub can be lost. Reconciling asks GitHub what happened to the workflow run.
+describe("reconcileRun asks GitHub when the finish notice is missing", () => {
+  const at = (ms: number) => ({ gh, now: () => new Date(Date.now() + ms) });
+  const MIN = 60_000;
+  const wf = (over: Record<string, unknown> = {}) => ({ id: 99, status: "completed", conclusion: "success", htmlUrl: "https://github.com/acme/app/actions/runs/99", createdAt: new Date(Date.now() + 1000).toISOString(), ...over });
+
+  it("a finished workflow whose notice was lost opens the pull request, like the notice would have", async () => {
+    await dispatchedRun();
+    gh.state.workflowRun = wf();
+    await reconcileRun("RUN1", at(5 * MIN));
+    expect(t.tables.run[0]).toMatchObject({ status: "pr_open", prNumber: 7, ghRunId: "99" });
+  });
+
+  it("a failed workflow is reported as failed, with the step that broke, long before the 45 minutes", async () => {
+    await dispatchedRun();
+    gh.state.workflowRun = wf({ conclusion: "failure" });
+    gh.state.failedStep = "Run Claude Code";
+    await reconcileRun("RUN1", at(5 * MIN));
+    expect(t.tables.run[0].status).toBe("failed");
+    expect(String(t.tables.run[0].error)).toMatch(/ANTHROPIC_API_KEY/);
+  });
+
+  it("a workflow that is still going moves the run to running and is left alone", async () => {
+    await dispatchedRun();
+    gh.state.workflowRun = wf({ status: "in_progress", conclusion: null });
+    await reconcileRun("RUN1", at(5 * MIN));
+    expect(t.tables.run[0]).toMatchObject({ status: "running", ghRunId: "99" });
+  });
+
+  it("does not ask in the first minutes, when the notice is normally still on its way", async () => {
+    await dispatchedRun();
+    let asked = 0;
+    gh.findWorkflowRun = async () => { asked++; return wf(); };
+    await reconcileRun("RUN1", at(60_000));
+    expect(asked).toBe(0);
+    expect(t.tables.run[0].status).toBe("dispatched");
+  });
+
+  it("a workflow run from before a revision is not mistaken for the revision's", async () => {
+    await prOpenRun();
+    await reviseRun("u1", "RUN1", "tweak", deps());
+    gh.state.workflowRun = wf({ createdAt: new Date(Date.now() - 30 * MIN).toISOString() }); // the first build's run, same name
+    await reconcileRun("RUN1", at(5 * MIN));
+    expect(t.tables.run[0].status).toBe("dispatched");
+    gh.state.workflowRun = wf({ createdAt: new Date(Date.now() + 1000).toISOString() }); // the revision's own
+    await reconcileRun("RUN1", at(6 * MIN));
+    expect(t.tables.run[0].status).toBe("pr_open");
+  });
+
+  it("when GitHub cannot be asked, a silent run still fails at the old limit", async () => {
+    await dispatchedRun();
+    gh.state.workflowRunError = true;
+    await reconcileRun("RUN1", at(5 * MIN));
+    expect(t.tables.run[0].status).toBe("dispatched");
+    await reconcileRun("RUN1", at(STUCK_AFTER_MS + MIN));
+    expect(t.tables.run[0].status).toBe("failed");
+    expect(String(t.tables.run[0].error)).toMatch(/No result from GitHub in time/);
+  });
+
+  it("a finished run is recovered even when it has been silent past the old limit", async () => {
+    await dispatchedRun();
+    gh.state.workflowRun = wf();
+    await reconcileRun("RUN1", at(STUCK_AFTER_MS + MIN));
+    expect(t.tables.run[0].status).toBe("pr_open");
+  });
+
+  it("handling the same finish twice (the notice arrives after the check) opens one pull request", async () => {
+    await dispatchedRun();
+    gh.state.workflowRun = wf();
+    await reconcileRun("RUN1", at(5 * MIN));
+    await handleWebhook("workflow_run", wfRun("completed", { conclusion: "success" }), "late-notice", deps());
+    expect(t.tables.run[0].status).toBe("pr_open");
+    expect(log.filter((l) => l.startsWith("openPr"))).toHaveLength(1);
   });
 });
