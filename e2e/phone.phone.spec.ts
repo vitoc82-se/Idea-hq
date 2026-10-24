@@ -14,7 +14,7 @@ test("the Ideas list fits a phone, and the next step is at least 44px to tap", a
 });
 
 test("an idea page fits a phone in every stage", async ({ page }) => {
-  for (const id of ["n1", "ready", "busy", "green", "red", "done", "rv", "big"]) {
+  for (const id of ["n1", "ready", "busy", "green", "red", "done", "rv", "big", "handmade"]) {
     await openIdea(page, id);
     expect(await noSideScroll(page), id).toBe(true);
   }

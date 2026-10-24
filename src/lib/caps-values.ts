@@ -9,6 +9,9 @@ export const CAPS = {
   repro: 4_000,
   storyNotes: 4_000,
   storyScope: 2_000,
+  scope: 6_000,
+  plan: 30_000, // it travels to the workflow as one input, which GitHub limits to about 65,000 characters
+  corrections: 4_000,
   storiesPerBreakdown: 40,
   tagsPerIdea: 8,
   blockedBy: 50,

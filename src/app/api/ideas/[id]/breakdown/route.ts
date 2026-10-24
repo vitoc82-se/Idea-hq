@@ -9,6 +9,7 @@ import { requireAiCall } from "@/lib/runs/http";
 import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { groundedContext } from "@/lib/project-grounding";
+import { correctionsBlock, scopeLine } from "@/lib/runs/owner-edits";
 import type { Idea as IdeaRecord } from "@/generated/prisma/client";
 import { CAPS, ideaRoom } from "@/lib/caps";
 import { SIZE_GUIDE } from "@/lib/runs/size-guide";
@@ -161,7 +162,7 @@ The idea to break down (${DATA_NOTICE}):
 Title: ${fenced("idea-title", idea.title)}
 Notes:
 ${fenced("idea-notes", idea.notes || "(none)")}
-AI scope estimate: ${idea.scope || "(not estimated)"}
+${correctionsBlock(idea.corrections)}${scopeLine(idea)}
 Overall effort: ${idea.complexity || "?"} · value: ${idea.impact || "?"}
 
 ${SIZE_GUIDE}

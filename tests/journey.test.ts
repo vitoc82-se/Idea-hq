@@ -135,7 +135,7 @@ describe("the text the journey writes", () => {
 });
 
 describe("the journey card", () => {
-  const idea = { id: "i1", projectId: "p1", parentId: null, title: "Add a footer", notes: null, status: "new", priority: "none", tags: [], blockedBy: [], complexity: null, impact: null, scope: null, aiEstimatedAt: null, plan: null, plannedAt: null, closureNote: null, closedAt: null, kind: "idea", severity: null, repro: null, createdAt: "2026-10-22" } as Idea;
+  const idea = { id: "i1", projectId: "p1", parentId: null, title: "Add a footer", notes: null, status: "new", priority: "none", tags: [], blockedBy: [], complexity: null, impact: null, scope: null, scopeEditedAt: null, aiEstimatedAt: null, plan: null, plannedAt: null, planEditedAt: null, corrections: null, closureNote: null, closedAt: null, kind: "idea", severity: null, repro: null, createdAt: "2026-10-22" } as Idea;
   const html = renderToStaticMarkup(createElement(IdeaJourney, { idea, onEstimate: async () => idea, onPlan: async () => idea, onSplit() {}, onReveal() {}, onSetSize() {}, onSaveClosure() {} }));
   it("shows the five stages with the current one marked, and a phone line", () => {
     for (const l of ["Describe", "Plan", "Build", "Review", "Ship"]) expect(html).toContain(l);

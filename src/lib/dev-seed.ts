@@ -50,6 +50,8 @@ export async function seedDevData(db: PrismaClient): Promise<void> {
   await idea("green", "Search box", { ...planned, status: "building" }); //         Review: Merge
   await idea("done", "Fix the typo", { ...planned, status: "done" }); //             Ship: Revert offered
   await idea("rv", "Revert pending", { ...planned, status: "done" }); //             Ship: a revert is waiting
+  // An idea whose scope and build prompt the owner changed by hand, and corrected; blocked, so the lists stay as they were.
+  await idea("handmade", "Hand-edited idea", { ...planned, blockedBy: ["ready"], scope: "Fold it into the existing job.", scopeEditedAt: new Date(base), plan: "# Build it my way", planEditedAt: new Date(base), corrections: "The settings screen already exists." });
   await idea("park", "Maybe later", { status: "parked" }); //                        Parked
   await idea("epic", "Big epic", { complexity: "XL", scope: "Split into steps" });
   await idea("k1", "Step one", { parentId: "epic", status: "done", complexity: "S" });
