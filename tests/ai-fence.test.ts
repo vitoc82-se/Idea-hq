@@ -115,7 +115,7 @@ describe("every prompt that includes outside text fences it", () => {
     expectOnlyInsideFences(buildAnswersPrompt("Shop", emptyKnowledge(), [{ section: "what", question: "q", answer: payload("owner-answers") + ATTACK }]));
   });
   it("a repository snapshot and the help-note draft", () => {
-    expectOnlyInsideFences(buildDraftPrompt("Shop", { ecosystems: [], outline: [payload("folders") + ATTACK], files: [{ path: "README.md", text: payload("file") + ATTACK }], totalFiles: 1, truncated: false }));
+    expectOnlyInsideFences(buildDraftPrompt("Shop", { ecosystems: [], outline: [payload("folders") + ATTACK], files: [{ path: "README.md", text: payload("file") + ATTACK }], totalFiles: 1, truncated: false, inventory: payload("inventory") + ATTACK }));
     expectOnlyInsideFences(buildNotesDraftPrompt("Shop", payload("internal-knowledge") + ATTACK, []));
   });
   it("a file the AI reads from the repository is marked as data", async () => {

@@ -7,7 +7,7 @@ import { github } from "@/lib/github/client";
 import { snapshotRepo } from "@/lib/repo-snapshot";
 import { draftSections } from "@/lib/context-draft";
 import { PLANNING_MODEL } from "@/lib/runs/policy";
-import { mergeAiSections, completeness, SECTION_DEFS } from "@/lib/knowledge";
+import { mergeAiSectionsDetailed, completeness, pendingProposals, SECTION_DEFS } from "@/lib/knowledge";
 import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
 import { requireUser, requireAi, errorResponse } from "@/lib/runs/http";
 
@@ -41,7 +41,9 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     if (!Object.keys(sections).length) return NextResponse.json({ error: "The AI could not describe the project from what it found. Try again, or fill the sections in by hand." }, { status: 502 });
 
     const head = await github.repoBranch(p.installationId, p.repoOwner, p.repoName, ref).catch(() => null);
-    let k = mergeAiSections(loaded.knowledge, sections, "quick-draft", { force: !!body?.force });
+    // A topic the owner confirmed is not changed by the scan: what the scan found instead becomes a suggestion.
+    const merged = mergeAiSectionsDetailed(loaded.knowledge, sections, "quick-draft", { force: !!body?.force });
+    let k = merged.knowledge;
     k = { ...k, learnedSha: head?.sha ?? k.learnedSha, learnedAt: new Date().toISOString() };
     const saved = await saveKnowledge(auth.userId, p.id, k);
     await db.project.update({ where: { id: p.id }, data: { knowledgeBehind: 0, freshnessCheckedAt: new Date() } }).catch(() => undefined);
@@ -49,6 +51,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
       context: saved?.context ?? "",
       sections: SECTION_DEFS.map((d) => ({ id: d.id, text: k.sections[d.id]?.text ?? "" })),
       completeness: completeness(k),
+      result: { applied: merged.applied.length, proposed: merged.proposed.length, unchanged: merged.unchanged.length, pending: pendingProposals(k).length },
       read: { files: snap.files.map((f) => f.path), ecosystems: snap.ecosystems },
     });
   } catch (e) {

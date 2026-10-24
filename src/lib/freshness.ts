@@ -1,7 +1,7 @@
 import { repoAccessProblem } from "@/lib/github/access";
 import { db } from "./db";
 import { github as realGithub, type GitHubApi } from "./github/client";
-import { knowledgeFor } from "./knowledge";
+import { knowledgeFor, STALE_AFTER_COMMITS } from "./knowledge";
 import { workflowVersion, WORKFLOW_VERSION, requiredWorkflowVersion } from "./runs/workflow";
 import { WORKFLOW_PATH } from "./runs/state";
 
@@ -11,7 +11,7 @@ import { WORKFLOW_PATH } from "./runs/state";
 //  - the installed workflow versus the newest one (an optional update)
 
 // Past this many new commits the person is asked whether to scan the project again.
-export const STALE_COMMITS = 20;
+export const STALE_COMMITS = STALE_AFTER_COMMITS;
 export const FRESHNESS_TTL_MS = 60 * 60 * 1000;
 
 export const isStale = (behind: number | null | undefined): boolean => typeof behind === "number" && behind >= STALE_COMMITS;
@@ -20,7 +20,7 @@ export const isStale = (behind: number | null | undefined): boolean => typeof be
 export const workflowUpdateAvailable = (seen: number | null | undefined, provider: string | null | undefined): boolean =>
   typeof seen === "number" && seen >= requiredWorkflowVersion(provider) && seen < WORKFLOW_VERSION;
 
-export type Freshness = { knowledgeBehind: number | null; workflowVersionSeen: number | null; checkedAt: string | null };
+export type Freshness = { knowledgeBehind: number | null; workflowVersionSeen: number | null; checkedAt: string | null; proposals?: number };
 
 export async function refreshFreshness(
   userId: string,

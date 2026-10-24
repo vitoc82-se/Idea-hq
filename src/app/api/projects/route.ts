@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 import { canUse } from "@/lib/access";
 import { spendByProject } from "@/lib/spend";
 import { isStale, workflowUpdateAvailable } from "@/lib/freshness";
+import { knowledgeFor, pendingProposals } from "@/lib/knowledge";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET() {
     projects.map((p) => ({
       ...p,
       spend: spend.get(p.id) ?? { monthUsd: 0, runs: 0, unpriced: 0 },
-      freshness: { behind: p.knowledgeBehind, stale: isStale(p.knowledgeBehind), workflowUpdate: workflowUpdateAvailable(p.workflowVersionSeen, p.aiProvider) },
+      freshness: { behind: p.knowledgeBehind, stale: isStale(p.knowledgeBehind), workflowUpdate: workflowUpdateAvailable(p.workflowVersionSeen, p.aiProvider), proposals: pendingProposals(knowledgeFor(p.knowledge ?? null, p.context)).length },
     }))
   );
 }

@@ -16,7 +16,7 @@ import { effectiveSize, SIZE_FIRST_MESSAGE } from "./size";
 import { closureNoteFor } from "./journey";
 import { stageDurations } from "./history-store";
 import { getProvider } from "../providers";
-import { KNOWLEDGE_FILE, mergeAiSections, parseMarkdown } from "../knowledge";
+import { KNOWLEDGE_FILE, mergeAiSectionsDetailed, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
 import { invalidateSetupCache } from "./setup-cache";
 import { buildAccess, chargeBuild, refundBuildCredit, BillingBlock, NEEDS_PLAN_MESSAGE } from "../billing";
@@ -346,7 +346,7 @@ async function ingestLearn(run: { userId: string; projectId: string; branch: str
     const loaded = await loadKnowledge(run.userId, run.projectId);
     if (!loaded) return;
     const baseHead = run.baseBranch ? await gh.repoBranch(i, owner, repo, run.baseBranch).catch(() => null) : null;
-    let k = mergeAiSections(loaded.knowledge, parsed, "learn-run");
+    let k = mergeAiSectionsDetailed(loaded.knowledge, parsed, "learn-run").knowledge; // confirmed topics get suggestions, not overwrites
     k = { ...k, learnedSha: baseHead?.sha ?? k.learnedSha, learnedAt: new Date().toISOString() };
     await saveKnowledge(run.userId, run.projectId, k);
     await db.project.update({ where: { id: run.projectId }, data: { knowledgeBehind: 0, freshnessCheckedAt: new Date() } }).catch(() => undefined);

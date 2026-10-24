@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/runs/http";
 import { refreshFreshness, isStale, workflowUpdateAvailable } from "@/lib/freshness";
 import { db } from "@/lib/db";
+import { knowledgeFor, knowledgeNotice, pendingProposals } from "@/lib/knowledge";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,14 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
   const force = new URL(request.url).searchParams.get("force") === "1";
   const f = await refreshFreshness(auth.userId, params.id, { force });
   if (!f) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { aiProvider: true } });
-  return NextResponse.json({ ...f, stale: isStale(f.knowledgeBehind), workflowUpdate: workflowUpdateAvailable(f.workflowVersionSeen, p?.aiProvider) });
+  const p = await db.project.findFirst({ where: { id: params.id, userId: auth.userId }, select: { aiProvider: true, knowledge: true, context: true } });
+  const k = knowledgeFor(p?.knowledge ?? null, p?.context);
+  const proposals = pendingProposals(k).length;
+  return NextResponse.json({
+    ...f,
+    stale: isStale(f.knowledgeBehind),
+    workflowUpdate: workflowUpdateAvailable(f.workflowVersionSeen, p?.aiProvider),
+    proposals, // topics you confirmed that the latest scan suggests changing
+    notice: knowledgeNotice({ proposals, behind: f.knowledgeBehind, learnedAt: k.learnedAt }),
+  });
 }

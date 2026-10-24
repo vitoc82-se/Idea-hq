@@ -1,4 +1,5 @@
 import { type GitHubApi } from "@/lib/github/client";
+import { buildInventory, inventoryFiles, summarizePrismaSchema } from "./repo-inventory";
 
 // A compact picture of a repo for the AI: what kind of project it is, how it is
 // laid out, and the handful of files that explain it. Works from the full file
@@ -10,6 +11,7 @@ export type Snapshot = {
   files: { path: string; text: string }[];
   totalFiles: number;
   truncated: boolean;
+  inventory: string; // every model, page, route, code folder, library and scheduled job by name (see repo-inventory.ts)
 };
 
 const SKIP = /(^|\/)(node_modules|dist|build|out|vendor|\.next|\.git|coverage|__pycache__|\.venv|venv|target|\.turbo|\.cache)\//;
@@ -75,7 +77,6 @@ function score(path: string): number | null {
   const depth = path.split("/").length - 1;
   if (/^(README|readme)(\.md|\.rst|\.txt)?$/.test(base) && depth === 0) return 0;
   if (/^(CLAUDE|AGENTS|ARCHITECTURE|DEVELOPMENT|CONTRIBUTING|PRODUCT|SPEC)\.md$/i.test(base) && depth <= 1) return 1;
-  if (path === ".idea-hq/KNOWLEDGE.md") return 1;
   if (/^docs\/.+\.(md|mdx)$/i.test(path) && depth <= 2) return 3;
   if (depth === 0 && /^(package\.json|pyproject\.toml|requirements\.txt|Pipfile|go\.mod|Cargo\.toml|Gemfile|composer\.json|pom\.xml|Package\.swift|pubspec\.yaml)$/.test(base)) return 2;
   if (/prisma\/schema\.prisma$|(^|\/)schema\.(sql|graphql)$|(^|\/)models?\.py$|drizzle\.config\./.test(path)) return 4;
@@ -91,6 +92,8 @@ export function pickFiles(paths: string[], max = 16): string[] {
   const scored: { p: string; s: number }[] = [];
   for (const p of paths) {
     if (!isReadable(p)) continue;
+    // Idea HQ's own copy of the knowledge: reading it back would make a scan repeat what it wrote before, old mistakes included.
+    if (/^\.idea-hq\//.test(p)) continue;
     const s = score(p);
     if (s !== null) scored.push({ p, s });
   }
@@ -130,21 +133,29 @@ const TOTAL = 48000;
 export async function snapshotRepo(gh: GitHubApi, i: number, owner: string, repo: string, ref: string): Promise<Snapshot> {
   const { paths, truncated } = await gh.listTree(i, owner, repo, ref).catch(() => ({ paths: [] as string[], truncated: false }));
   const picks = pickFiles(paths);
-  const fetched = await Promise.all(
-    picks.map(async (p) => {
+  // The inventory needs the whole schema, package.json and vercel.json even when the AI is only shown part of them.
+  const wanted = Array.from(new Set([...picks, ...inventoryFiles(paths)]));
+  const got = new Map<string, string>();
+  await Promise.all(
+    wanted.map(async (p) => {
       const f = await gh.getFile(i, owner, repo, p, ref).catch(() => null);
-      return f ? { path: p, text: f.content } : null;
+      if (f) got.set(p, f.content);
     })
   );
+  const fetched = picks.map((p) => (got.has(p) ? { path: p, text: got.get(p)! } : null));
   const files: Snapshot["files"] = [];
   let used = 0;
   for (const f of fetched) {
     if (!f) continue;
-    let text = f.text.length > PER_FILE ? `${f.text.slice(0, PER_FILE)}\n…(truncated)` : f.text;
+    // A data schema is shown as its outline (every model, field names only) so the models at the end of a long file are not cut off.
+    const whole = /(^|\/)schema\.prisma$/.test(f.path) ? `Outline of every model in this schema (field names only):\n${summarizePrismaSchema(f.text)}` : f.text;
+    let text = whole.length > PER_FILE ? `${whole.slice(0, PER_FILE)}\n…(truncated)` : whole;
     if (used + text.length > TOTAL) text = text.slice(0, Math.max(0, TOTAL - used));
     if (!text.trim()) continue;
     used += text.length;
     files.push({ path: f.path, text });
   }
-  return { ecosystems: detectEcosystems(paths), outline: buildOutline(paths), files, totalFiles: paths.length, truncated };
+  const texts: Record<string, string | undefined> = {};
+  for (const p of inventoryFiles(paths)) texts[p] = got.get(p);
+  return { ecosystems: detectEcosystems(paths), outline: buildOutline(paths), files, totalFiles: paths.length, truncated, inventory: buildInventory({ paths, truncated, texts }) };
 }

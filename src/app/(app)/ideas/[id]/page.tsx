@@ -6,7 +6,15 @@ import { ownerDisplayName } from "@/lib/owner";
 import { db } from "@/lib/db";
 import { IdeaDetail } from "../ideas-detail";
 import type { Idea, IdeaRef, StoryChild } from "../ideas-shared";
-import { isStale } from "@/lib/freshness";
+import { knowledgeFor, knowledgeNotice, pendingProposals } from "@/lib/knowledge";
+
+// What the idea page says about how current the project knowledge is (only when there is something to do).
+function knowledgeNoticeFor(project: { knowledgeBehind: number | null; knowledge: unknown; context: string | null } | null, projectId: string) {
+  if (!project) return null;
+  const k = knowledgeFor(project.knowledge ?? null, project.context);
+  const n = knowledgeNotice({ proposals: pendingProposals(k).length, behind: project.knowledgeBehind, learnedAt: k.learnedAt });
+  return n.level === "ok" ? null : { level: n.level, text: n.text, projectId };
+}
 
 export const metadata = { title: "Idea" };
 
@@ -34,7 +42,7 @@ export default async function IdeaDetailPage(
 
   const record = await db.idea.findFirst({
     where: { id: params.id, userId },
-    include: { project: { select: { name: true, color: true, knowledgeBehind: true } } },
+    include: { project: { select: { name: true, color: true, knowledgeBehind: true, knowledge: true, context: true } } },
   });
 
   if (!record) {
@@ -139,7 +147,7 @@ export default async function IdeaDetailPage(
       blocks={blocksRefs}
       childStories={children}
       parent={parent}
-      staleKnowledge={isStale(record.project?.knowledgeBehind) ? { behind: record.project!.knowledgeBehind!, projectId: record.projectId } : null}
+      knowledgeNotice={knowledgeNoticeFor(record.project, record.projectId)}
     />
   );
 }

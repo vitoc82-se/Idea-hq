@@ -8,8 +8,13 @@ export type SectionSource = "quick-draft" | "learn-run" | "you" | "imported";
 export type SectionStatus = "needs_review" | "confirmed";
 
 export type Section = { text: string; source: SectionSource; status: SectionStatus; updatedAt: string };
+// What a scan found for a topic the owner has confirmed or written. It is never applied by itself: it waits here until
+// the owner uses it or keeps their own text.
+export type Proposal = { text: string; source: "quick-draft" | "learn-run"; at: string };
 export type Knowledge = {
   sections: Partial<Record<SectionId, Section>>;
+  proposals?: Partial<Record<SectionId, Proposal>>; // suggested changes to confirmed topics, waiting for the owner
+  dismissed?: Partial<Record<SectionId, string[]>>; // fingerprints of suggestions the owner turned down, so they do not come back unchanged
   learnedSha?: string; // repo commit the knowledge was last learned from
   learnedAt?: string;
 };
@@ -48,6 +53,21 @@ export function parseKnowledge(raw: unknown): Knowledge {
       };
     }
   }
+  const proposals = r.proposals && typeof r.proposals === "object" ? (r.proposals as Record<string, unknown>) : {};
+  for (const def of SECTION_DEFS) {
+    const p = proposals[def.id] as Partial<Proposal> | undefined;
+    if (p && typeof p.text === "string" && p.text.trim()) {
+      out.proposals = { ...out.proposals, [def.id]: { text: p.text.slice(0, MAX_SECTION_CHARS), source: p.source === "learn-run" ? "learn-run" : "quick-draft", at: typeof p.at === "string" ? p.at : new Date(0).toISOString() } };
+    }
+  }
+  const dismissed = r.dismissed && typeof r.dismissed === "object" ? (r.dismissed as Record<string, unknown>) : {};
+  for (const def of SECTION_DEFS) {
+    const d = dismissed[def.id];
+    if (Array.isArray(d)) {
+      const list = d.filter((x): x is string => typeof x === "string").slice(-5);
+      if (list.length) out.dismissed = { ...out.dismissed, [def.id]: list };
+    }
+  }
   if (typeof r.learnedSha === "string") out.learnedSha = r.learnedSha;
   if (typeof r.learnedAt === "string") out.learnedAt = r.learnedAt;
   return out;
@@ -69,22 +89,89 @@ export function setSection(k: Knowledge, id: SectionId, text: string, source: Se
   const t = text.trim().slice(0, MAX_SECTION_CHARS);
   if (!t) delete sections[id];
   else sections[id] = { text: t, source, status, updatedAt: now.toISOString() };
-  return { ...k, sections };
+  return withoutProposal({ ...k, sections }, id); // new text for the topic settles any earlier suggestion
 }
 
-// Fill sections from an AI pass without trampling what the user already edited or
-// confirmed. `force` is for an explicit "redo everything".
-export function mergeAiSections(k: Knowledge, incoming: Partial<Record<SectionId, string>>, source: "quick-draft" | "learn-run", opts: { force?: boolean; now?: Date } = {}): Knowledge {
+function withoutProposal(k: Knowledge, id: SectionId): Knowledge {
+  if (!k.proposals?.[id]) return k;
+  const proposals = { ...k.proposals };
+  delete proposals[id];
+  return { ...k, proposals: Object.keys(proposals).length ? proposals : undefined };
+}
+
+// The same text in other words of spacing: used to tell "the scan found the same thing" from "the scan found something else".
+const normalize = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
+export const sameText = (a: string, b: string) => normalize(a) === normalize(b);
+// A short fingerprint of a suggestion, to remember that the owner turned it down.
+export function fingerprint(t: string): string {
+  let h = 5381;
+  for (const ch of normalize(t)) h = ((h << 5) + h + ch.charCodeAt(0)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+export type MergeResult = { knowledge: Knowledge; applied: SectionId[]; proposed: SectionId[]; unchanged: SectionId[] };
+
+// Fill sections from an AI pass without trampling what the user already edited or confirmed. A topic the user owns
+// (confirmed, or written by them) is never changed by a scan: when the scan found something different it becomes a
+// suggestion that waits for the owner (see `proposals`), instead of being thrown away unseen. `force` is for an
+// explicit "redo everything".
+export function mergeAiSectionsDetailed(k: Knowledge, incoming: Partial<Record<SectionId, string>>, source: "quick-draft" | "learn-run", opts: { force?: boolean; now?: Date } = {}): MergeResult {
   let next = k;
+  const applied: SectionId[] = [];
+  const proposed: SectionId[] = [];
+  const unchanged: SectionId[] = [];
+  const now = (opts.now ?? new Date()).toISOString();
   for (const def of SECTION_DEFS) {
     const text = incoming[def.id];
     if (!text || !text.trim()) continue;
     const cur = k.sections[def.id];
     const protectedByUser = cur && (cur.status === "confirmed" || cur.source === "you");
-    if (protectedByUser && !opts.force) continue;
+    if (protectedByUser && !opts.force) {
+      if (sameText(cur.text, text)) { unchanged.push(def.id); next = withoutProposal(next, def.id); continue; }
+      if (k.dismissed?.[def.id]?.includes(fingerprint(text))) { unchanged.push(def.id); continue; }
+      next = { ...next, proposals: { ...next.proposals, [def.id]: { text: text.trim().slice(0, MAX_SECTION_CHARS), source, at: now } } };
+      proposed.push(def.id);
+      continue;
+    }
     next = setSection(next, def.id, text, source, "needs_review", opts.now);
+    applied.push(def.id);
   }
-  return next;
+  return { knowledge: next, applied, proposed, unchanged };
+}
+
+export function mergeAiSections(k: Knowledge, incoming: Partial<Record<SectionId, string>>, source: "quick-draft" | "learn-run", opts: { force?: boolean; now?: Date } = {}): Knowledge {
+  return mergeAiSectionsDetailed(k, incoming, source, opts).knowledge;
+}
+
+// The owner takes the suggested text (that is a decision, so the topic counts as confirmed), or keeps their own and
+// the same suggestion is not offered again.
+export function acceptProposal(k: Knowledge, id: SectionId, now = new Date()): Knowledge {
+  const p = k.proposals?.[id];
+  if (!p) return k;
+  return setSection(k, id, p.text, p.source, "confirmed", now);
+}
+export function dismissProposal(k: Knowledge, id: SectionId): Knowledge {
+  const p = k.proposals?.[id];
+  if (!p) return k;
+  const seen = [...(k.dismissed?.[id] ?? []), fingerprint(p.text)].slice(-5);
+  return { ...withoutProposal(k, id), dismissed: { ...k.dismissed, [id]: seen } };
+}
+export const pendingProposals = (k: Knowledge): SectionId[] => SECTION_DEFS.filter((d) => k.proposals?.[d.id]).map((d) => d.id);
+
+// What the page, the project list and an idea say about how current the knowledge is. It only says "up to date" when a
+// scan compared it with the repo and the owner has settled every difference; the number of commits alone says only how
+// long ago that was.
+export const STALE_AFTER_COMMITS = 20;
+export type KnowledgeNotice = { level: "ok" | "review" | "stale"; text: string };
+export function knowledgeNotice(input: { proposals: number; behind: number | null; learnedAt?: string | null }): KnowledgeNotice {
+  if (input.proposals > 0) {
+    return { level: "review", text: `The latest scan suggests changes to ${input.proposals} topic${input.proposals === 1 ? "" : "s"} you confirmed. Until you review them, the AI still works from the old text.` };
+  }
+  if (typeof input.behind === "number" && input.behind >= STALE_AFTER_COMMITS) {
+    return { level: "stale", text: `The repo has ${input.behind} new commits since the last scan, so estimates and plans may miss recent changes.` };
+  }
+  if (!input.learnedAt) return { level: "stale", text: "The project has not been scanned yet, so estimates and plans work from what you wrote." };
+  return { level: "ok", text: typeof input.behind === "number" && input.behind > 0 ? `Compared with the repo at the last scan, ${input.behind} commit${input.behind === 1 ? "" : "s"} ago.` : "Compared with the repo at the last scan." };
 }
 
 export function confirmAll(k: Knowledge, now = new Date()): Knowledge {

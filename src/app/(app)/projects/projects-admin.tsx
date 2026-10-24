@@ -62,7 +62,7 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
 
   // How current each project's AI knowledge and workflow are. The server caches this for an hour,
   // so opening the page does not ask GitHub every time. One project at a time.
-  const [fresh, setFresh] = useState<Record<string, { behind: number | null; stale: boolean; workflowUpdate: boolean }>>({});
+  const [fresh, setFresh] = useState<Record<string, { behind: number | null; stale: boolean; workflowUpdate: boolean; proposals?: number }>>({});
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -73,7 +73,7 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
           const r = await fetch(`/api/projects/${p.id}/freshness`, { cache: "no-store" });
           if (!r.ok) continue;
           const j = await r.json();
-          if (!cancelled) setFresh((cur) => ({ ...cur, [p.id]: { behind: j.knowledgeBehind, stale: !!j.stale, workflowUpdate: !!j.workflowUpdate } }));
+          if (!cancelled) setFresh((cur) => ({ ...cur, [p.id]: { behind: j.knowledgeBehind, stale: !!j.stale, workflowUpdate: !!j.workflowUpdate, proposals: Number(j.proposals) || 0 } }));
         } catch {
           /* no news is fine */
         }
@@ -349,9 +349,15 @@ export function ProjectsAdmin({ supportEnabled = false }: { supportEnabled?: boo
               </div>
               {(() => {
                 const f = fresh[p.id] ?? p.freshness;
-                if (!f || (!f.stale && !f.workflowUpdate)) return null;
+                if (!f || (!f.stale && !f.workflowUpdate && !f.proposals)) return null;
                 return (
                   <p className="mt-3 pl-6 text-sm text-amber-900 dark:text-amber-200" role="status">
+                    {!!f.proposals && (
+                      <>
+                        The latest scan suggests changes to {f.proposals} topic{f.proposals === 1 ? "" : "s"} you confirmed.{" "}
+                        <Link href={`/projects/${p.id}/knowledge`} className="font-semibold underline">Review them</Link>.{" "}
+                      </>
+                    )}
                     {f.stale && (
                       <>
                         The repo has {f.behind} new commits since the AI last learned this project.{" "}

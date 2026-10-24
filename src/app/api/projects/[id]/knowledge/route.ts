@@ -8,7 +8,7 @@ import { buildAccess } from "@/lib/billing";
 import { capState, capMessage } from "@/lib/spend";
 import { isStale } from "@/lib/freshness";
 import { loadKnowledge, saveKnowledge } from "@/lib/knowledge-store";
-import { SECTION_DEFS, completeness, confirmAll, isSectionId, setSection, type SectionId } from "@/lib/knowledge";
+import { SECTION_DEFS, acceptProposal, completeness, confirmAll, dismissProposal, isSectionId, knowledgeNotice, pendingProposals, setSection, type SectionId } from "@/lib/knowledge";
 
 // Everything the Project knowledge page shows.
 export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
@@ -51,9 +51,9 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       capReached: await capState(p.id).then((c) => (c.reached ? capMessage(p.name, c) : null)),
       repo: hasRepo ? { owner: p.repoOwner, name: p.repoName } : null,
       workflowInstalled: p.workflowInstalled,
-      sections: SECTION_DEFS.map((d) => ({ id: d.id, title: d.title, hint: d.hint, core: d.core, ...(k.sections[d.id] ?? { text: "", source: null, status: null, updatedAt: null }) })),
+      sections: SECTION_DEFS.map((d) => ({ id: d.id, title: d.title, hint: d.hint, core: d.core, ...(k.sections[d.id] ?? { text: "", source: null, status: null, updatedAt: null }), proposal: k.proposals?.[d.id] ?? null })),
       completeness: completeness(k),
-      freshness: { learnedAt: k.learnedAt ?? null, behind, stale: isStale(behind) },
+      freshness: { learnedAt: k.learnedAt ?? null, behind, stale: isStale(behind), proposals: pendingProposals(k).length, notice: knowledgeNotice({ proposals: pendingProposals(k).length, behind, learnedAt: k.learnedAt }) },
       memory: memory.map((m) => ({ id: m.id, kind: m.kind, text: m.text, pinned: m.pinned, source: m.source, createdAt: m.createdAt })),
       learnRun: learn
         ? { id: learn.id, status: learn.status, prNumber: learn.prNumber, checksState: learn.checksState, costUsd: learn.costUsd, error: learn.error, createdAt: learn.createdAt }
@@ -65,7 +65,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   }
 }
 
-// Edit one section (an edit counts as confirming it), confirm one, or confirm all.
+// Edit one section (an edit counts as confirming it), confirm one, confirm all, or settle a scan's suggestion for a topic
+// (`useSuggestion`: take the scan's text; `keepMine`: keep the owner's text and do not offer the same suggestion again).
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const auth = await requireUser();
@@ -81,7 +82,10 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     } else if (isSectionId(b.section)) {
       const sid: SectionId = b.section;
       const cur = k.sections[sid];
-      if (typeof b.text === "string") k = setSection(k, sid, b.text, "you", "confirmed");
+      if (b.useSuggestion === true || b.keepMine === true) {
+        if (!k.proposals?.[sid]) return NextResponse.json({ error: "There is no suggestion for this topic any more." }, { status: 409 });
+        k = b.useSuggestion === true ? acceptProposal(k, sid) : dismissProposal(k, sid);
+      } else if (typeof b.text === "string") k = setSection(k, sid, b.text, "you", "confirmed");
       else if (b.confirm === true && cur) k = setSection(k, sid, cur.text, cur.source, "confirmed");
       else return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
     } else {

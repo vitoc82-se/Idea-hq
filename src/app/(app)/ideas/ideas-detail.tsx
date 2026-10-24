@@ -53,14 +53,14 @@ export function IdeaDetail({
   blocks,
   childStories,
   parent,
-  staleKnowledge = null,
+  knowledgeNotice = null,
 }: {
   initial: Idea;
   allIdeas: IdeaRef[];
   blocks: IdeaRef[];
   childStories: StoryChild[];
   parent: IdeaRef | null;
-  staleKnowledge?: { behind: number; projectId: string } | null;
+  knowledgeNotice?: { level: "review" | "stale"; text: string; projectId: string } | null; // the project knowledge needs a look before estimates and plans can be trusted
 }) {
   const router = useRouter();
   const [idea, setIdea] = useState<Idea>(initial);
@@ -511,6 +511,12 @@ export function IdeaDetail({
       </Card>
 
       {/* The whole idea as one journey, with one button for the next step. The cards below still do everything it does. */}
+      {knowledgeNotice && (
+        <p role="status" data-testid="knowledge-notice" className="rounded-lg border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+          {knowledgeNotice.text}{" "}
+          <Link href={`/projects/${knowledgeNotice.projectId}/knowledge`} className="font-semibold underline">{knowledgeNotice.level === "review" ? "Review the suggestions" : "Scan the project again"}</Link>.
+        </p>
+      )}
       <IdeaJourney
         idea={idea}
         onEstimate={() => runEstimate(true)}
@@ -755,12 +761,6 @@ export function IdeaDetail({
               </Button>
             </div>
           </div>
-          {staleKnowledge && !planning && (
-            <p role="status" className="rounded-lg border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-              The repo has {staleKnowledge.behind} new commits since the AI last learned this project, so a plan may miss recent changes.{" "}
-              <Link href={`/projects/${staleKnowledge.projectId}/knowledge`} className="font-semibold underline">Scan the project again first</Link>.
-            </p>
-          )}
           {isOpen("plan") &&
             (planning ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">

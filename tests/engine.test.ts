@@ -396,6 +396,9 @@ describe("learn the project", () => {
     await finishLearn(KMD);
     expect(t.tables.project[0].knowledge.sections.what.text).toBe("Mine, confirmed");
     expect(t.tables.project[0].knowledge.sections.stack.text).toBe("Next.js and Prisma.");
+    // what the deep scan found instead waits as a suggestion, so it is not thrown away unseen
+    expect(t.tables.project[0].knowledge.proposals.what).toMatchObject({ text: "A small shop.", source: "learn-run" });
+    expect(t.tables.project[0].context).not.toContain("A small shop.");
   });
 
   it("fails clearly (not as 'no changes') when the file was not written, and a missing file stores nothing", async () => {

@@ -11,7 +11,7 @@ import { requireAiCall } from "@/lib/runs/http";
 import { planModel } from "@/lib/runs/policy";
 import { github } from "@/lib/github/client";
 import { createToolExecutor, runWithRepoTools } from "@/lib/repo-tools";
-import { projectPromptContext } from "@/lib/project-context";
+import { groundedContext } from "@/lib/project-grounding";
 
 export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -78,7 +78,7 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
     // Opus 5 with room for adaptive thinking.
     const promptText = `${planIntro(idea.kind, idea.project.name)}
 
-${projectPromptContext(idea.project)}
+${await groundedContext(idea.project)}
 
 Follow the stack conventions, access-control and schema/migration rules described in the project context above — they differ per project, so do not assume any specific framework or command that the context does not state. The workflow owns git, branches and deploys, so leave them out of the brief. Keep data-model changes safe for that project's deploy process.
 
