@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { PrismaClient } from "@/generated/prisma/client";
+import { assembleContext, type Knowledge } from "./knowledge";
 
 // The sample data of the local database (src/lib/db-pglite.ts): one owner with a project and an idea in every stage of
 // the journey, plus a second person's idea to prove it never shows. Only ever loaded into an in-memory database.
@@ -15,7 +16,22 @@ export async function seedDevData(db: PrismaClient): Promise<void> {
   await db.user.create({ data: { id: "u1", email: DEV_USER.email, name: DEV_USER.name, approved: true, password: await bcrypt.hash(DEV_USER.password, 4) } });
   await db.user.create({ data: { id: "u2", email: "other@ideahq.test", name: "Someone Else", approved: true, password: await bcrypt.hash("other-password-local-only", 4) } });
   await db.githubInstallation.create({ data: { userId: "u1", id: 5, repos: ["acme/app"] } });
-  await db.project.create({ data: { id: "p1", userId: "u1", name: "Acme", slug: "acme", context: "A small shop.", installationId: 5, repoOwner: "acme", repoName: "app", workflowInstalled: true } });
+  // The project knowledge as it goes stale in real life: every topic confirmed a while ago, and a later scan that found
+  // something different for one of them (waiting as a suggestion, never applied by itself).
+  const old = "2026-10-01T09:00:00.000Z";
+  const knowledge: Knowledge = {
+    sections: {
+      what: { text: "A small online shop for handmade soap.", source: "you", status: "confirmed", updatedAt: old },
+      stack: { text: "Next.js, Prisma and Postgres.", source: "learn-run", status: "confirmed", updatedAt: old },
+      structure: { text: "- `prisma/schema.prisma`: models User, Product, Order.\n- `src/app/`: the shop pages.", source: "learn-run", status: "confirmed", updatedAt: old },
+    },
+    proposals: {
+      structure: { text: "- `prisma/schema.prisma`: models User, Product, Order, SupportTicket, TicketMessage, GiftCard.\n- `src/app/`: the shop pages and a support inbox.\n- Scheduled jobs: a daily clean-up of old tickets (vercel.json).", source: "learn-run", at: "2026-10-22T09:00:00.000Z" },
+    },
+    learnedSha: "abc123",
+    learnedAt: "2026-10-22T09:00:00.000Z",
+  };
+  await db.project.create({ data: { id: "p1", userId: "u1", name: "Acme", slug: "acme", context: assembleContext(knowledge), knowledge: knowledge as never, knowledgeBehind: 2, installationId: 5, repoOwner: "acme", repoName: "app", workflowInstalled: true } });
   await db.project.create({ data: { id: "p2", userId: "u2", name: "Theirs", slug: "theirs", context: "Not yours." } });
 
   const idea = (id: string, title: string, o: Record<string, unknown> = {}) => db.idea.create({ data: { id, userId: "u1", projectId: "p1", title, createdAt: at(), ...o } });

@@ -20,6 +20,14 @@ test("an idea page fits a phone in every stage", async ({ page }) => {
   }
 });
 
+test("the knowledge page and the projects page fit a phone, with a suggestion waiting", async ({ page }) => {
+  for (const url of ["/projects/p1/knowledge", "/projects"]) {
+    await page.goto(url);
+    await expect(page.locator("main, h1").first()).toBeVisible();
+    expect(await noSideScroll(page), url).toBe(true);
+  }
+});
+
 test("the Guide fits a phone, signed in and signed out, and so does the start page", async ({ page, browser }) => {
   await page.goto("/guide");
   await expect(page.getByRole("link", { name: "Open the app" })).toBeVisible(); // the browser's session has loaded

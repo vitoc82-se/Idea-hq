@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { knowledgeTone, KNOWLEDGE_TONE_CLASSES } from "@/lib/knowledge";
 
-type Section = { id: string; title: string; hint: string; core: boolean; text: string; source: string | null; status: string | null; updatedAt: string | null };
+type Proposal = { text: string; source: string; at: string };
+type Section = { id: string; title: string; hint: string; core: boolean; text: string; source: string | null; status: string | null; updatedAt: string | null; proposal?: Proposal | null };
 type Mem = { id: string; kind: string; text: string; pinned: boolean; source: string; createdAt: string };
 type LearnRun = { id: string; status: string; prNumber: number | null; checksState: string | null; costUsd: number | null; error: string | null; createdAt: string } | null;
 type Data = {
@@ -22,7 +23,7 @@ type Data = {
   workflowInstalled: boolean;
   sections: Section[];
   completeness: { filled: number; confirmed: number; total: number; percent: number };
-  freshness: { learnedAt: string | null; behind: number | null; stale?: boolean };
+  freshness: { learnedAt: string | null; behind: number | null; stale?: boolean; proposals?: number; notice?: { level: "ok" | "review" | "stale"; text: string } };
   memory: Mem[];
   learnRun: LearnRun;
   exportPr: number | null;
@@ -85,7 +86,15 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
   const base = `/api/projects/${projectId}`;
   const quickDraft = async (force = false) => {
     const j = await call("draft", `${base}/context-draft`, { body: { force } });
-    if (j) { setMsg({ ok: true, text: `Read ${j.read.files.length} files from your repo and filled in what it could see.` }); load(); }
+    if (j) {
+      const r = (j.result ?? {}) as { applied?: number; proposed?: number };
+      const parts = [`Read ${j.read.files.length} files from your repo.`];
+      if (r.applied) parts.push(`Updated ${r.applied} topic${r.applied === 1 ? "" : "s"}.`);
+      if (r.proposed) parts.push(`Suggested changes to ${r.proposed} topic${r.proposed === 1 ? "" : "s"} you confirmed: review them below.`);
+      if (!r.applied && !r.proposed) parts.push("Nothing new: what you have matches what it could see.");
+      setMsg({ ok: true, text: parts.join(" ") });
+      load();
+    }
   };
   const learn = async () => {
     const j = await call("learn", `${base}/knowledge/learn`);
@@ -95,6 +104,7 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
     const j = await call("save", `${base}/knowledge`, { method: "PATCH", body: { section: id, text: draft } });
     if (j) { setEditing(null); load(); }
   };
+  const settle = async (id: string, how: "useSuggestion" | "keepMine") => { if (await call(how, `${base}/knowledge`, { method: "PATCH", body: { section: id, [how]: true } })) load(); };
   const confirm = async (id: string) => { if (await call("confirm", `${base}/knowledge`, { method: "PATCH", body: { section: id, confirm: true } })) load(); };
   const confirmAllSections = async () => { if (await call("confirmAll", `${base}/knowledge`, { method: "PATCH", body: { confirmAll: true } })) load(); };
   const interview = async () => {
@@ -134,16 +144,24 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
             {pct}% complete · {d.completeness.filled} of {d.completeness.total} topics filled · {d.completeness.confirmed} confirmed by you
             {d.freshness.learnedAt && <> · learned {formatDistanceToNow(new Date(d.freshness.learnedAt), { addSuffix: true })}</>}
             {d.freshness.behind && !d.freshness.stale ? <span className="text-amber-700 dark:text-amber-300"> · the repo has {d.freshness.behind} newer commit{d.freshness.behind > 1 ? "s" : ""} since</span> : null}
+            {d.freshness.notice?.level === "ok" && <span data-testid="compared-note"> · {d.freshness.notice.text.replace(/\.$/, "")}</span>}
           </p>
         </div>
       </div>
+
+      {d.freshness.notice?.level === "review" && (
+        <div role="status" data-testid="suggestions-notice" className="rounded-xl border border-amber-600 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-semibold">Suggested changes to review</p>
+          <p className="mt-1">{d.freshness.notice.text}</p>
+        </div>
+      )}
 
       {d.freshness.stale && d.repo && (
         <div role="status" className="rounded-xl border border-amber-600 bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
           <p className="font-semibold">Scan this project again?</p>
           <p className="mt-1">
             The repo has {d.freshness.behind} new commits since the AI last learned it{d.freshness.learnedAt ? ` (${formatDistanceToNow(new Date(d.freshness.learnedAt), { addSuffix: true })})` : ""}. Estimates and plans may miss recent changes.
-            A quick scan is free and takes seconds. A deep scan explores the whole repo in your GitHub (a few minutes, uses your AI key). Topics you have confirmed stay as you wrote them.
+            A quick scan is free and takes seconds. A deep scan explores the whole repo in your GitHub (a few minutes, uses your AI key). A topic you confirmed is never changed by a scan: if the scan finds something different, it shows up here as a suggestion for you to accept or keep your text.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800" disabled={busy !== null} onClick={() => quickDraft(false)}>
@@ -229,6 +247,7 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
                   <h2 className="font-semibold text-gray-900 dark:text-white">{s.title}</h2>
                   {!s.text && <p className="text-xs text-gray-500">{s.hint}</p>}
                 </div>
+                {s.proposal && <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">Suggested change</span>}
                 <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${!s.text ? "bg-gray-100 text-gray-500 dark:bg-gray-800" : s.status === "confirmed" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}>
                   {!s.text ? "Missing" : s.status === "confirmed" ? "Confirmed" : "Needs review"}
                 </span>
@@ -244,10 +263,20 @@ export function KnowledgeView({ projectId, projectName }: { projectId: string; p
               ) : (
                 <>
                   {s.text && <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{s.text}</p>}
+                  {s.proposal && (
+                    <div data-testid="suggestion" className="rounded-lg border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                      <p className="font-medium">The scan {formatDistanceToNow(new Date(s.proposal.at), { addSuffix: true })} ({SOURCE[s.proposal.source] || s.proposal.source}) suggests this instead:</p>
+                      <p className="mt-1 whitespace-pre-wrap">{s.proposal.text}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button size="sm" disabled={busy !== null} onClick={() => settle(s.id, "useSuggestion")}>{busy === "useSuggestion" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}Use the new text</Button>
+                        <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => settle(s.id, "keepMine")}>Keep mine</Button>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" variant="ghost" onClick={() => { setEditing(s.id); setDraft(s.text); }}><Pencil className="w-3.5 h-3.5 mr-1" />{s.text ? "Edit" : "Write it"}</Button>
                     {s.text && s.status !== "confirmed" && <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => confirm(s.id)}><Check className="w-3.5 h-3.5 mr-1" />This is right</Button>}
-                    {s.source && <span className="text-xs text-gray-400">{SOURCE[s.source] || s.source}</span>}
+                    {s.source && <span className="text-xs text-gray-600 dark:text-gray-400">{SOURCE[s.source] || s.source}{s.updatedAt && s.text ? `, last changed ${formatDistanceToNow(new Date(s.updatedAt), { addSuffix: true })}` : ""}</span>}
                   </div>
                 </>
               )}

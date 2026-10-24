@@ -8,7 +8,7 @@ import { canUse } from "@/lib/access";
 import { requireAiCall } from "@/lib/runs/http";
 import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
-import { projectPromptContext } from "@/lib/project-context";
+import { groundedContext } from "@/lib/project-grounding";
 import type { Idea as IdeaRecord } from "@/generated/prisma/client";
 import { CAPS, ideaRoom } from "@/lib/caps";
 import { SIZE_GUIDE } from "@/lib/runs/size-guide";
@@ -149,7 +149,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
       messages: [
         {
           role: "user",
-          content: `${projectPromptContext(idea.project)}
+          content: `${await groundedContext(idea.project)}
 
 You are splitting a large backlog idea for "${idea.project.name}" into a small number of ordered, independently shippable stories — each small enough for a single AI coding-agent session (prefer S or M effort; avoid L, never XL).
 

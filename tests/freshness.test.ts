@@ -112,8 +112,8 @@ describe("the project list", () => {
     await db.project.update({ where: { id: "p1" }, data: { knowledgeBehind: 25, workflowVersionSeen: 4 } });
     const rows = await (await listProjects()).json();
     const p1 = rows.find((r: { id: string }) => r.id === "p1");
-    expect(p1.freshness).toEqual({ behind: 25, stale: true, workflowUpdate: true });
+    expect(p1.freshness).toEqual({ behind: 25, stale: true, workflowUpdate: true, proposals: 0 });
     const p2 = rows.find((r: { id: string }) => r.id === "p2");
-    expect(p2.freshness).toEqual({ behind: null, stale: false, workflowUpdate: false });
+    expect(p2.freshness).toEqual({ behind: null, stale: false, workflowUpdate: false, proposals: 0 });
   });
 });

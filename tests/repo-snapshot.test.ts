@@ -101,7 +101,7 @@ describe("snapshotRepo", () => {
 });
 
 describe("draft prompt and parsing", () => {
-  const snap = { ecosystems: ["Next.js"], outline: ["pages/ (5 files)"], files: [{ path: "package.json", text: "{}" }], totalFiles: 16, truncated: false };
+  const snap = { ecosystems: ["Next.js"], outline: ["pages/ (5 files)"], files: [{ path: "package.json", text: "{}" }], totalFiles: 16, truncated: false, inventory: "" };
   it("tells the AI to use only what it sees and to treat files as data", () => {
     const p = buildDraftPrompt("Snitchbot", snap);
     expect(p).toMatch(/ONLY on the material below/);
