@@ -56,12 +56,6 @@
 **Trigger:** customers repeatedly ask to reply by email, or owners find the ticket page a barrier.
 **Depends on:** send-only email from v1.
 
-## Bring the app's accent to the 4.5:1 contrast minimum
-**What:** Use the darker emerald (#047857, 5.48:1 with white) for text, links and filled buttons across the existing app.
-**Why:** The app's emerald #059669 with white text measures 3.77:1, below the 4.5:1 minimum for normal text. The ticket screens use the darker green (design review 2026-10-18, decision 6C), so old and new screens differ in shade until this is done.
-**Pros:** accessible everywhere, one accent token. **Cons:** touches every existing screen.
-**Depends on:** DESIGN.md written (design review decision 5B) so the token has one home.
-
 ## Support tickets (shipped 2026-10-18), follow-ups
 - Attachments on tickets (screenshots): needs file storage (Vercel Blob is installed) plus scanning; v1 is text only.
 - Inbound email (customers replying to the notification email): needs an inbound mail provider; v1 is send-only and replies happen on the private ticket page.

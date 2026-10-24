@@ -358,8 +358,8 @@ export function IdeasBoard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ideas</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Your private backlog — capture it, and we&apos;ll estimate the build
-            automatically
+            Your private backlog. Capture an idea and the AI sizes it; then plan it,
+            build it and merge it, one step at a time.
           </p>
         </div>
         <Button
@@ -752,6 +752,7 @@ export function IdeasBoard() {
               <KanbanBoard
                 ideas={kanbanIdeas}
                 blockedIds={blockedIds}
+                steps={nextById}
                 onStatus={patchStatus}
                 onClosure={patchClosure}
               />

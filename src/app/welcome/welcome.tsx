@@ -35,7 +35,7 @@ function PhaseCard({ n, title, status, children }: { n: number; title: string; s
     <Card className={status === "current" ? "border-emerald-500/60" : status === "later" ? "opacity-60" : ""}>
       <CardContent className="p-5 space-y-3">
         <div className="flex items-center gap-3">
-          <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium ${status === "done" ? "bg-emerald-600 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"}`}>
+          <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium ${status === "done" ? "bg-emerald-700 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"}`}>
             {status === "done" ? <Check className="w-4 h-4" /> : n}
           </span>
           <h2 className="font-semibold text-gray-900 dark:text-white">{title}</h2>
@@ -192,7 +192,7 @@ export function Welcome({ name }: { name: string }) {
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center"><Rocket className="w-5 h-5 text-white" /></div>
+            <div className="w-9 h-9 rounded-lg bg-emerald-700 flex items-center justify-center"><Rocket className="w-5 h-5 text-white" /></div>
             <span className="text-lg font-bold text-gray-900 dark:text-white">Idea HQ</span>
           </div>
           <div className="flex gap-2 items-center">

@@ -16,17 +16,20 @@ import {
   isQuickWin,
 } from "./ideas-shared";
 import { sizeName } from "@/lib/runs/sizes";
+import type { BoardNext } from "@/lib/runs/journey";
 
 // A simple drag-and-drop kanban: columns are statuses; dropping a card in a
 // column changes its status. Uses native HTML5 drag events (no library).
 export function KanbanBoard({
   ideas,
   blockedIds,
+  steps,
   onStatus,
   onClosure,
 }: {
   ideas: Idea[];
   blockedIds: Set<string>;
+  steps: Map<string, BoardNext>; // each idea's stage and next step, from the same rules as the list and the idea page
   onStatus: (id: string, status: string) => void;
   onClosure: (id: string, note: string) => void;
 }) {
@@ -74,7 +77,7 @@ export function KanbanBoard({
               <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                 {col.label}
               </span>
-              <span className="text-xs text-gray-400">{items.length}</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">{items.length}</span>
             </div>
             <div className="space-y-2">
               {items.map((idea) => (
@@ -110,6 +113,20 @@ export function KanbanBoard({
                       {idea.title}
                     </Link>
                   </div>
+                  {steps.get(idea.id) && (
+                    <p className="mt-1.5 text-xs text-gray-700 dark:text-gray-300" data-testid="kanban-next">
+                      {steps.get(idea.id)!.stage && (
+                        <>
+                          <span className="font-medium">
+                            <span className="sr-only">Stage: </span>
+                            {steps.get(idea.id)!.stageLabel} · {steps.get(idea.id)!.number} of 5
+                          </span>
+                          {" · "}
+                        </>
+                      )}
+                      {steps.get(idea.id)!.next}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-1 mt-1.5">
                     <KindBadge idea={idea} />
                     <ReportsChip count={idea._count?.tickets} />
@@ -188,7 +205,7 @@ export function KanbanBoard({
                 </div>
               ))}
               {items.length === 0 && (
-                <p className="text-xs text-gray-300 dark:text-gray-600 px-1 py-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 px-1 py-2">
                   Drop here
                 </p>
               )}

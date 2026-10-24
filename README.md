@@ -12,6 +12,7 @@ exact text handed to Claude when it estimates or plans an idea for that project.
 Next.js 15 (App Router) · React 19 · Prisma 7 → Neon Postgres · NextAuth (credentials + optional Google) · Anthropic Claude · Tailwind · deployed on Vercel. AI changes run in the owner's own GitHub through a GitHub App and an Actions workflow.
 
 ## Getting started
+Use Node 20 (`.nvmrc`; CI uses the same file, so `nvm use` matches it).
 1. `npm install`
 2. Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `NEXTAUTH_SECRET`, `ANTHROPIC_API_KEY`, `OWNER_EMAIL`.
 3. `npx prisma db push` to create the schema in your Neon database.

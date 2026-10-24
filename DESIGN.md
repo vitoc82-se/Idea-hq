@@ -19,6 +19,7 @@ public support widget, stay consistent. Calibrated to the code in `src/component
   notes), loaded with `next/font/google` in the root layout. Widget and ticket page use the system UI stack so they
   load with no font request inside a customer's site.
 - Radius: dark 8px controls (`rounded-lg`) and 12px cards; light 4px controls and 6px boxes.
+- Filled accent buttons with white text use emerald-700 (`#047857`, 5.48:1), hover emerald-800; the old `#059669` is no longer used for text or filled buttons anywhere.
 - Focus: every control shows a 2px ring (`focus-visible:ring-2 ring-emerald-500`, offset 2px).
 - Spacing: 4px base; page gutters 16px (phones) to 32px.
 
@@ -46,6 +47,17 @@ public support widget, stay consistent. Calibrated to the code in `src/component
 - Inbox: two panes on desktop (list + ticket), list-then-ticket screens on phones.
 - Status vocabulary (same words everywhere): Open, Waiting for customer, Resolved, Closed.
 - Settings per project live on the project's "Support" page: form fields, embed code, help notes, AI and limits, branding.
+
+## The idea journey (owner screens)
+The page of an idea is one card that walks Describe, Plan, Build, Review, Ship (`idea-journey.tsx`; the rules are plain data in `src/lib/runs/journey.ts`, so the card, the list rows and the board cannot disagree).
+- **One primary button.** Whatever the next step is (Plan it, Build it, Merge, Ask the AI to fix it, Try again, Split it into steps) is the only filled button on the card. Everything else is outlined or quiet. Building and merging are always approved on the idea page, never from a list.
+- **Stage chip.** "Plan · 2 of 5": an outlined pill with the stage name and its place, in words (the colour never carries it). On a phone the card shows "Step 2 of 5: Plan" as text instead of the five pills. A parked idea has no chip.
+- **Next step on a list row** is a button in the accent colour, 36px with a mouse and 44px on a touch screen (`pointer: coarse`); its name says which idea it is for ("Merge for Search box"). When nothing is for the owner to do it is plain text that says what is happening. Board cards carry the stage and next step as one small line of text, because a card is dragged.
+- **Needs you** is a chip at the top of the list: a count of the ideas waiting for the owner (merge, failed checks, try again, approve, build, split), outlined in the accent colour while it is above zero; pressed, it lists them most urgent first.
+- **Status and stage.** The stage says where the work is; the status is the coarse label the owner keeps (New, Considering, In progress, Done, Parked) and mostly moves by itself.
+- **Sizes speak in minutes and cost** ("Quick: 4 to 8 minutes, $0.01 to $0.05"), never turns, never a developer's hours. Turns, model and effort are behind "Adjust model and turns".
+- **Before a hard-to-undo step, say what it does.** Review shows what changed (files, lines added and removed, the biggest files, a link to every line) and a sentence on what Merge does and how to undo it; after Ship, "Changed your mind?" offers Revert in place.
+- **Loading and failing are designed too.** While the card's builds load it says so and keeps Build off until it knows what a build may cost; if they cannot be loaded it says so with Try again. A line that needs data is left out rather than printed half empty.
 
 ## Copy
 Plain everyday language. No internal terms (no "knowledge", "context", "run") on customer-facing screens.
