@@ -46,6 +46,7 @@ import {
 } from "./ideas-shared";
 import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
 import { boardNext, needsYou, needsYouRank, wantsPlan, type BoardNext } from "@/lib/runs/journey";
+import { readSteps, stepsLeft } from "@/lib/runs/owner-steps";
 import { planBatch, MAX_PER_PRESS } from "./plan-batch";
 
 // The next step on a row: the most important thing on it, so it is a real button (44px tall on a phone or any touch
@@ -227,7 +228,7 @@ export function IdeasBoard() {
   // Where each idea stands and what comes next (see lib/runs/journey.ts), for its row and for the Needs you filter.
   const nextById = useMemo(() => {
     const m = new Map<string, BoardNext>();
-    for (const i of ideas) m.set(i.id, boardNext({ idea: i, run: i.latestRun ?? null, epic: i.epic ?? null, blockedBy: blockingIdeas(i, byId).map((b) => b.title) }));
+    for (const i of ideas) m.set(i.id, boardNext({ idea: i, run: i.latestRun ?? null, epic: i.epic ?? null, blockedBy: blockingIdeas(i, byId).map((b) => b.title), stepsOpen: i.status === "done" ? stepsLeft(readSteps(i.ownerSteps)).length : 0 }));
     return m;
   }, [ideas, byId]);
   const needsYouCount = useMemo(() => ideas.filter((i) => needsYou(nextById.get(i.id)!)).length, [ideas, nextById]);

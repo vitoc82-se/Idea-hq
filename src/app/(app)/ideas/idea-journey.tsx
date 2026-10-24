@@ -12,12 +12,14 @@ import { effectiveSize } from "@/lib/runs/size";
 import { SIZE_NAMES, sizeExpectation } from "@/lib/runs/sizes";
 import { historyLine, type SizeHistory } from "@/lib/runs/history";
 import { JOURNEY_STAGES, fixChecksRequest, journeyFor, type PrimaryAction, type Rec, type SecondaryAction } from "@/lib/runs/journey";
+import { readSteps, stepsLeft, stepsLeftBefore, stepsWord, withoutStepsBlock, type OwnerStep } from "@/lib/runs/owner-steps";
 import { RunProgress } from "./run-progress";
+import { OwnerStepsBox } from "./owner-steps-box";
 import { RUNS_CHANGED, announceRunsChanged } from "./run-events";
 import { COMPLEXITIES, type Idea } from "./ideas-shared";
 
 // What the card needs to know about the idea. The idea page and the welcome pages both have at least this much.
-export type JourneyIdea = Pick<Idea, "id" | "title" | "complexity" | "plan" | "scope" | "status" | "closureNote" | "closedAt">;
+export type JourneyIdea = Pick<Idea, "id" | "title" | "complexity" | "plan" | "scope" | "status" | "closureNote" | "closedAt" | "ownerSteps">;
 
 type JRun = {
   id: string; kind: string; status: string; checksState: string | null; prNumber: number | null; previewUrl?: string | null;
@@ -31,6 +33,7 @@ type Data = {
   runs: JRun[]; recommended: Rec | null; epic: { children: { id: string; status: string }[]; nextId: string | null } | null;
   aiBuild: boolean; needsPlan: boolean; capReached: string | null; failingChecks: string[]; changes?: Changes | null; history?: SizeHistory;
   provider: { reportsCost: boolean } | null;
+  ownerSteps?: unknown;
 };
 
 // "about 6 minutes" from the milliseconds the workflow took; empty when unknown.
@@ -69,6 +72,9 @@ export function IdeaJourney({
   const [request, setRequest] = useState("");
   const [asking, setAsking] = useState(false);
   const [closure, setClosure] = useState(idea.closureNote || "");
+  // Things only the owner can do (set a variable, change a setting). The server fills them in when a build opens its pull
+  // request, so they are read again with every load, and ticked here without waiting for the page above to know.
+  const [steps, setSteps] = useState<OwnerStep[]>(() => readSteps(idea.ownerSteps));
 
   // `poll`: a refresh while a run is going; the history of earlier runs is loaded once and kept.
   const load = useCallback(async (poll = false) => {
@@ -94,6 +100,19 @@ export function IdeaJourney({
     return () => window.removeEventListener(RUNS_CHANGED, again);
   }, [load]);
 
+  useEffect(() => { if (data?.ownerSteps !== undefined) setSteps(readSteps(data.ownerSteps)); }, [data?.ownerSteps]);
+  const setStep2 = useCallback(async (stepId: string, state: "done" | "skipped" | "open"): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/ideas/${idea.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ownerStep: { id: stepId, state } }) });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) return d?.error || "Could not save that. Try again in a moment.";
+      setSteps(readSteps(d?.ownerSteps));
+      return null;
+    } catch {
+      return "Could not reach Idea HQ to save that. Check your connection and try again.";
+    }
+  }, [idea.id]);
+
   const run = data?.runs.find((r) => r.kind === "implement") ?? null;
   const revert = data?.runs.find((r) => r.kind === "revert") ?? null;
   const waiting = run?.status === "awaiting_approval" ? run : null;
@@ -118,6 +137,7 @@ export function IdeaJourney({
     idea, run, epic: data?.epic ?? null,
     access: { aiBuild: data?.aiBuild !== false, needsPlan: !!data?.needsPlan, capReached: data?.capReached ?? null },
     recommended: data?.recommended ?? null, reportsCost: data?.provider?.reportsCost !== false, blockedBy,
+    stepsOpen: stepsLeft(steps).length, stepsOpenBefore: stepsLeftBefore(steps).length,
   });
   const stageIndex = JOURNEY_STAGES.findIndex((s) => s.id === view.stage);
 
@@ -205,7 +225,13 @@ export function IdeaJourney({
     if (a === "plan") return doPlan();
     if (a === "build" || a === "approve" || a === "retry") return startAndApprove();
     if (a === "split") return onSplit();
-    if (a === "merge" && run) return act("merge", `/api/runs/${run.id}/merge`);
+    if (a === "finish") return document.getElementById("owner-steps")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (a === "merge" && run) {
+      // Merging puts the change on the live site; with setup steps still open it may not work until they are done.
+      const open = stepsLeftBefore(steps).length;
+      if (open > 0 && !window.confirm(`You have not done ${stepsWord(open)} that should be done before you merge (they are listed on this page). If you merge now, the live site may not work until they are done. Merge anyway?`)) return;
+      return act("merge", `/api/runs/${run.id}/merge`);
+    }
     if (a === "fix" && run) return act("revise", `/api/runs/${run.id}/revise`, { instruction: request });
   };
   const runSecondary = (a: SecondaryAction) => {
@@ -324,10 +350,10 @@ export function IdeaJourney({
                 </ul>
               </div>
             )}
-            {run.agentNote && (
+            {run.agentNote && withoutStepsBlock(run.agentNote).trim() && (
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">What the AI said</p>
-                <p className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-gray-700 dark:text-gray-300">{run.agentNote}</p>
+                <p className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-gray-700 dark:text-gray-300">{withoutStepsBlock(run.agentNote).trim()}</p>
               </div>
             )}
             {showBox && (
@@ -345,6 +371,10 @@ export function IdeaJourney({
               </Button>
             )}
           </div>
+        )}
+
+        {(view.stage === "plan" ? !!idea.plan : view.stage === "review" || view.stage === "ship") && (
+          <OwnerStepsBox steps={steps} stage={view.stage as "plan" | "review" | "ship"} onSet={setStep2} />
         )}
 
         {view.stage === "ship" && (

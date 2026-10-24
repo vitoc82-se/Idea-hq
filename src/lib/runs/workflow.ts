@@ -3,6 +3,7 @@ import { WORKFLOW_FILE } from "./state";
 import { ACTION_PINS } from "./action-pins";
 import { claude, openai } from "../providers";
 import { CLAUDE_DEFAULT_MODEL } from "../providers/claude";
+import { buildStepsRule } from "./owner-steps";
 import { SECTION_DEFS, KNOWLEDGE_FILE, CLAUDE_IMPORT_LINE, type Knowledge } from "../knowledge";
 
 // The workflow Idea HQ installs into a customer repo (via a one-time setup PR).
@@ -345,7 +346,8 @@ export function buildPrompt(args: {
     "- If the plan mentions feature branches, merging, pushing or deploying, ignore those steps: the workflow owns all git and deploy work. Only change files in the working tree.",
     "- Verify with the project's own commands (type-check, tests, build) before you finish.",
     "- Do NOT edit anything under .github/workflows, and never print or write secrets.",
-    "- Finish with a short summary of what changed and what you tested.",
+    buildStepsRule(),
+    "- Then give a short summary of what changed and what you tested.",
   ].join("\n");
 }
 

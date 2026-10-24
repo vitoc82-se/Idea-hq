@@ -21,6 +21,7 @@ const TOC = [
   ["knows", "How the AI learns your project"],
   ["first", "Your first AI change"],
   ["daily", "Everyday use"],
+  ["steps", "When a change needs something from you"],
   ["ideas", "Writing good ideas"],
   ["board", "Your board and Focus"],
   ["safe", "Staying in control"],
@@ -131,6 +132,7 @@ export default function GuidePage() {
             ["Checks", "Automatic tests that run on a change, like a spell-check for code. Green means passed, red means a problem."],
             ["API key", "A long secret password that lets the AI work and bills the usage to your own Anthropic or OpenAI account. Keep it private."],
             ["Turn", "One step the AI takes, such as reading a file, changing it or running a command. Every run has a limit on turns, so it cannot go on forever."],
+            ["Environment variable", "A private setting your site reads when it runs, such as the key that lets it send email. It has a name written in capital letters, like RESEND_API_KEY, and a value, like the key itself. It is kept on your host (Vercel, Netlify and so on), not in your code, so it stays secret. The AI can write code that reads one, but only you can add it."],
             ["Workflow", "A small file in your project that lets GitHub run the AI for you. Idea HQ adds it through a pull request you approve once."],
           ].map(([t, d]) => (
             <div key={t}><dt className="font-semibold text-gray-900 dark:text-white">{t}</dt><dd>{d}</dd></div>
@@ -190,7 +192,7 @@ export default function GuidePage() {
           <li>Press <b>Build it</b>. The line above the button says what that size typically takes and costs, and the button itself says the most it should cost. Leave it as it is for now. To see or change the model, its effort or the turn limit first, press <b>Adjust model and turns</b>, change them under <b>Run options and history</b>, and press <b>Approve and run</b>.</li>
           <li>It takes a few minutes. The status moves from &quot;Starting&quot; to &quot;AI is working&quot; to &quot;PR ready for review&quot;, and you can watch a clock and the stage it is in.</li>
           <li>When it says <b>Build and tests passed</b>, open the pull request link and look at what changed.</li>
-          <li>Press <b>Merge</b>. The idea is marked done, with a closing note drafted from what the AI said.</li>
+          <li>Does the card show a yellow box called <b>Things only you can do</b>? Do those steps first (see <a href="#steps" className="underline">When a change needs something from you</a>), tick them, then press <b>Merge</b>. The idea is marked done, with a closing note drafted from what the AI said.</li>
         </ol>
 
         <H id="daily">Everyday use</H>
@@ -207,6 +209,71 @@ export default function GuidePage() {
           <li><b>Many ideas at once:</b> one run per project at a time, so changes do not collide. Queue the rest.</li>
           <li><b>Light or dark:</b> use the <b>Light / Dark</b> switch in the menu. Idea HQ remembers your choice on this device. The first time, it follows your device&apos;s setting.</li>
         </UL>
+
+
+        <H id="steps">When a change needs something from you</H>
+        <P>
+          The AI is very good at changing your code. It cannot, and should not, do things <i>outside</i> your code. It never sees your passwords and keys, and it cannot log in to your hosting, your email service or your domain name. So some changes come with a short to-do list for you. Think of a new light in your house: the AI can fit it, but only you can switch the power on at the fuse box.
+        </P>
+        <P>Typical examples:</P>
+        <UL>
+          <li><b>A new environment variable.</b> For example a change that sends email needs the key from your email service. (An environment variable is a private setting your site reads. The Words used here list explains it.)</li>
+          <li><b>An account or a key at another website.</b> For example creating an account at your email or payment service and copying a key from it.</li>
+          <li><b>A setting on your host or in a dashboard.</b> For example switching on a feature, or adding a web address to an allowed list.</li>
+          <li><b>A domain name (DNS) record.</b> For example when the change needs an address like <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">mail.yoursite.com</code>.</li>
+          <li><b>A one-off script or database change</b> that your host does not run for you.</li>
+        </UL>
+        <P>If you do not do these, the change can still merge fine and then not work, or even break the live site. That is why Idea HQ keeps a checklist for every idea and will not let you forget it.</P>
+
+        <h3 className="mt-8 text-lg font-semibold text-gray-900 dark:text-white">Where the checklist comes from</h3>
+        <P>Each step says where it came from, in small print under the step:</P>
+        <UL>
+          <li><b>From the plan.</b> When the AI wrote the plan it saw that you would have to do something, and said so.</li>
+          <li><b>The AI said so.</b> After building, the AI tells you what its change needs from you. It names the exact setting, but it never writes a secret value.</li>
+          <li><b>Idea HQ found this in the change.</b> Idea HQ also reads the change itself. If the new code reads a setting that your project does not list in its <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">.env.example</code> file, it adds a step saying &quot;check that this setting exists&quot;. This catches what the AI forgot to mention. It is a careful guess, so if the setting is already on your host, just press <b>Not needed</b>.</li>
+        </UL>
+
+        <h3 className="mt-8 text-lg font-semibold text-gray-900 dark:text-white">What you will see, and when</h3>
+        <ol className="mt-3 space-y-2 text-gray-700 dark:text-gray-300 list-decimal pl-5">
+          <li><b>After the plan is written</b> (stage 2): a yellow box says you will have to do a few things yourself. Nothing to do yet. It is a heads-up so nothing is a surprise.</li>
+          <li><b>When the pull request is ready</b> (Review, stage 4): the box is called <b>Things only you can do</b>. It has two parts. Under <b>Before you merge</b> are the steps that must be done first, so your live site works the moment it updates. Under <b>After you merge</b> are steps that only make sense once the change is live. Every step has a tick box.</li>
+          <li><b>If you press Merge too early:</b> Idea HQ asks &quot;You have not done 2 setup steps that should be done before you merge&quot; and lets you choose. You can still merge, and it is easy to undo with <b>Revert this change</b>, but the live site may not work until the steps are done.</li>
+          <li><b>After you merge</b> (Ship, stage 5): if steps are still open, the card says the idea will not work until you finish them, and shows <b>Finish these so it works</b>. The main button is <b>Do the setup steps</b>. On your Ideas board the idea shows <b>Finish 2 setup steps</b> and stays in <b>Needs you</b> until every step is ticked, so a half-finished idea never looks done.</li>
+        </ol>
+
+        <h3 className="mt-8 text-lg font-semibold text-gray-900 dark:text-white">What the buttons do</h3>
+        <UL>
+          <li><b>The tick box</b> says you did it. Tick it again to undo. Idea HQ cannot check that you really did it. It trusts you.</li>
+          <li><b>Not needed</b> says this step does not apply to you, for example the setting is already on your host. It counts as finished.</li>
+          <li><b>How do I do this?</b> opens plain-words instructions under the step. For a setting it is the full walk-through below.</li>
+        </UL>
+
+        <h3 className="mt-8 text-lg font-semibold text-gray-900 dark:text-white">Adding an environment variable, step by step</h3>
+        <P>This is the most common step, and the one people get stuck on, so here it is slowly. Say the step reads: &quot;Add the environment variable RESEND_API_KEY on your host.&quot;</P>
+        <ol className="mt-4 list-none p-0">
+          <Step n={1} title="Copy the name exactly">The name is in capital letters with underscores, here <b>RESEND_API_KEY</b>. Copy it from the step. A single wrong letter means it will not work.</Step>
+          <Step n={2} title="Get the value">The value is the secret itself. If the step says it comes from another service (a key, a token), sign in to that service with your own account and look for a page called <b>API keys</b>, <b>Developers</b> or <b>Settings</b>. Create a key and copy it. If the service shows the key only once, keep the page open until you have pasted it in step 4.</Step>
+          <Step n={3} title="Open the settings of the place where your site runs">
+            <b>On Vercel:</b> open vercel.com and sign in, click your project, then <b>Settings</b> at the top, then <b>Environment Variables</b> on the left.<br />
+            <b>On Netlify:</b> open your site, then <b>Site configuration</b>, then <b>Environment variables</b>.<br />
+            <b>On another host:</b> look in your project settings for <b>Environment variables</b>, <b>Config vars</b> or <b>Secrets</b>. If you cannot find it, search the host&apos;s help for &quot;environment variables&quot;.
+          </Step>
+          <Step n={4} title="Add it">Press <b>Add</b> (or <b>Add new</b>). Paste the name in the <b>Name</b> (or Key) box and the secret in the <b>Value</b> box. Leave Production ticked. Tick Preview as well if you want it to work on preview builds. Press <b>Save</b>.</Step>
+          <Step n={5} title="Make the site pick it up">A site only reads its settings when it starts, so it needs a fresh start. If you add the setting <i>before</i> you merge, there is nothing more to do: merging deploys the site, and it starts with the setting. If you add it <i>after</i> merging, redeploy: on Vercel open <b>Deployments</b>, click the three dots on the newest one and press <b>Redeploy</b>.</Step>
+          <Step n={6} title="Using the app on your own computer too?">Open the file called <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">.env.local</code> in your project folder (create it if it is not there), add a line like <code className="px-1 rounded bg-gray-100 dark:bg-gray-800">RESEND_API_KEY=your-value</code>, save, and restart the app. Never put this file on GitHub: it is private.</Step>
+          <Step n={7} title="Tick the step in Idea HQ">Come back to the idea and tick the step. If you find the setting was already there, press <b>Not needed</b> instead.</Step>
+        </ol>
+        <Tip>Keep every key private. Do not paste a key into Idea HQ, into an idea, into the &quot;What&apos;s wrong with this?&quot; box, into an email or into a chat, and do not give it to the AI. The AI is told never to write one. If a key ever lands somewhere public, make a new key at the service and delete the old one.</Tip>
+
+        <h3 className="mt-8 text-lg font-semibold text-gray-900 dark:text-white">Not sure what a step means?</h3>
+        <UL>
+          <li>Read the step slowly and do just what it says, in the place it names. Most steps are two or three clicks.</li>
+          <li>Ask the person who set up your project or your hosting, and show them the step.</li>
+          <li>If the step is unclear or looks wrong, open the idea and use <b>What&apos;s wrong with this?</b> under the build prompt to say so, then press <b>Save and write a new prompt</b>. The AI will word it better next time.</li>
+        </UL>
+
+        <h3 className="mt-8 text-lg font-semibold text-gray-900 dark:text-white">What if I already merged and skipped a step?</h3>
+        <P>Nothing is lost. Do the step now, redeploy if it was a setting (see step 5 above), and tick it. If the live site is broken right now and you cannot fix it quickly, open the idea and press <b>Revert this change</b> to put things back, then try again when you have time.</P>
 
         <H id="ideas">Writing good ideas</H>
         <UL>
@@ -296,6 +363,9 @@ export default function GuidePage() {
         </UL>
 
         <H id="stuck">If you get stuck</H>
+        <Q q="The idea says &quot;Finish 2 setup steps&quot; and I do not know what to do">Open the idea. Under <b>Finish these so it works</b> each step says what to do. Press <b>How do I do this?</b> under a step for slow, plain-words instructions, or read <a href="#steps" className="underline">When a change needs something from you</a> above. Tick each step when it is done, or press <b>Not needed</b> if it does not apply.</Q>
+        <Q q="Idea HQ says a setting looks new, but I already have it">The check reads the change and compares it with your <code>.env.example</code> file, so it can be wrong when your project does not list its settings there. If the setting is on your host, press <b>Not needed</b>.</Q>
+        <Q q="I merged and my site broke because of a missing setting">Add the setting on your host (see step 5 in the guide for how to redeploy), or press <b>Revert this change</b> on the idea to undo the merge while you sort it out.</Q>
         <Q q="It says &quot;AI build needs Pro or a runs pack&quot;">Payments are switched on and you have no plan or runs left. Open <b>Upgrade</b> in the menu, pick Pro or 50 runs, and come back. It updates by itself a few seconds after you pay.</Q>
         <Q q="It says my Pro was switched off by the owner">The owner can switch off Pro for a person, for example after a refund or a problem with the account. Your subscription is cancelled at the same time, so you are not charged again. Contact the owner if you think this is a mistake. Runs you bought in a pack still work.</Q>
         <Q q="It says the monthly spending cap is reached">You set a cap for that project and this month&apos;s runs have used it up. Raise the cap or clear it under Projects, in the Monthly cap box, and you can continue straight away. It also starts fresh at the beginning of next month.</Q>

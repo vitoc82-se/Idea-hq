@@ -14,6 +14,7 @@ import { db, resetDb } from "./pg";
 import { seedDevData, DEV_USER } from "@/lib/dev-seed";
 import { GET as listIdeas } from "@/app/api/ideas/route";
 import { boardNext, needsYou, needsYouRank } from "@/lib/runs/journey";
+import { readSteps, stepsLeft } from "@/lib/runs/owner-steps";
 
 const read = (f: string) => fs.readFileSync(path.join(process.cwd(), f), "utf8");
 
@@ -92,13 +93,13 @@ describe("the sample data", () => {
     expect(ideas.map((i) => i.title)).not.toContain("Their secret idea");
   });
 
-  it("puts an idea in every stage, with five waiting for the owner, most urgent first", async () => {
-    const ideas = (await (await listIdeas(new Request("https://x/api/ideas"))).json()) as { id: string; title: string; status: string; complexity: string | null; plan: string | null; blockedBy: string[]; latestRun: { status: string; checksState: string | null } | null; epic: { children: { id: string; status: string }[]; nextId: string | null } | null }[];
-    const step = (i: (typeof ideas)[number]) => boardNext({ idea: i, run: i.latestRun, epic: i.epic, blockedBy: i.blockedBy.length ? ["x"] : [] });
+  it("puts an idea in every stage, with seven waiting for the owner, most urgent first", async () => {
+    const ideas = (await (await listIdeas(new Request("https://x/api/ideas"))).json()) as { id: string; title: string; status: string; complexity: string | null; plan: string | null; blockedBy: string[]; ownerSteps: unknown; latestRun: { status: string; checksState: string | null } | null; epic: { children: { id: string; status: string }[]; nextId: string | null } | null }[];
+    const step = (i: (typeof ideas)[number]) => boardNext({ idea: i, run: i.latestRun, epic: i.epic, blockedBy: i.blockedBy.length ? ["x"] : [], stepsOpen: i.status === "done" ? stepsLeft(readSteps(i.ownerSteps)).length : 0 });
     const stages = new Set(ideas.map((i) => step(i).stageLabel));
     expect([...stages].sort()).toEqual(["Build", "Describe", "Parked", "Plan", "Review", "Ship"]);
     const waiting = ideas.filter((i) => needsYou(step(i))).sort((a, b) => needsYouRank(step(a)) - needsYouRank(step(b)));
-    expect(waiting.map((i) => i.title)).toEqual(["Search box", "Export to CSV", "Try me again", "Add a footer link", "Rebuild the whole billing flow"]);
+    expect(waiting.map((i) => i.title)).toEqual(["Send a welcome email", "Search box", "Add a contact form", "Export to CSV", "Try me again", "Add a footer link", "Rebuild the whole billing flow"]);
   });
 
   it("has enough finished Quick changes for the own-history line", async () => {

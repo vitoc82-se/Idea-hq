@@ -52,6 +52,18 @@ export async function seedDevData(db: PrismaClient): Promise<void> {
   await idea("rv", "Revert pending", { ...planned, status: "done" }); //             Ship: a revert is waiting
   // An idea whose scope and build prompt the owner changed by hand, and corrected; blocked, so the lists stay as they were.
   await idea("handmade", "Hand-edited idea", { ...planned, blockedBy: ["ready"], scope: "Fold it into the existing job.", scopeEditedAt: new Date(base), plan: "# Build it my way", planEditedAt: new Date(base), corrections: "The settings screen already exists." });
+  // Changes that need the owner to do something outside the code (see runs/owner-steps.ts): one waiting to be merged with
+  // steps before and after the merge, one already live with a step still open.
+  const step = (id: string, source: string, when: string, text: string, done = false) => ({ id, source, when, text, done });
+  await idea("setup", "Send a welcome email", { ...planned, status: "building", ownerSteps: [
+    step("a1", "ai", "before", "Add the environment variable RESEND_API_KEY to your host. Copy the key from your Resend account (Settings, then API Keys)."),
+    step("c1", "code", "before", "Check that the setting WELCOME_FROM exists where your site runs. This change reads it and it is not in your .env.example, so it looks new."),
+    step("a2", "ai", "after", "Send yourself a test welcome email from the sign-up page and check it arrives."),
+  ] });
+  await idea("live", "Add a contact form", { ...planned, status: "done", ownerSteps: [
+    step("a3", "ai", "before", "Add the environment variable CONTACT_INBOX with the email address that should receive messages."),
+    step("a4", "ai", "after", "Open the contact page on your live site and send a test message.", true),
+  ] });
   await idea("park", "Maybe later", { status: "parked" }); //                        Parked
   await idea("epic", "Big epic", { complexity: "XL", scope: "Split into steps" });
   await idea("k1", "Step one", { parentId: "epic", status: "done", complexity: "S" });
@@ -65,6 +77,8 @@ export async function seedDevData(db: PrismaClient): Promise<void> {
   await run("r-rev", "rev", "pr_open", { prNumber: 11, checksState: "pending", headSha: "sha-rev" });
   await run("r-red", "red", "pr_open", { prNumber: 12, checksState: "red", headSha: "sha-red" });
   await run("r-green", "green", "pr_open", { prNumber: 7, checksState: "green", headSha: "sha-green", baseBranch: "main", costUsd: 0.04, turns: 11, stageMs: { total: 312_000, ai: 140_000 } });
+  await run("r-setup", "setup", "pr_open", { prNumber: 13, checksState: "green", headSha: "sha-setup", baseBranch: "main" });
+  await run("r-live", "live", "merged", { prNumber: 4, baseBranch: "main" });
   await run("r-done", "done", "merged", { prNumber: 5, baseBranch: "main", costUsd: 0.03, turns: 9, stageMs: { total: 275_000, ai: 110_000 }, sizeAtRun: "S" });
   await run("r-rv", "rv", "merged", { prNumber: 6, baseBranch: "main", costUsd: 0.05, stageMs: { total: 400_000 }, sizeAtRun: "S" });
   await db.run.create({ data: { id: "r-rv-revert", userId: "u1", projectId: "p1", ideaId: "rv", kind: "revert", status: "pr_open", prNumber: 8, parentRunId: "r-rv", checksState: "green", createdAt: at() } });

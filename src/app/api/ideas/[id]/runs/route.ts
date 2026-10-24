@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser, errorResponse } from "@/lib/runs/http";
+import { readSteps } from "@/lib/runs/owner-steps";
 import { startRun, reconcileRun, recommendForRun } from "@/lib/runs/engine";
 import { getProvider } from "@/lib/providers";
 import { buildAccess } from "@/lib/billing";
@@ -39,7 +40,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
   const auth = await requireUser();
   if ("res" in auth) return auth.res;
   try {
-    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, title: true, complexity: true, project: { select: { aiProvider: true, aiBias: true, name: true } } } });
+    const idea = await db.idea.findFirst({ where: { id: params.id, userId: auth.userId }, select: { id: true, projectId: true, title: true, complexity: true, ownerSteps: true, project: { select: { aiProvider: true, aiBias: true, name: true } } } });
     if (!idea) return NextResponse.json({ error: "Idea not found" }, { status: 404 });
 
     // Epic: when the idea is split into stories, show them and which one is next.
@@ -114,6 +115,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     return NextResponse.json({
       capReached: cap.reached ? capMessage(idea.project?.name ?? "this project", cap) : null, // a plain sentence when the monthly cap is used up
       runs, recommended, epic, failingChecks, changes, history,
+      ownerSteps: readSteps(idea.ownerSteps), // setup steps only the owner can do, ticked or not
       aiBuild: access.ok || access.reason !== "off", // false: show a notice instead of the AI build buttons
       needsPlan: !access.ok && access.reason === "needs_plan", // paywall: no Pro and no credits left
       sized: !!effectiveSize(idea), // the AI only implements an idea that has a size
