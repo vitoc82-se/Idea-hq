@@ -170,10 +170,13 @@ model Idea {
   complexity    String?   // S, M, L, XL (effort)
   impact        String?   // low, medium, high (value/impact — AI-suggested, you can override)
   scope         String?   // implementation-scope summary
+  scopeEditedAt DateTime? // the owner wrote or changed the scope by hand: an estimate keeps it unless told to replace it
   aiEstimatedAt DateTime?
   // "Promote to plan" output:
   plan          String?   @db.Text // AI-generated build prompt (markdown)
   plannedAt     DateTime?
+  planEditedAt  DateTime? // the owner changed the build prompt by hand: planning again asks before replacing it
+  corrections   String?   @db.Text // what the owner told the AI was wrong; handed to every later estimate, split and plan
   // Closure: a short free-text "what shipped / why done" note, stamped when the
   // idea moves to done. Preserved if it later moves off done; closedAt is cleared.
   closureNote   String?   @db.Text

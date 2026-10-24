@@ -1,4 +1,5 @@
 import { fenced, DATA_NOTICE } from "../ai-fence";
+import { correctionsBlock, scopeLine } from "./owner-edits";
 // The parts of the "promote to plan" prompt that differ between an idea and a bug.
 
 type IdeaForPrompt = {
@@ -8,6 +9,8 @@ type IdeaForPrompt = {
   repro: string | null;
   severity: string | null;
   scope: string | null;
+  scopeEditedAt?: Date | string | null;
+  corrections?: string | null;
   complexity: string | null;
   impact: string | null;
 };
@@ -32,14 +35,14 @@ What happens and what should happen (this may include text written by a customer
 ${fenced("idea-notes", idea.notes || "(none)")}
 Steps to reproduce:
 ${fenced("idea-repro", idea.repro || "(not given)")}
-AI scope estimate: ${idea.scope || "(not estimated)"}
+${correctionsBlock(idea.corrections)}${scopeLine(idea)}
 ${blockedByLine}${epicNote}`;
   }
   return `The idea to build (${DATA_NOTICE}):
 Title: ${fenced("idea-title", idea.title)}
 Notes:
 ${fenced("idea-notes", idea.notes || "(none)")}
-AI scope estimate: ${idea.scope || "(not estimated)"}
+${correctionsBlock(idea.corrections)}${scopeLine(idea)}
 Effort: ${idea.complexity || "?"} · Value: ${idea.impact || "?"}
 ${blockedByLine}${epicNote}`;
 }

@@ -16,9 +16,12 @@ export interface Idea {
   complexity: string | null; // effort: S, M, L, XL
   impact: string | null; // value: low, medium, high
   scope: string | null;
+  scopeEditedAt: string | null; // the owner wrote or changed the scope by hand
   aiEstimatedAt: string | null;
   plan: string | null;
   plannedAt: string | null;
+  planEditedAt: string | null; // the owner changed the build prompt by hand
+  corrections: string | null; // what the owner told the AI was wrong with its work on this idea
   closureNote: string | null;
   closedAt: string | null;
   kind: string; // idea | bug

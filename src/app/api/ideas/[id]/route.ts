@@ -42,11 +42,20 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       kind?: string;
       severity?: string | null;
       repro?: string | null;
+      scope?: string | null;
+      scopeEditedAt?: Date | null;
+      plan?: string | null;
+      planEditedAt?: Date | null;
+      plannedAt?: Date | null;
+      corrections?: string | null;
     } = {};
     const problem = firstProblem(
       tooLong("The title", typeof body?.title === "string" ? body.title.trim() : "", CAPS.title),
       tooLong("The notes", body?.notes === existing.notes ? undefined : body?.notes, CAPS.notes),
       tooLong("The closing note", body?.closureNote, CAPS.closureNote),
+      tooLong("The scope", body?.scope, CAPS.scope),
+      tooLong("The build prompt", body?.plan, CAPS.plan),
+      tooLong("The corrections", body?.corrections, CAPS.corrections),
     );
     if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     if (typeof body?.title === "string" && body.title.trim()) data.title = body.title.trim();
@@ -65,6 +74,25 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       if (sev) data.severity = sev;
       else if (data.kind === "bug" && !existing.severity) data.severity = "medium";
       if (body?.repro !== undefined) data.repro = cleanText(body.repro, 4000) || null;
+    }
+
+    // The scope and the build prompt can be written or changed by hand. A change is remembered (scopeEditedAt, planEditedAt)
+    // so that estimating or planning again does not replace it without asking; saving it empty clears it and the mark.
+    if (body?.scope !== undefined) {
+      const t = typeof body.scope === "string" ? body.scope.trim() : "";
+      data.scope = t || null;
+      data.scopeEditedAt = t ? new Date() : null;
+    }
+    if (body?.plan !== undefined) {
+      const t = typeof body.plan === "string" ? body.plan.trim() : "";
+      data.plan = t || null;
+      data.planEditedAt = t ? new Date() : null;
+      data.plannedAt = t ? existing.plannedAt ?? new Date() : null;
+    }
+    // What the owner says was wrong with the AI's work on this idea: given to every later estimate, split and plan.
+    if (body?.corrections !== undefined) {
+      const t = typeof body.corrections === "string" ? body.corrections.trim() : "";
+      data.corrections = t || null;
     }
 
     // Free-text closure note; empty/whitespace stores null.

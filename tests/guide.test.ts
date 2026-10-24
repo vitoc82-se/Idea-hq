@@ -41,7 +41,7 @@ describe("the Guide names things the way the app does", () => {
     "Set up this project", "Project knowledge", "Connect GitHub", "Read my repo and describe it", "This looks right",
     "Quick draft from my repo", "Learn deeply in my GitHub", "Answer a few questions", "This is right", "Looks right, confirm all", "Save a copy in my repo",
     "Update the workflow", "Update workflow", "Generate build prompt", "Try again", "Approve and run", "Merge the revert", "Revert this change", "Cancel run",
-    "Break into stories", "Plan them all", "Plan it", "Needs you", "What changed", "Changed your mind?", "Suggested change", "Use the new text", "Keep mine", "Split it into steps", "Try again", "See it running", "No preview link yet", "Build and tests passed", "What the AI said",
+    "Break into stories", "Plan them all", "Plan it", "Needs you", "What changed", "Changed your mind?", "Suggested change", "Use the new text", "Keep mine", "Edit the scope", "Edit the build prompt", "Written by you", "Changed by you", "Re-size", "Write a new scope", "Write a new one", "What's wrong with this?", "Split it into steps", "Try again", "See it running", "No preview link yet", "Build and tests passed", "What the AI said",
     "Most reported", "Quick wins first", "Value / effort", "Quick wins", "Big bets", "Fill-ins", "Time sinks", "Ideas and bugs", "Blocked by",
     "Import ideas", "Monthly cap", "Focus", "Billing", "Upgrade", "Settings", "Your data", "Download my data", "Delete my account", "Sign out on all devices",
     "Turn on support", "Draft notes from my project knowledge", "Add it for me", "Check my site", "Track this", "Turn into a bug", "Add to an existing one", "Write an entry by hand",

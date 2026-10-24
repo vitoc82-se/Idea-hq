@@ -13,7 +13,7 @@ import { github } from "@/lib/github/client";
 import { createToolExecutor, runWithRepoTools } from "@/lib/repo-tools";
 import { groundedContext } from "@/lib/project-grounding";
 
-export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
@@ -41,6 +41,11 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
       { error: "Idea has no project to build against." },
       { status: 400 }
     );
+  }
+  // A build prompt the owner changed is not replaced unless they say so (the page asks first).
+  const asked = (await request.json().catch(() => null)) as { replaceEdited?: unknown } | null;
+  if (idea.planEditedAt && idea.plan && asked?.replaceEdited !== true) {
+    return NextResponse.json({ error: "You changed this build prompt by hand. Writing a new one would replace your changes.", code: "edited" }, { status: 409 });
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -132,7 +137,7 @@ You can look at the real code before you write. Use the tools (list_dir, find_fi
 
     const updated = await db.idea.update({
       where: { id: params.id },
-      data: { plan, plannedAt: new Date() },
+      data: { plan, plannedAt: new Date(), planEditedAt: null },
     });
 
     return NextResponse.json(updated);

@@ -10,8 +10,9 @@ import { PLANNING_MODEL } from "@/lib/runs/policy";
 import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { groundedContext } from "@/lib/project-grounding";
 import { SIZE_GUIDE } from "@/lib/runs/size-guide";
+import { correctionsBlock } from "@/lib/runs/owner-edits";
 
-export async function POST(_request: Request, props: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const session = await getSession();
   const userId = session?.user?.id;
@@ -21,6 +22,9 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
   const blocked = await requireAiCall(userId, session?.user?.email ?? null);
   if (blocked) return blocked;
 
+  // `replaceEdited: true` is the owner saying "write a new scope even though I changed this one".
+  const asked = (await request.json().catch(() => null)) as { replaceEdited?: unknown } | null;
+  const replaceEdited = asked?.replaceEdited === true;
   const idea = await db.idea.findFirst({
     where: { id: params.id, userId },
     include: { project: true },
@@ -42,6 +46,7 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
     );
   }
 
+  const keepScope = !!idea.scopeEditedAt && !!idea.scope && !replaceEdited;
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     // Estimating a feature's scope is a reasoning task, and it runs rarely (a
@@ -63,7 +68,7 @@ A feature idea to estimate (${DATA_NOTICE}):
 Title: ${fenced("idea-title", idea.title)}
 Notes:
 ${fenced("idea-notes", idea.notes || "(none)")}
-
+${correctionsBlock(idea.corrections)}${keepScope ? `\nThe owner wrote this scope themselves. Size and value the idea from it; do not rewrite it, and in your "scope" field just repeat "kept":\n${fenced("owner-scope", idea.scope || "")}\n` : ""}
 Size the work an AI coding agent would have to do to build this in ${idea.project.name}, and say how valuable it is. Return ONLY valid JSON, no other text:
 {
   "complexity": "S | M | L | XL",
@@ -92,7 +97,7 @@ Size the work an AI coding agent would have to do to build this in ${idea.projec
     const impact = ["low", "medium", "high"].includes(raw?.impact)
       ? raw.impact
       : null;
-    const scope = typeof raw?.scope === "string" ? raw.scope.trim() : null;
+    const scope = keepScope ? undefined : typeof raw?.scope === "string" ? raw.scope.trim() : null;
     // Only suggest a priority if the user hasn't set one yet.
     const suggested = ["low", "medium", "high"].includes(raw?.suggestedPriority)
       ? raw.suggestedPriority
@@ -107,7 +112,8 @@ Size the work an AI coding agent would have to do to build this in ${idea.projec
       data: {
         complexity,
         impact,
-        scope,
+        // An owner's own scope is kept unless they asked for a new one.
+        ...(scope === undefined ? {} : { scope, scopeEditedAt: null }),
         aiEstimatedAt: new Date(),
         ...(idea.priority === "none" && suggested ? { priority: suggested } : {}),
         ...(idea.tags.length === 0 && aiTags.length ? { tags: aiTags } : {}),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useCallback, useMemo, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -46,6 +46,7 @@ import { RunPanel } from "./run-panel";
 import { IdeaJourney } from "./idea-journey";
 import { effectiveSize } from "@/lib/runs/size";
 import { sizeExpectation, sizeName } from "@/lib/runs/sizes";
+import { CorrectionsBox, EditBox } from "./owner-edit";
 
 export function IdeaDetail({
   initial,
@@ -64,6 +65,9 @@ export function IdeaDetail({
 }) {
   const router = useRouter();
   const [idea, setIdea] = useState<Idea>(initial);
+  const ideaRef = useRef(idea);
+  ideaRef.current = idea;
+  const [editingText, setEditingText] = useState<"scope" | "plan" | null>(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     title: initial.title,
@@ -128,12 +132,15 @@ export function IdeaDetail({
   );
 
   // Returns the updated idea, or the message to show when it did not work. `quiet`: the caller shows that message itself.
-  const runEstimate = useCallback(async (quiet = false): Promise<Idea | string> => {
+  const runEstimate = useCallback(async (quiet = false, replaceEdited = false): Promise<Idea | string> => {
     setEstimating(true);
     let result: Idea | string;
     try {
+      // Without `replaceEdited` a scope the owner wrote is kept: the idea is only re-sized.
       const res = await fetch(`/api/ideas/${initial.id}/estimate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replaceEdited }),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -152,12 +159,14 @@ export function IdeaDetail({
     return result;
   }, [initial.id]);
 
-  const runPlan = useCallback(async (quiet = false): Promise<Idea | string> => {
+  const runPlan = useCallback(async (quiet = false, replaceEdited = false): Promise<Idea | string> => {
     setPlanning(true);
     let result: Idea | string;
     try {
       const res = await fetch(`/api/ideas/${initial.id}/plan`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replaceEdited }),
       });
       if (res.ok) {
         const updated = await res.json();
@@ -165,6 +174,12 @@ export function IdeaDetail({
         result = updated;
       } else {
         const d = await res.json().catch(() => null);
+        // A build prompt the owner changed is only replaced when they agree: nothing is lost by pressing the button.
+        if (res.status === 409 && d?.code === "edited") {
+          setPlanning(false);
+          if (window.confirm("You changed this build prompt by hand. Write a new one and lose your changes?")) return runPlan(quiet, true);
+          return ideaRef.current;
+        }
         result = d?.error || "The plan could not be made. Try again in a moment.";
       }
     } catch {
@@ -174,6 +189,20 @@ export function IdeaDetail({
     }
     if (typeof result === "string" && !quiet) setNotice(result);
     return result;
+  }, [initial.id]);
+
+  // Writes one of the texts the owner can change by hand or correct (the scope, the build prompt, the corrections).
+  const saveText = useCallback(async (field: "scope" | "plan" | "corrections", text: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/ideas/${initial.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: text }) });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) return d?.error || "Could not save. Try again in a moment.";
+      setIdea((prev) => ({ ...prev, ...d }));
+      if (field !== "corrections") setEditingText(null);
+      return null;
+    } catch {
+      return "Could not reach Idea HQ to save this. Check your connection and try again.";
+    }
   }, [initial.id]);
 
   const startEdit = () => {
@@ -686,7 +715,7 @@ export function IdeaDetail({
                   <Loader2 className="w-4 h-4 mr-1 animate-spin" /> Estimating…
                 </>
               ) : idea.scope ? (
-                "Re-estimate"
+                idea.scopeEditedAt ? "Re-size" : "Re-estimate"
               ) : (
                 "Estimate the build"
               )}
@@ -705,21 +734,41 @@ export function IdeaDetail({
                     <span className="text-gray-700 dark:text-gray-300">: {sizeExpectation(idea.complexity)}</span>
                   </p>
                 )}
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {idea.scope}
-                </p>
-                {idea.aiEstimatedAt && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                    Estimated {new Date(idea.aiEstimatedAt).toLocaleDateString()}
-                  </p>
+                {editingText === "scope" ? (
+                  <EditBox label="Implementation scope" initial={idea.scope} rows={9} onSave={(t) => saveText("scope", t)} onCancel={() => setEditingText(null)} />
+                ) : (
+                  <>
+                    <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap" data-testid="scope-text">
+                      {idea.scope}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setEditingText("scope")}>Edit the scope</Button>
+                      {idea.scopeEditedAt && (
+                        <>
+                          <span data-testid="scope-edited" className="rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-800 dark:border-gray-600 dark:text-gray-200">Written by you</span>
+                          <Button size="sm" variant="ghost" disabled={estimating} onClick={() => { if (window.confirm("Write a new scope and lose the one you wrote?")) void runEstimate(false, true); }}>Write a new scope</Button>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                      {idea.scopeEditedAt
+                        ? "Re-size keeps your scope and only works out the size and value again."
+                        : idea.aiEstimatedAt
+                          ? `Estimated ${new Date(idea.aiEstimatedAt).toLocaleDateString()}. Change anything that is wrong: your version is kept.`
+                          : null}
+                    </p>
+                  </>
                 )}
               </>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                No estimate yet. Run one to get the size (turns, minutes and cost
+                No estimate yet. Run one to get the size (minutes and cost
                 for the AI), the value and what the build involves.
               </p>
             ))}
+          {isOpen("scope") && (
+            <CorrectionsBox id="corrections-scope" saved={idea.corrections || ""} onSave={(t) => saveText("corrections", t)} again={{ label: idea.scope ? (idea.scopeEditedAt ? "Save and re-size" : "Save and re-estimate") : "Save and estimate", run: async () => { await runEstimate(false); } }} />
+          )}
         </CardContent>
       </Card>
 
@@ -754,7 +803,7 @@ export function IdeaDetail({
                     <Loader2 className="w-4 h-4 mr-1 animate-spin" /> Writing…
                   </>
                 ) : idea.plan ? (
-                  "Regenerate"
+                  "Write a new one"
                 ) : (
                   "Generate build prompt"
                 )}
@@ -768,15 +817,25 @@ export function IdeaDetail({
               </p>
             ) : idea.plan ? (
               <>
-                <pre className="mt-1 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans overflow-auto max-h-[28rem]">
-                  {idea.plan}
-                </pre>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                  This is the brief the AI follows when you press Build it. You can also paste it into
-                  Claude Code yourself; it has no git steps, so you handle those.
-                  {idea.plannedAt &&
-                    ` · Generated ${new Date(idea.plannedAt).toLocaleDateString()}`}
-                </p>
+                {editingText === "plan" ? (
+                  <EditBox label="AI build prompt" initial={idea.plan} rows={16} onSave={(t) => saveText("plan", t)} onCancel={() => setEditingText(null)} />
+                ) : (
+                  <>
+                    <pre className="mt-1 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans overflow-auto max-h-[28rem]" data-testid="plan-text">
+                      {idea.plan}
+                    </pre>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setEditingText("plan")}>Edit the build prompt</Button>
+                      {idea.planEditedAt && <span data-testid="plan-edited" className="rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-gray-800 dark:border-gray-600 dark:text-gray-200">Changed by you</span>}
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                      This is the brief the AI follows when you press Build it. Change it and your version is what gets built; writing a new one asks first. You can also paste it into
+                      Claude Code yourself; it has no git steps, so you handle those.
+                      {idea.plannedAt &&
+                        ` · ${idea.planEditedAt ? "Changed" : "Generated"} ${new Date(idea.planEditedAt ?? idea.plannedAt).toLocaleDateString()}`}
+                    </p>
+                  </>
+                )}
               </>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -784,6 +843,9 @@ export function IdeaDetail({
                 builds it: the files to change, the checks to run and what done looks like.
               </p>
             ))}
+          {isOpen("plan") && idea.plan && (
+            <CorrectionsBox id="corrections-plan" saved={idea.corrections || ""} onSave={(t) => saveText("corrections", t)} again={{ label: "Save and write a new prompt", run: async () => { await runPlan(false); } }} />
+          )}
         </CardContent>
       </Card>
 
