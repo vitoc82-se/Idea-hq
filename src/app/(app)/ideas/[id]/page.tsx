@@ -87,6 +87,7 @@ export default async function IdeaDetailPage(
     plannedAt: record.plannedAt ? record.plannedAt.toISOString() : null,
     planEditedAt: record.planEditedAt ? record.planEditedAt.toISOString() : null,
     corrections: record.corrections,
+    ownerSteps: record.ownerSteps ?? null,
     closureNote: record.closureNote,
     closedAt: record.closedAt ? record.closedAt.toISOString() : null,
     kind: record.kind,

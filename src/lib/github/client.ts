@@ -60,6 +60,8 @@ export interface GitHubApi {
   listTree(i: number, owner: string, repo: string, ref: string): Promise<{ paths: string[]; truncated: boolean }>;
   commitsAhead(i: number, owner: string, repo: string, fromSha: string, toRef: string): Promise<number | null>;
   listPrFiles(i: number, owner: string, repo: string, n: number): Promise<string[]>;
+  // Every changed file with its patch (GitHub leaves the patch out of very large files), for reading what the change uses.
+  prPatches(i: number, owner: string, repo: string, n: number): Promise<{ name: string; patch: string | null }[]>;
   prChanges(i: number, owner: string, repo: string, n: number): Promise<GhPrChanges>;
   listPrComments(i: number, owner: string, repo: string, n: number): Promise<PrComment[]>;
   failedStep(i: number, owner: string, repo: string, ghRunId: string): Promise<string | null>;
@@ -284,6 +286,10 @@ export const github: GitHubApi = {
   async listPrFiles(i, owner, repo, n) {
     const j = await call<{ filename: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
     return (j || []).map((f) => f.filename);
+  },
+  async prPatches(i, owner, repo, n) {
+    const j = await call<{ filename: string; patch?: string }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);
+    return (j || []).map((f) => ({ name: String(f.filename), patch: typeof f.patch === "string" ? f.patch : null }));
   },
   async prChanges(i, owner, repo, n) {
     const j = await call<{ filename: string; additions: number; deletions: number }[]>(i, "GET", `/repos/${owner}/${repo}/pulls/${n}/files?per_page=100`);

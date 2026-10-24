@@ -42,12 +42,12 @@ test("the status reads In progress, not Building", async ({ page }) => {
 test("Needs you counts what waits for the owner and shows it most urgent first", async ({ page }) => {
   await openIdeas(page);
   const chip = page.getByRole("button", { name: /\d+ needs? you/ });
-  await expect(chip).toContainText("5");
+  await expect(chip).toContainText("7");
   await chip.click();
   const titles = await page.getByTestId("idea-row").getByRole("heading").allInnerTexts();
-  expect(titles).toEqual(["Search box", "Export to CSV", "Try me again", "Add a footer link", "Rebuild the whole billing flow"]);
+  expect(titles).toEqual(["Send a welcome email", "Search box", "Add a contact form", "Export to CSV", "Try me again", "Add a footer link", "Rebuild the whole billing flow"]);
   await page.getByRole("button", { name: "Clear" }).click();
-  expect(await page.getByTestId("idea-row").count()).toBeGreaterThan(5);
+  expect(await page.getByTestId("idea-row").count()).toBeGreaterThan(7);
 });
 
 test("Plan them all offers the ideas that need a plan, and says plainly when the AI is not set up", async ({ page }) => {
@@ -74,7 +74,7 @@ test("the board view shows each card's stage and next step too", async ({ page }
   await page.getByRole("button", { name: "Board" }).click();
   const cards = page.getByTestId("kanban-next");
   await expect(cards.first()).toBeVisible();
-  await expect(page.getByTestId("kanban-next").filter({ hasText: "Review · 4 of 5 · Merge" })).toHaveCount(1);
+  await expect(page.getByTestId("kanban-next").filter({ hasText: "Review · 4 of 5 · Merge" })).toHaveCount(2);
   await expect(page.getByTestId("kanban-next").filter({ hasText: "Describe · 1 of 5 · Plan it" })).toHaveCount(3);
   await expect(page.getByTestId("kanban-next").filter({ hasText: "Not planned for now" })).toHaveCount(1);
 });

@@ -15,6 +15,7 @@ import { moreTurns, ranOutOfTurns, recommendTier, resolveTier, suggestsStrongerM
 import { effectiveSize, SIZE_FIRST_MESSAGE } from "./size";
 import { closureNoteFor } from "./journey";
 import { stageDurations } from "./history-store";
+import { syncOwnerSteps } from "./owner-steps-sync";
 import { getProvider } from "../providers";
 import { KNOWLEDGE_FILE, mergeAiSectionsDetailed, parseMarkdown } from "../knowledge";
 import { addMemory, loadKnowledge, saveKnowledge } from "../knowledge-store";
@@ -654,6 +655,7 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
     // Revision: same PR, new commit.
     const pr = await gh.getPr(i, owner, repo, run.prNumber);
     await transition(run, "pr_open", { headSha: pr.headSha, checksState: "pending", ghRunId: String(wr.id), agentNote: note });
+    if (run.ideaId && !isLearn) await syncOwnerSteps({ ideaId: run.ideaId, i, owner, repo, prNumber: run.prNumber, baseRef: run.baseBranch || pr.baseRef, note }, gh);
     await recomputeChecks({ ...run, status: "pr_open", prNumber: run.prNumber, headSha: pr.headSha }, gh);
     return "revised";
   }
@@ -681,6 +683,7 @@ async function onWorkflowCompleted(run: RunRow & { project: ProjectRow; idea: { 
   });
   await transition(run, "pr_open", { prNumber: pr.number, headSha: head, checksState: "pending", ghRunId: String(wr.id), agentNote: note });
   if (isLearn) await ingestLearn(run, gh);
+  else if (run.ideaId && run.kind !== "revert") await syncOwnerSteps({ ideaId: run.ideaId, i, owner, repo, prNumber: pr.number, baseRef: base, note }, gh);
   return "pr_opened";
 }
 

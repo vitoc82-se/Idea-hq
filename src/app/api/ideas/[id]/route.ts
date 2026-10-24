@@ -7,6 +7,7 @@ import { normalizeTags } from "@/app/(app)/ideas/ideas-shared";
 import { cleanKind, cleanSeverity } from "@/lib/issues";
 import { cleanText } from "@/lib/support/sanitize";
 import { CAPS, tooLong, firstProblem } from "@/lib/caps";
+import { readSteps, setStepState, type OwnerStep } from "@/lib/runs/owner-steps";
 
 const STATUSES = ["new", "considering", "building", "done", "parked"];
 const PRIORITIES = ["none", "low", "medium", "high"];
@@ -48,6 +49,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       planEditedAt?: Date | null;
       plannedAt?: Date | null;
       corrections?: string | null;
+      ownerSteps?: OwnerStep[];
     } = {};
     const problem = firstProblem(
       tooLong("The title", typeof body?.title === "string" ? body.title.trim() : "", CAPS.title),
@@ -93,6 +95,15 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     if (body?.corrections !== undefined) {
       const t = typeof body.corrections === "string" ? body.corrections.trim() : "";
       data.corrections = t || null;
+    }
+
+    // Ticking a setup step (see runs/owner-steps.ts): done, "Not needed", or back to open.
+    if (body?.ownerStep !== undefined) {
+      const o = body.ownerStep as { id?: unknown; state?: unknown } | null;
+      const state = o?.state === "done" || o?.state === "skipped" || o?.state === "open" ? o.state : null;
+      const steps = state && typeof o?.id === "string" ? setStepState(readSteps(existing.ownerSteps), o.id, state) : null;
+      if (!steps) return NextResponse.json({ error: "That step is not on this idea any more. Reload the page." }, { status: 400 });
+      data.ownerSteps = steps;
     }
 
     // Free-text closure note; empty/whitespace stores null.

@@ -12,6 +12,7 @@ import { planModel } from "@/lib/runs/policy";
 import { github } from "@/lib/github/client";
 import { createToolExecutor, runWithRepoTools } from "@/lib/repo-tools";
 import { groundedContext } from "@/lib/project-grounding";
+import { mergeSteps, planStepsAsk, readSteps, splitPlanSteps } from "@/lib/runs/owner-steps";
 
 export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -91,7 +92,9 @@ ${ideaBlock(idea, blockedByTitles.length ? `Depends on (build these first): ${bl
 
 ${planStructure(idea.kind)}
 
-Rules: be concrete and specific to ${idea.project.name} and grounded in the project context above; do not invent files or endpoints that aren't in it, and never propose building something it says already exists. Prefer the smallest change that fully delivers the idea; if something is genuinely ambiguous, state a sensible default and proceed rather than asking. Output ONLY the prompt Markdown, no preamble or sign-off.`;
+${planStepsAsk()}
+
+Rules: be concrete and specific to ${idea.project.name} and grounded in the project context above; do not invent files or endpoints that aren't in it, and never propose building something it says already exists. Prefer the smallest change that fully delivers the idea; if something is genuinely ambiguous, state a sensible default and proceed rather than asking. Output ONLY the prompt Markdown (and the last section about the owner's steps), no preamble or sign-off.`;
 
     // When the project's repo is connected, let the AI open real files before it
     // writes the plan (read-only, bounded). Otherwise write from the context alone.
@@ -132,12 +135,15 @@ You can look at the real code before you write. Use the tools (list_dir, find_fi
       }
       plan = textContent.text.trim();
     }
+    // The owner's own steps are kept as a checklist on the idea, not left in the brief the coding agent reads.
+    const split = splitPlanSteps(plan);
+    plan = split.plan;
     if (looked.length) plan = `${plan}\n\n_Written after reading: ${looked.join(", ")}_`;
 
 
     const updated = await db.idea.update({
       where: { id: params.id },
-      data: { plan, plannedAt: new Date(), planEditedAt: null },
+      data: { plan, plannedAt: new Date(), planEditedAt: null, ownerSteps: mergeSteps(readSteps(idea.ownerSteps), split.steps, ["plan"]) },
     });
 
     return NextResponse.json(updated);

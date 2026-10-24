@@ -177,7 +177,9 @@ describe("the journey card", () => {
     expect(page).toContain("onReveal={reveal}");
     const journey = read("src/app/(app)/ideas/idea-journey.tsx");
     expect(journey).toContain('onReveal("implement-with-ai")');
-    expect(journey).not.toContain("scrollIntoView");
+    // The one scroll is "Do the setup steps" bringing the checklist into view; nothing scrolls to the folded details.
+    expect(journey.match(/scrollIntoView/g)).toHaveLength(1);
+    expect(journey).toContain('getElementById("owner-steps")?.scrollIntoView');
   });
   it("the run panel keeps only what the journey does not do, and still merges and follows a revert", () => {
     const panel = read("src/app/(app)/ideas/run-panel.tsx");

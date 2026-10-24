@@ -1,5 +1,6 @@
 import { effectiveSize, type Size } from "./size";
 import { SIZE_PROFILE } from "./sizes";
+import { stepsWord, withoutStepsBlock } from "./owner-steps";
 
 // The idea page as one journey: Describe, Plan, Build, Review, Ship. This file decides, from what the idea and its
 // latest run look like, which stage it is in and what the one primary button does. It is plain data in and out so it
@@ -22,6 +23,7 @@ export type PrimaryAction =
   | "merge"
   | "fix" // checks failed: ask the AI to fix them
   | "retry" // the run failed: try again
+  | "finish" // merged, but setup steps only the owner can do are still open
   | "home"; // all done
 
 export type SecondaryAction = "buildAsOne" | "adjust" | "cancel" | "changes" | "closePr" | "replan";
@@ -37,6 +39,10 @@ export type JourneyInput = {
   reportsCost: boolean;
   // Titles of the ideas that must ship first and are not done. While there are any, the AI does not build this one.
   blockedBy?: string[];
+  // Setup steps only the owner can do (a new environment variable, a setting): how many are not ticked yet, and how many
+  // of those should be done before the merge so that the deploy works.
+  stepsOpen?: number;
+  stepsOpenBefore?: number;
 };
 
 export type JourneyView = {
@@ -72,7 +78,7 @@ export function fixChecksRequest(failing: string[]): string {
 export function closureNoteFor(agentNote: string | null | undefined, prNumber: number | null | undefined, runId: string): string {
   const fallback = `Shipped by Idea HQ in PR #${prNumber} (run ${runId}).`;
   if (!agentNote) return fallback;
-  const lines = agentNote
+  const lines = withoutStepsBlock(agentNote)
     .split("\n")
     .map((l) => l.replace(/^[\s>#*\-•\d.)]+/, "").replace(/[*_`]/g, "").trim())
     .filter((l) => l && !/^(summary|what i (did|changed)|changes?|tests?|testing)\s*:?$/i.test(l));
@@ -106,6 +112,10 @@ export function journeyFor(i: JourneyInput): JourneyView {
 
   // Ship: merged, or the idea is done.
   if (i.idea.status === "done" || run?.status === "merged") {
+    const left = i.stepsOpen ?? 0;
+    if (left > 0) {
+      return { ...base, stage: "ship", headline: `Merged, but it will not work until you finish ${left === 1 ? "1 setup step" : `${left} setup steps`}.`, primary: { action: "finish", label: left === 1 ? "Do the setup step" : "Do the setup steps" } };
+    }
     return { ...base, stage: "ship", headline: "Merged. The idea is done.", primary: { action: "home", label: "Back to your ideas" } };
   }
 
@@ -116,7 +126,11 @@ export function journeyFor(i: JourneyInput): JourneyView {
       return { stage: "review", headline: "The checks failed. The AI can try to fix it.", primary: buildBlocked ? null : { action: "fix", label: "Ask the AI to fix it" }, secondary: sec, blocked: buildBlocked };
     }
     if (run.checksState === "green") {
-      return { stage: "review", headline: "Build and tests passed. Read the change, then merge it.", primary: { action: "merge", label: "Merge" }, secondary: sec, blocked: null };
+      const before = i.stepsOpenBefore ?? 0;
+      const headline = before > 0
+        ? `Build and tests passed. Do ${before === 1 ? "1 setup step" : `${before} setup steps`} first (below), then merge.`
+        : "Build and tests passed. Read the change, then merge it.";
+      return { stage: "review", headline, primary: { action: "merge", label: "Merge" }, secondary: sec, blocked: null };
     }
     return { stage: "review", headline: "Your project's checks are running.", primary: null, secondary: sec, blocked: null };
   }
@@ -179,6 +193,7 @@ export type BoardInput = {
   run: { id?: string; status: string; kind?: string; checksState?: string | null } | null;
   epic: { children: { id: string; status: string }[]; nextId: string | null } | null;
   blockedBy?: string[];
+  stepsOpen?: number; // setup steps the owner has not ticked yet
 };
 
 export function boardNext(i: BoardInput): BoardNext {
@@ -188,11 +203,12 @@ export function boardNext(i: BoardInput): BoardNext {
     run: i.run ? { id: i.run.id ?? "", kind: i.run.kind ?? "implement", ...i.run } : null,
     epic: i.epic,
     access: { aiBuild: true, needsPlan: false, capReached: null },
-    recommended: null, reportsCost: false, blockedBy: i.blockedBy,
+    recommended: null, reportsCost: false, blockedBy: i.blockedBy, stepsOpen: i.stepsOpen,
   });
   const idx = JOURNEY_STAGES.findIndex((s) => s.id === view.stage);
   const base = { stage: view.stage, stageLabel: JOURNEY_STAGES[idx].label, number: idx + 1 };
   const labels: Partial<Record<PrimaryAction, string>> = { home: "Done" };
+  if (view.stage === "ship" && view.primary?.action === "finish") return { ...base, next: `Finish ${stepsWord(i.stepsOpen ?? 0)}`, action: "finish" };
   if (view.stage === "ship") return { ...base, next: "Done: merged", action: null };
   // The AI cannot build it yet: say what it waits for, the way the card does.
   if (view.blocked && /^Blocked by/.test(view.blocked)) return { ...base, next: view.blocked, action: null };
@@ -211,7 +227,7 @@ export function wantsPlan(i: BoardInput): boolean {
 // go-ahead. An idea the AI or the checks are working on, one waiting on another idea, a parked one and a finished one
 // need nothing. Planning is left out: it is the one step Plan them all does in bulk. The order is the urgency: finished
 // work waiting to be merged first, a build ready to start last.
-const NEEDS_YOU_ORDER: PrimaryAction[] = ["merge", "fix", "retry", "approve", "build", "split"];
+const NEEDS_YOU_ORDER: PrimaryAction[] = ["merge", "finish", "fix", "retry", "approve", "build", "split"];
 
 export function needsYou(n: Pick<BoardNext, "action">): boolean {
   return n.action !== null && NEEDS_YOU_ORDER.includes(n.action);

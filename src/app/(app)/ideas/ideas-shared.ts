@@ -22,6 +22,7 @@ export interface Idea {
   plannedAt: string | null;
   planEditedAt: string | null; // the owner changed the build prompt by hand
   corrections: string | null; // what the owner told the AI was wrong with its work on this idea
+  ownerSteps?: unknown; // setup steps only the owner can do (read with readSteps in runs/owner-steps.ts)
   closureNote: string | null;
   closedAt: string | null;
   kind: string; // idea | bug
