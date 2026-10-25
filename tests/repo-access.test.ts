@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import crypto from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -138,7 +140,18 @@ describe("linking a repository", () => {
     await db.githubInstallation.update({ where: { userId_id: { userId: "ann", id: 7 } }, data: { repos: Prisma.DbNull } });
     const res = await link("web");
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/Reconnect GitHub/);
+    const body = await res.json();
+    expect(body.error).toMatch(/Reconnect GitHub/);
+    expect(body.error).not.toMatch(/Projects, Connect GitHub/); // it names the button the screen shows, not a place to look for one
+    expect(body.code).toBe("reconnect"); // the screen adds the button when it sees this
+  });
+  it("the repo panel offers a working Reconnect GitHub button when access is not confirmed, with or without a list", () => {
+    const src = fs.readFileSync(path.join(process.cwd(), "src/app/(app)/projects/project-repo.tsx"), "utf8");
+    expect(src).toContain("data.available.some((a) => a.needsReconnect)");
+    expect(src).toMatch(/data-testid="reconnect-github"[\s\S]*Reconnect GitHub/);
+    expect(src).toMatch(/j\.code === "reconnect"/);
+    expect(src).toContain('data-testid="reconnect-github-error"');
+    expect(src).toContain("/api/github/install?next=");
   });
   it("the picker lists only the repos they can open, and says when the list is unknown", async () => {
     const get = async () => (await (await getRepo(new Request("https://x"), { params: Promise.resolve({ id: "p-ann" }) })).json());

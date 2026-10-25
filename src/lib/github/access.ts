@@ -15,7 +15,10 @@ export class RepoAccessError extends Error {
   status = 403;
 }
 
-export const RECONNECT_MESSAGE = "Reconnect GitHub (Projects, Connect GitHub) so Idea HQ can confirm you have access to this repository.";
+// The sentence for a person whose connection to GitHub is older than the check. The screens that show it add a Reconnect
+// GitHub button next to it (the response carries code "reconnect"), so the text names the button, not a place to look for one.
+export const RECONNECT_MESSAGE = "Idea HQ has not yet confirmed which repositories you can open on GitHub. Press Reconnect GitHub, sign in once, then save again.";
+export const RECONNECT_CODE = "reconnect";
 
 const key = (owner: string, name: string) => `${owner}/${name}`.toLowerCase();
 
