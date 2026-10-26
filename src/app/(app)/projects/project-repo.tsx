@@ -47,7 +47,7 @@ export function ProjectRepo({
   const [aiBias, setAiBias] = useState("auto");
   const [aiProvider, setAiProvider] = useState("claude");
   const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; reconnect?: boolean } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/repo`, { cache: "no-store" });
@@ -85,6 +85,10 @@ export function ProjectRepo({
 
   if (!data) return <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />;
 
+  // GitHub has not yet said which repositories this person can open (they connected before that check existed, or added a
+  // repository to the app since). Linking one needs it, so the button is offered here, whether or not a list is showing.
+  const needsReconnect = data.available.some((a) => a.needsReconnect);
+  const reconnectHref = returnTo ? `/api/github/install?next=${encodeURIComponent(returnTo)}` : "/api/github/install";
   const repos = data.available.flatMap((a) => a.repos.map((r) => ({ key: `${a.installationId}|${r.owner}|${r.name}`, label: `${r.owner}/${r.name}` })));
 
   const save = async () => {
@@ -101,7 +105,7 @@ export function ProjectRepo({
       }),
     });
     const j = await res.json().catch(() => ({}));
-    setMsg(res.ok ? { ok: true, text: "Saved." } : { ok: false, text: j.error || "Could not save." });
+    setMsg(res.ok ? { ok: true, text: "Saved." } : { ok: false, text: j.error || "Could not save.", reconnect: j.code === "reconnect" });
     setBusy(null);
     load();
     if (res.ok) onSaved?.();
@@ -153,6 +157,12 @@ export function ProjectRepo({
               <a href="/api/github/install?fresh=1" className="text-gray-500 hover:underline">Use another GitHub account</a>
             </div>
             <p className="text-xs text-gray-400 mt-1">Only repos you allowed on GitHub appear here. Add more there, then come back and the list refreshes.</p>
+            {needsReconnect && (
+              <div role="status" className="mt-2 flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100" data-testid="reconnect-github">
+                <span>Idea HQ has not yet confirmed which of these repositories you can open on GitHub. Reconnect once, it takes a few seconds, and saving will work.</span>
+                <a href={reconnectHref} className="inline-flex h-9 items-center rounded-md bg-emerald-700 px-3 font-medium text-white hover:bg-emerald-800">Reconnect GitHub</a>
+              </div>
+            )}
           </div>
 
           <div>
@@ -273,7 +283,12 @@ export function ProjectRepo({
           )}
         </>
       )}
-      {msg && <p className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600 dark:text-red-400"}`}>{msg.text}</p>}
+      {msg && (
+        <p role={msg.ok ? "status" : "alert"} className={`text-sm ${msg.ok ? "text-emerald-600" : "text-red-600 dark:text-red-400"}`}>
+          {msg.text}
+          {msg.reconnect && <> <a href={reconnectHref} className="ml-1 inline-flex h-9 items-center rounded-md bg-emerald-700 px-3 text-xs font-medium text-white hover:bg-emerald-800" data-testid="reconnect-github-error">Reconnect GitHub</a></>}
+        </p>
+      )}
     </div>
   );
 }

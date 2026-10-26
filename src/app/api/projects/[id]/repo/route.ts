@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { github, installationConfigureUrl } from "@/lib/github/client";
 import { requireUser, errorResponse } from "@/lib/runs/http";
-import { repoAccessFrom, RECONNECT_MESSAGE } from "@/lib/github/access";
+import { repoAccessFrom, RECONNECT_CODE, RECONNECT_MESSAGE } from "@/lib/github/access";
 import { safeCommand } from "@/lib/runs/workflow";
 import { invalidateSetupCache } from "@/lib/runs/setup-cache";
 import { getProvider, listProviders, isProviderId } from "@/lib/providers";
@@ -109,7 +109,7 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
     const linkedNow = p.installationId === installationId && p.repoOwner === repo.owner && p.repoName === repo.name;
     if (!linkedNow) {
       const access = repoAccessFrom(mine.repos, repo.owner, repo.name);
-      if (access === "unknown") return NextResponse.json({ error: RECONNECT_MESSAGE }, { status: 409 });
+      if (access === "unknown") return NextResponse.json({ error: RECONNECT_MESSAGE, code: RECONNECT_CODE }, { status: 409 });
       if (access === "no") return NextResponse.json({ error: "You do not have access to that repository on GitHub, so it cannot be linked." }, { status: 403 });
     }
 
