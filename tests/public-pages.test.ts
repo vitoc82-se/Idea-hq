@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
+import path from "node:path";
 
 const sess = vi.hoisted(() => ({ user: null as null | { id: string }, status: null as null | "loading" | "authenticated" | "unauthenticated" }));
 vi.mock("next-auth", () => ({ getServerSession: async () => (sess.user ? { user: sess.user } : null) }));
@@ -30,8 +31,22 @@ describe("start page", () => {
     expect(html).toMatch(/nothing changes until you approve it/);
     expect(html).toMatch(/<a[^>]*href="\/auth\/signin\?mode=register"[^>]*>Request early access<\/a>/);
     expect(html).toMatch(/<a[^>]*href="\/auth\/signin"[^>]*>Sign in<\/a>/);
-    expect(html).toMatch(/<a[^>]*href="#demo"[^>]*>Watch the 90-second demo<\/a>/);
+    expect(html).toMatch(/<a[^>]*href="#demo"[^>]*>Watch the 30-second demo<\/a>/);
     expect(html).toContain('href="/guide"');
+  });
+
+  it("has a real demo video in the demo box, that plays only when asked, with a text version for people who cannot see it", async () => {
+    const html = renderToStaticMarkup(await HomePage());
+    expect(html).not.toContain("[90-SECOND DEMO VIDEO]");
+    expect(html).toMatch(/<video[^>]*controls=""[^>]*preload="none"[^>]*poster="\/demo\/idea-hq-demo\.jpg"[^>]*aria-describedby="demo-about"/);
+    expect(html).not.toMatch(/<video[^>]*autoPlay/i);
+    expect(html).toContain('<source src="/demo/idea-hq-demo.mp4" type="video/mp4"/>');
+    expect(html).toMatch(/<p id="demo-about"[^>]*>A 30-second demo with music and no speech\./);
+    // the files are there, and small enough for a start page
+    const dir = path.join(process.cwd(), "public/demo");
+    expect(statSync(path.join(dir, "idea-hq-demo.mp4")).size).toBeLessThan(8 * 1024 * 1024);
+    expect(statSync(path.join(dir, "idea-hq-demo.jpg")).size).toBeLessThan(400 * 1024);
+    expect(readFileSync(path.join(dir, "idea-hq-demo.mp4")).subarray(4, 8).toString()).toBe("ftyp"); // an MP4, not a placeholder
   });
 
   it("has every section the menu links to", async () => {
