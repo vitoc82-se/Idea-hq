@@ -66,6 +66,7 @@ Plain everyday language. No internal terms (no "knowledge", "context", "run") on
 ## Start page (public landing, `/`)
 - Persuade surface in two tones: a near-black hero (`#0B1310`, mint accent `#34D399`) with the headline, one sentence, Create account and Sign in, and the invite-only note directly under the buttons; then a light product section.
 - Shows the product with plain-HTML examples (a finished change with its diff, and an ideas board) instead of icons or stock art. No icon tiles, no feature-card grid, no gradients. Steps are Write, Approve, Merge as large words with a sentence each.
+- The demo box (`#demo`) holds a 30-second video (`public/demo/idea-hq-demo.mp4`, poster `idea-hq-demo.jpg`): 16:9, the same 2px ink border as the other boxes, native controls, `preload="none"` and no autoplay. It has music and no speech, so its words are on screen and a `sr-only` paragraph tells the same story in text. It is made in the start page's own notebook look from real screens of the app; replace the files, not the markup, when the product changes.
 - Dark hero buttons are mint with dark text; light-section buttons use emerald-700 (white text 5.5:1). Tap targets are 44px or more. Under 420px the header drops the Guide link (it stays in the footer).
 - Every public page sets its own title (template `%s · Idea HQ`), description and canonical address. The social preview is `src/app/opengraph-image.tsx`; icons are the rocket on emerald in `public/icons` and `src/app/favicon.ico`.
 
