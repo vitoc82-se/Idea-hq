@@ -15,7 +15,7 @@ test("the repo panel offers Reconnect GitHub when access is not confirmed, and a
       const r = await route.fetch();
       const j = await r.json();
       j.available = [{ installationId: 5, needsReconnect: true, configureUrl: "https://github.com/settings/installations/5", repos: REPOS }];
-      return route.fulfill({ response: r, json: j });
+      return route.fulfill({ status: r.status(), json: j }); // not `response: r`: its body was already read
     }
     if (req.method() === "PUT") return route.fulfill({ status: 409, json: { error: "Idea HQ has not yet confirmed which repositories you can open on GitHub. Press Reconnect GitHub, sign in once, then save again.", code: "reconnect" } });
     return route.continue();
@@ -39,7 +39,7 @@ test("with access confirmed there is no reconnect box", async ({ page }) => {
     const r = await route.fetch();
     const j = await r.json();
     j.available = [{ installationId: 5, needsReconnect: false, repos: REPOS }];
-    return route.fulfill({ response: r, json: j });
+    return route.fulfill({ status: r.status(), json: j }); // not `response: r`: its body was already read
   });
   await page.goto("/projects/p1/setup");
   await expect(page.getByRole("combobox").first()).toBeVisible();

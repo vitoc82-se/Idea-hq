@@ -95,7 +95,7 @@ export default async function HomePage() {
             </p>
             <div className="flex flex-wrap items-center gap-3.5">
               <Link href="/auth/signin?mode=register" className={`${BUTTON_DARK} min-h-[52px] px-[26px] text-[17px]`}>Request early access</Link>
-              <a href="#demo" className={`inline-flex min-h-[52px] items-center px-2 font-semibold text-[#15161A] underline decoration-2 underline-offset-[5px] ${FOCUS}`}>Watch the 30-second demo</a>
+              <a href="#demo" className={`inline-flex min-h-[52px] items-center px-2 font-semibold text-[#15161A] underline decoration-2 underline-offset-[5px] ${FOCUS}`}>Watch the 54-second demo</a>
             </div>
             <p className="m-0 text-[15px] text-[#55585F]">Free during early access. You pay Anthropic or OpenAI directly for the AI, usually cents per change.</p>
           </div>
@@ -163,9 +163,9 @@ export default async function HomePage() {
             Your browser cannot play this video. It shows one line of plain words becoming a plan, a pull request and a merge.
           </video>
           <p id="demo-about" className="sr-only">
-            A 30-second demo with music and no speech. Someone types one line, add a dark mode switch to settings. Idea HQ sizes it in minutes and cost and writes a plan they can edit. The AI builds it in their own GitHub, on its own branch, and runs their tests. They read what changed and what it cost, press Merge, and can undo it with one button. Idea HQ also lists anything only they can do, such as adding a key or a setting, and shows every idea that needs them. It ends with: nothing changes until you approve it.
+            A 54-second demo with music and no speech. Someone types one line, add a dark mode switch to settings. Idea HQ sizes it in minutes and cost and writes a plan they can edit. The AI builds it in their own GitHub, on its own branch, and runs their tests. They read what changed and what it cost, press Merge, and can undo it with one button. Idea HQ also lists anything only they can do, such as adding a key or a setting, and shows every idea that needs them. It ends with: nothing changes until you approve it.
           </p>
-          <PenNote className="mt-3 block text-lg font-medium">30 seconds: one line → plan → pull request → merge</PenNote>
+          <PenNote className="mt-3 block text-lg font-medium">54 seconds: one line → plan → pull request → merge</PenNote>
         </section>
 
         <section id="how" aria-labelledby="how-title" className={`${SECTION} flex flex-col gap-12 pb-28`}>
